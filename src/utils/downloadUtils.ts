@@ -263,6 +263,16 @@ const tryOpenUrlFallback = (url: string): boolean => {
   }
 }
 
+const attemptSaveAs = async (blob: Blob, filename: string): Promise<boolean> => {
+  try {
+    saveAs(blob, filename)
+    return true
+  } catch (error) {
+    console.warn('saveAs failed:', error)
+    return false
+  }
+}
+
 const getFilenameFromUrl = (url: string): string | null => {
   try {
     const pathname = new URL(url).pathname
