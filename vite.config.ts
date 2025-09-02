@@ -14,5 +14,10 @@ export default defineConfig({
     strictPort: true,
     host: true,
     allowedHosts: true,
-  }
+  },
+  define: {
+    // Make environment variables available to the client
+    'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV),
+  },
+  envPrefix: ['VITE_', 'SITE_PATTERN_', 'DEFAULT_'],
 });
