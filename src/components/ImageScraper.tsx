@@ -103,7 +103,7 @@ const ImageScraper: React.FC = () => {
   const [lastPageUrl, setLastPageUrl] = useState<string | null>(null)
 
   // New: scraping method and sticky arrows toggle
-  const [scrapingMethod, setScrapingMethod] = useState<'smart' | 'fast'>('smart')
+  const [scrapingMethod, setScrapingMethod] = useState<'smart' | 'fast'>('fast')
   const [stickyArrowsEnabled, setStickyArrowsEnabled] = useState<boolean>(true)
   const [showScrollButtons, setShowScrollButtons] = useState<boolean>(true)
   const [consecutiveMissThreshold, setConsecutiveMissThreshold] = useState<number>(3)
@@ -571,208 +571,220 @@ const ImageScraper: React.FC = () => {
             })()}
           </div>
 
-          {/* File Type Filters and Options */}
+          {/* Configuration Options */}
           <div className="mb-6">
-            {/* Scraping method selector and sticky arrows toggle - each on its own left-aligned line */}
-            <div className="space-y-3">
-              <div className="flex items-start space-x-4">
-                <div className="text-sm text-muted-foreground mt-1 w-24 flex-shrink-0">Method:</div>
-                <div className="flex items-center space-x-2">
-                  <div className="flex items-center space-x-2 bg-input border border-border rounded-md px-2 py-1">
-                    <button
-                      onClick={() => setScrapingMethod('smart')}
-                      className={`px-3 py-1 text-sm rounded-md border ${scrapingMethod === 'smart' ? 'bg-primary text-primary-foreground border-primary' : 'bg-transparent border-transparent text-foreground hover:border-primary/70'}`}
-                      disabled={isLoading}
-                      aria-label="Smart"
-                    >
-                      Smart
-                    </button>
+            <h3 className="text-lg font-semibold text-foreground mb-4">Configuration</h3>
+            
+            {/* Main Settings Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+              {/* Left Column - Core Settings */}
+              <div className="space-y-4">
+                {/* Scraping Method */}
+                <div className="p-4 bg-accent/5 border border-accent/20 rounded-lg">
+                  <label className="text-sm font-medium text-foreground mb-3 block">Scraping Method</label>
+                  <div className="flex items-center space-x-2">
+                    <div className="flex items-center space-x-1 bg-input border border-border rounded-lg px-3 py-2 w-full">
+                      <button
+                        onClick={() => setScrapingMethod('smart')}
+                        className={`px-3 py-1 text-sm rounded-md border ${scrapingMethod === 'smart' ? 'bg-primary text-primary-foreground border-primary' : 'bg-transparent border-transparent text-foreground hover:border-primary/70'}`}
+                        disabled={isLoading}
+                        aria-label="Smart"
+                      >
+                        Smart
+                      </button>
 
-                    <button
-                      onClick={() => setScrapingMethod('fast')}
-                      className={`px-3 py-1 text-sm rounded-md border ${scrapingMethod === 'fast' ? 'bg-primary text-primary-foreground border-primary' : 'bg-transparent border-transparent text-foreground hover:border-primary/70'}`}
-                      disabled={isLoading}
-                      aria-label="Fast"
-                    >
-                      Fast
-                    </button>
+                      <button
+                        onClick={() => setScrapingMethod('fast')}
+                        className={`px-3 py-1 text-sm rounded-md border ${scrapingMethod === 'fast' ? 'bg-primary text-primary-foreground border-primary' : 'bg-transparent border-transparent text-foreground hover:border-primary/70'}`}
+                        disabled={isLoading}
+                        aria-label="Fast"
+                      >
+                        Fast
+                      </button>
 
-                    <Tooltip open={smartInfoOpen || fastInfoOpen} onOpenChange={(open) => { setSmartInfoOpen(open); setFastInfoOpen(open); }}>
+                      <Tooltip open={smartInfoOpen || fastInfoOpen} onOpenChange={(open) => { setSmartInfoOpen(open); setFastInfoOpen(open); }}>
+                        <TooltipTrigger asChild>
+                          <button onClick={() => { setSmartInfoOpen(prev => !prev); setFastInfoOpen(prev => !prev); }} className="ml-2 w-6 h-6 rounded-full bg-muted/60 hover:bg-muted flex items-center justify-center text-muted-foreground" aria-label="Method info">
+                            <Info className="h-3 w-3" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top">Smart: runs thorough DOM + JS detection. Fast: assumes sequential filenames and generates image URLs quickly.</TooltipContent>
+                      </Tooltip>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Chapter Settings */}
+                <div className="p-4 bg-accent/5 border border-accent/20 rounded-lg">
+                  <h4 className="text-sm font-medium text-foreground mb-3">Chapter Settings</h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">Miss Threshold</label>
+                      <div className="relative">
+                        <select
+                          value={consecutiveMissThreshold}
+                          onChange={(e) => setConsecutiveMissThreshold(Number(e.target.value))}
+                          className="w-full pl-3 pr-8 py-2 text-sm bg-input border border-border rounded-md text-foreground appearance-none"
+                          disabled={isLoading}
+                        >
+                          <option value={1}>1</option>
+                          <option value={2}>2</option>
+                          <option value={3}>3</option>
+                        </select>
+                        <Tooltip open={missInfoOpen} onOpenChange={setMissInfoOpen}>
+                          <TooltipTrigger asChild>
+                            <button onClick={() => setMissInfoOpen(prev => !prev)} className="absolute right-1 top-1/2 transform -translate-y-1/2 w-5 h-5 rounded-full bg-muted/60 hover:bg-muted flex items-center justify-center text-muted-foreground" aria-label="Miss info">
+                              <Info className="h-3 w-3" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top">Number of consecutive missed requests before the scraper stops trying sequential generation.</TooltipContent>
+                        </Tooltip>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">Chapter Count</label>
+                      <div className="relative">
+                        <select
+                          value={chapterCount}
+                          onChange={(e) => setChapterCount(Number(e.target.value))}
+                          className="w-full pl-3 pr-8 py-2 text-sm bg-input border border-border rounded-md text-foreground appearance-none"
+                          disabled={isLoading}
+                        >
+                          <option value={1}>1</option>
+                          <option value={2}>2</option>
+                          <option value={3}>3</option>
+                          <option value={4}>4</option>
+                          <option value={5}>5</option>
+                          <option value={6}>6</option>
+                          <option value={7}>7</option>
+                          <option value={8}>8</option>
+                          <option value={9}>9</option>
+                          <option value={10}>10</option>
+                        </select>
+                        <Tooltip open={chapterInfoOpen} onOpenChange={setChapterInfoOpen}>
+                          <TooltipTrigger asChild>
+                            <button onClick={() => setChapterInfoOpen(prev => !prev)} className="absolute right-1 top-1/2 transform -translate-y-1/2 w-5 h-5 rounded-full bg-muted/60 hover:bg-muted flex items-center justify-center text-muted-foreground" aria-label="Chapters info">
+                              <Info className="h-3 w-3" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top">Number of chapters to fetch in a single action when navigating.</TooltipContent>
+                        </Tooltip>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column - Interface & Validation */}
+              <div className="space-y-4">
+                {/* Interface Options */}
+                <div className="p-4 bg-accent/5 border border-accent/20 rounded-lg">
+                  <h4 className="text-sm font-medium text-foreground mb-3">Interface Options</h4>
+                  <div className="space-y-3">
+                    <label className="flex items-center space-x-3 text-sm cursor-pointer">
+                      <div className="relative">
+                        <input 
+                          type="checkbox" 
+                          checked={stickyArrowsEnabled} 
+                          onChange={(e) => setStickyArrowsEnabled(e.target.checked)}
+                          className="sr-only"
+                        />
+                        <div className={`w-4 h-4 rounded border-2 transition-all duration-200 ${
+                          stickyArrowsEnabled 
+                            ? 'bg-primary border-primary' 
+                            : 'bg-background border-border hover:border-primary/50'
+                        }`}>
+                          {stickyArrowsEnabled && (
+                            <svg className="w-3 h-3 text-primary-foreground absolute top-0.5 left-0.5" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          )}
+                        </div>
+                      </div>
+                      <span className="text-foreground">Show sticky navigation arrows</span>
+                    </label>
+
+                    <label className="flex items-center space-x-3 text-sm cursor-pointer">
+                      <div className="relative">
+                        <input 
+                          type="checkbox" 
+                          checked={showScrollButtons} 
+                          onChange={(e) => setShowScrollButtons(e.target.checked)}
+                          className="sr-only"
+                        />
+                        <div className={`w-4 h-4 rounded border-2 transition-all duration-200 ${
+                          showScrollButtons 
+                            ? 'bg-primary border-primary' 
+                            : 'bg-background border-border hover:border-primary/50'
+                        }`}>
+                          {showScrollButtons && (
+                            <svg className="w-3 h-3 text-primary-foreground absolute top-0.5 left-0.5" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          )}
+                        </div>
+                      </div>
+                      <span className="text-foreground">Show preview scroll buttons</span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Validation Options */}
+                <div className="p-4 bg-accent/5 border border-accent/20 rounded-lg">
+                  <h4 className="text-sm font-medium text-foreground mb-3">Validation Settings</h4>
+                  <div className="flex items-center space-x-3">
+                    <input
+                      type="checkbox"
+                      id="validateImages"
+                      checked={validateImages}
+                      onChange={(e) => setValidateImages(e.target.checked)}
+                      className="w-4 h-4 text-primary bg-input border-border rounded focus:ring-primary focus:ring-2"
+                      disabled={isLoading}
+                    />
+                    <label htmlFor="validateImages" className="text-sm text-foreground cursor-pointer flex-1">
+                      Validate images before adding
+                    </label>
+                    
+                    <Tooltip open={validateInfoOpen} onOpenChange={setValidateInfoOpen}>
                       <TooltipTrigger asChild>
-                        <button onClick={() => { setSmartInfoOpen(prev => !prev); setFastInfoOpen(prev => !prev); }} className="ml-2 w-6 h-6 rounded-full bg-muted/60 hover:bg-muted flex items-center justify-center text-muted-foreground" aria-label="Method info">
+                        <button onClick={() => setValidateInfoOpen(prev => !prev)} className="w-5 h-5 rounded-full bg-muted/60 hover:bg-muted flex items-center justify-center text-muted-foreground" aria-label="Validation info">
                           <Info className="h-3 w-3" />
                         </button>
                       </TooltipTrigger>
-                      <TooltipContent side="top">Smart: runs thorough DOM + JS detection. Fast: assumes sequential filenames and generates image URLs quickly.</TooltipContent>
+                      <TooltipContent side="top">
+                        <div className="text-xs max-w-48">
+                          <div className="font-medium mb-1">Image Validation</div>
+                          <div>When enabled, checks if each image exists before adding (more requests). When disabled, adds all discovered images directly (faster, fewer requests).</div>
+                        </div>
+                      </TooltipContent>
                     </Tooltip>
                   </div>
                 </div>
               </div>
-
-              <div className="flex items-center space-x-4">
-                <div className="text-sm text-muted-foreground w-24 flex-shrink-0">Miss:</div>
-                <div className="relative">
-                  <select
-                    value={consecutiveMissThreshold}
-                    onChange={(e) => setConsecutiveMissThreshold(Number(e.target.value))}
-                    className="pl-3 pr-10 py-1 text-sm bg-input border border-border rounded-md text-foreground appearance-none"
-                    disabled={isLoading}
-                  >
-                    <option value={1}>1</option>
-                    <option value={2}>2</option>
-                    <option value={3}>3</option>
-                  </select>
-
-                  <Tooltip open={missInfoOpen} onOpenChange={setMissInfoOpen}>
-                    <TooltipTrigger asChild>
-                      <button onClick={() => setMissInfoOpen(prev => !prev)} className="absolute right-1 top-1/2 transform -translate-y-1/2 w-6 h-6 rounded-full bg-muted/60 hover:bg-muted flex items-center justify-center text-muted-foreground" aria-label="Miss info">
-                        <Info className="h-3 w-3" />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top">Number of consecutive missed requests before the scraper stops trying sequential generation. Increase to be more tolerant of gaps.</TooltipContent>
-                  </Tooltip>
-                </div>
-              </div>
-
-              <div className="flex items-center space-x-4">
-                <div className="text-sm text-muted-foreground w-24 flex-shrink-0">Chapters:</div>
-                <div className="relative">
-                  <select
-                    value={chapterCount}
-                    onChange={(e) => setChapterCount(Number(e.target.value))}
-                    className="pl-3 pr-10 py-1 text-sm bg-input border border-border rounded-md text-foreground appearance-none"
-                    disabled={isLoading}
-                  >
-                    <option value={1}>1</option>
-                    <option value={2}>2</option>
-                    <option value={3}>3</option>
-                    <option value={4}>4</option>
-                    <option value={5}>5</option>
-                    <option value={6}>6</option>
-                    <option value={7}>7</option>
-                    <option value={8}>8</option>
-                    <option value={9}>9</option>
-                    <option value={10}>10</option>
-                  </select>
-
-                  <Tooltip open={chapterInfoOpen} onOpenChange={setChapterInfoOpen}>
-                    <TooltipTrigger asChild>
-                      <button onClick={() => setChapterInfoOpen(prev => !prev)} className="absolute right-1 top-1/2 transform -translate-y-1/2 w-6 h-6 rounded-full bg-muted/60 hover:bg-muted flex items-center justify-center text-muted-foreground" aria-label="Chapters info">
-                        <Info className="h-3 w-3" />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top">Number of chapters to fetch in a single action when navigating. Use higher values to batch multiple chapters at once.</TooltipContent>
-                  </Tooltip>
-                </div>
-              </div>
-
-              {/* Image Validation Toggle */}
-              <div className="flex items-center space-x-3">
-                <div className="text-sm text-muted-foreground w-24 flex-shrink-0">Validation:</div>
-                <div className="relative flex items-center">
-                  <input
-                    type="checkbox"
-                    id="validateImages"
-                    checked={validateImages}
-                    onChange={(e) => setValidateImages(e.target.checked)}
-                    className="w-4 h-4 text-primary bg-input border-border rounded focus:ring-primary focus:ring-2"
-                    disabled={isLoading}
-                  />
-                  <label htmlFor="validateImages" className="ml-2 text-sm text-foreground cursor-pointer">
-                    Validate images
-                  </label>
-                  
-                  <Tooltip open={validateInfoOpen} onOpenChange={setValidateInfoOpen}>
-                    <TooltipTrigger asChild>
-                      <button onClick={() => setValidateInfoOpen(prev => !prev)} className="ml-2 w-4 h-4 rounded-full bg-muted/60 hover:bg-muted flex items-center justify-center text-muted-foreground" aria-label="Validation info">
-                        <Info className="h-3 w-3" />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top">
-                      <div className="text-xs max-w-48">
-                        <div className="font-medium mb-1">Image Validation</div>
-                        <div>When enabled, checks if each image exists before adding (more requests). When disabled, adds all discovered images directly (faster, fewer requests).</div>
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
-                </div>
-              </div>
-
-              <div>
-                <label className="flex items-center space-x-2 text-sm cursor-pointer">
-                  <div className="relative">
-                    <input 
-                      type="checkbox" 
-                      checked={stickyArrowsEnabled} 
-                      onChange={(e) => setStickyArrowsEnabled(e.target.checked)}
-                      className="sr-only"
-                    />
-                    <div className={`w-4 h-4 rounded border-2 transition-all duration-200 ${
-                      stickyArrowsEnabled 
-                        ? 'bg-primary border-primary' 
-                        : 'bg-background border-border hover:border-primary/50'
-                    }`}>
-                      {stickyArrowsEnabled && (
-                        <svg className="w-3 h-3 text-primary-foreground absolute top-0.5 left-0.5" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                        </svg>
-                      )}
-                    </div>
-                  </div>
-                  <span className="text-muted-foreground whitespace-nowrap">Sticky arrows</span>
-                </label>
-              </div>
-
-              <div>
-                <label className="flex items-center space-x-2 text-sm cursor-pointer">
-                  <div className="relative">
-                    <input 
-                      type="checkbox" 
-                      checked={showScrollButtons} 
-                      onChange={(e) => setShowScrollButtons(e.target.checked)}
-                      className="sr-only"
-                    />
-                    <div className={`w-4 h-4 rounded border-2 transition-all duration-200 ${
-                      showScrollButtons 
-                        ? 'bg-primary border-primary' 
-                        : 'bg-background border-border hover:border-primary/50'
-                    }`}>
-                      {showScrollButtons && (
-                        <svg className="w-3 h-3 text-primary-foreground absolute top-0.5 left-0.5" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                        </svg>
-                      )}
-                    </div>
-                  </div>
-                  <span className="text-muted-foreground whitespace-nowrap">Scroll buttons</span>
-                </label>
-              </div>
             </div>
 
-            <div className="h-3" />
-
-            <div className="mb-3">
-              <div className="flex items-center space-x-2">
+            {/* File Types Section */}
+            <div className="p-4 bg-accent/5 border border-accent/20 rounded-lg">
+              <div className="flex items-center space-x-2 mb-4">
                 <Filter className="h-5 w-5 text-muted-foreground" />
                 <label className="text-sm font-medium text-foreground">File Types ({fileTypes.length} selected)</label>
               </div>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              {availableFileTypes.map(type => (
-                <button
-                  key={type}
-                  onClick={() => handleFileTypeToggle(type)}
-                  className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                    fileTypes.includes(type)
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                  }`}
-                  disabled={isLoading}
-                >
-                  .{type}
-                </button>
-              ))}
+              <div className="flex flex-wrap gap-2">
+                {availableFileTypes.map(type => (
+                  <button
+                    key={type}
+                    onClick={() => handleFileTypeToggle(type)}
+                    className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                      fileTypes.includes(type)
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                    }`}
+                    disabled={isLoading}
+                  >
+                    .{type}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
