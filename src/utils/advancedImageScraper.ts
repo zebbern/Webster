@@ -1,4 +1,5 @@
 import blink from '../cors/client'
+import { urlPatternManager, extractChapterNumber } from './urlPatterns'
 
 // Simple fetch wrapper using blink API with rate limiting
 const fetchData = async (url: string, method: 'GET' | 'HEAD' = 'GET', signal?: AbortSignal, retries = 2) => {
@@ -112,42 +113,88 @@ export const scrapeImages = async (
   onProgress?.({ stage: 'loading', processed: 0, total: 1, found: 0, currentUrl: url })
 
   try {
-    // Initial fetch
-    const fetched = await fetchData(url, 'GET', signal)
-    if (signal?.aborted) throw new Error('Aborted')
-    const body = typeof fetched.body === 'string' ? fetched.body : JSON.stringify(fetched.body)
-
-    onProgress?.({ stage: 'scanning', processed: 0, total: 1, found: 0 })
-
-    // Extract initial candidates
-    let imageUrls = extractImageUrls(body, [], url, body)
-    imageUrls = Array.from(new Set(imageUrls))
-
-    // Check for strong sequential patterns and if found, optionally generate sequence and stop further polling
-    const seqInfo = detectStrongSequentialPattern(imageUrls)
-    if (seqInfo) {
-      const { basePath, extension, pad } = seqInfo
-      let processedCount = 0
-
-      // Multi-chapter support: fetch multiple chapters if requested
-      for (let chapter = 0; chapter < chapterCount; chapter++) {
-        if (signal?.aborted) throw new Error('Aborted')
+    // Multi-chapter support: process each chapter separately with delays
+    for (let currentChapter = 1; currentChapter <= chapterCount; currentChapter++) {
+      if (signal?.aborted) throw new Error('Aborted')
+      
+      // Add delay between chapters (except for the first one)
+      if (currentChapter > 1) {
+        onProgress?.({ 
+          stage: 'loading', 
+          processed: images.length, 
+          total: DEFAULT_SEQ_MAX * chapterCount, 
+          found: images.length, 
+          currentUrl: `Waiting 15 seconds before chapter ${currentChapter}...` 
+        })
         
-        // For chapters beyond the first, try to modify the base path
-        let currentBasePath = basePath
-        if (chapter > 0) {
-          // Try to increment chapter number in the path
-          const chapterMatch = basePath.match(/(.*\/)([0-9]+)(\/.*)?$/)
-          if (chapterMatch) {
-            const [, prefix, chapterNum, suffix = ''] = chapterMatch
-            const nextChapter = parseInt(chapterNum, 10) + chapter
-            currentBasePath = `${prefix}${nextChapter}${suffix}`
-          } else {
-            // If no chapter pattern found, skip additional chapters
-            if (chapter > 0) break
+        // 15 second delay
+        await new Promise(resolve => setTimeout(resolve, 15000))
+        if (signal?.aborted) throw new Error('Aborted')
+      }
+      
+      // Determine the URL for this chapter
+      let chapterUrl = url
+      if (currentChapter > 1) {
+        // Try to use URL pattern manager first
+        const targetChapterNumber = extractChapterNumber(url)
+        if (targetChapterNumber !== null) {
+          const generatedUrl = urlPatternManager.generateChapterUrl(url, targetChapterNumber + (currentChapter - 1))
+          if (generatedUrl) {
+            chapterUrl = generatedUrl
           }
         }
+        
+        // Fallback: try to modify URL manually
+        if (chapterUrl === url) {
+          try {
+            const urlObj = new URL(url)
+            const pathSegments = urlObj.pathname.split('/').filter(segment => segment.length > 0)
+            
+            for (let i = pathSegments.length - 1; i >= 0; i--) {
+              const segment = pathSegments[i]
+              const chapterMatch = segment.match(/^(.*?)(\d+)(.*)$/)
+              if (chapterMatch) {
+                const [, prefix, numberStr, suffix] = chapterMatch
+                const currentNum = parseInt(numberStr, 10)
+                const newNum = currentNum + (currentChapter - 1)
+                const paddedNum = numberStr.startsWith('0') ? newNum.toString().padStart(numberStr.length, '0') : newNum.toString()
+                pathSegments[i] = `${prefix}${paddedNum}${suffix}`
+                break
+              }
+            }
+            
+            urlObj.pathname = '/' + pathSegments.join('/') + (url.endsWith('/') ? '/' : '')
+            chapterUrl = urlObj.toString()
+          } catch (error) {
+            console.warn(`Failed to generate URL for chapter ${currentChapter}:`, error)
+          }
+        }
+      }
 
+      onProgress?.({ 
+        stage: 'loading', 
+        processed: images.length, 
+        total: DEFAULT_SEQ_MAX * chapterCount, 
+        found: images.length, 
+        currentUrl: `Fetching chapter ${currentChapter}: ${chapterUrl}` 
+      })
+
+      // Fetch the chapter
+      const fetched = await fetchData(chapterUrl, 'GET', signal)
+      if (signal?.aborted) throw new Error('Aborted')
+      const body = typeof fetched.body === 'string' ? fetched.body : JSON.stringify(fetched.body)
+
+      onProgress?.({ stage: 'scanning', processed: images.length, total: DEFAULT_SEQ_MAX * chapterCount, found: images.length, currentUrl: chapterUrl })
+
+      // Extract initial candidates for this chapter
+      let imageUrls = extractImageUrls(body, [], chapterUrl, body)
+      imageUrls = Array.from(new Set(imageUrls))
+
+      // Check for strong sequential patterns 
+      const seqInfo = detectStrongSequentialPattern(imageUrls)
+      if (seqInfo) {
+        const { basePath, extension, pad } = seqInfo
+        
         // Process images in parallel batches for much faster validation
         const BATCH_SIZE = 10
         let consecutiveMisses = 0
@@ -161,7 +208,7 @@ export const scrapeImages = async (
           const batch: string[] = []
           for (let j = 0; j < BATCH_SIZE && (currentIndex + j) <= DEFAULT_SEQ_MAX; j++) {
             const padded = (currentIndex + j).toString().padStart(pad, '0')
-            const candidate = `${currentBasePath}${padded}.${extension}`
+            const candidate = `${basePath}${padded}.${extension}`
             if (!seenUrls.has(candidate)) {
               batch.push(candidate)
             }
@@ -187,13 +234,12 @@ export const scrapeImages = async (
               consecutiveMisses = 0
               chapterImageCount++
               seenUrls.add(result.candidate)
-              processedCount++
               
               const newImage: ScrapedImage = { 
                 url: result.candidate, 
                 type: extension, 
                 source: 'static', 
-                alt: `Image from ${new URL(url).hostname} - Chapter ${chapter + 1}` 
+                alt: `Image from ${new URL(chapterUrl).hostname} - Chapter ${currentChapter}` 
               }
               images.push(newImage)
 
@@ -201,7 +247,7 @@ export const scrapeImages = async (
               onNewImage?.(newImage)
               onProgress?.({ 
                 stage: 'scanning', 
-                processed: processedCount, 
+                processed: images.length, 
                 total: DEFAULT_SEQ_MAX * chapterCount, 
                 found: images.length, 
                 currentUrl: result.candidate, 
@@ -217,109 +263,64 @@ export const scrapeImages = async (
           currentIndex += BATCH_SIZE
         }
 
-        // Continue to next chapter even if this one had no images (unless it's the first chapter)
-        // Only stop if we're beyond the first chapter and found no images
-        if (chapterImageCount === 0 && chapter === 0) {
-          // If first chapter has no images, stop entirely
-          break
+        // If first chapter found no sequential images, try non-sequential approach for this chapter
+        if (chapterImageCount === 0 && currentChapter === 1) {
+          // Process discovered URLs (dedupe and filter by type)
+          let processedCount = 0
+          for (const imageUrl of imageUrls) {
+            if (signal?.aborted) throw new Error('Aborted')
+            if (!imageUrl) continue
+            if (seenUrls.has(imageUrl)) continue
+            seenUrls.add(imageUrl)
+
+            const type = getFileTypeFromUrl(imageUrl)
+            processedCount++
+
+            if (!type || !fileTypes.includes(type)) {
+              onProgress?.({ stage: 'scanning', processed: processedCount, total: imageUrls.length, found: images.length, currentUrl: imageUrl })
+              continue
+            }
+
+            const newImage: ScrapedImage = { url: imageUrl, type, source: 'dynamic', alt: `Image from ${new URL(chapterUrl).hostname} - Chapter ${currentChapter}` }
+            images.push(newImage)
+
+            // Live insertion
+            onNewImage?.(newImage)
+            onProgress?.({ stage: 'scanning', processed: processedCount, total: imageUrls.length, found: images.length, currentUrl: imageUrl, image: newImage })
+
+            await new Promise(res => setTimeout(res, 10))
+          }
         }
-      }
-
-      // Skip metadata enrichment to avoid unnecessary CORS requests
-      // User already has all the images they need at this point
-
-      return images
-    }
-
-    // If preferSequenceOnly was requested but no sequence found, and user prefers this fast mode, return early empty
-    if (preferSequenceOnly && !seqInfo) {
-      return []
-    }
-
-    // Process discovered URLs (dedupe and filter by type)
-    let processedCount = 0
-    for (const imageUrl of imageUrls) {
-      if (signal?.aborted) throw new Error('Aborted')
-      if (!imageUrl) continue
-      if (seenUrls.has(imageUrl)) continue
-      seenUrls.add(imageUrl)
-
-      const type = getFileTypeFromUrl(imageUrl)
-      processedCount++
-
-      if (!type || !fileTypes.includes(type)) {
-        onProgress?.({ stage: 'scanning', processed: processedCount, total: imageUrls.length, found: images.length, currentUrl: imageUrl })
-        continue
-      }
-
-      const newImage: ScrapedImage = { url: imageUrl, type, source: 'dynamic', alt: `Image from ${new URL(url).hostname}` }
-      images.push(newImage)
-
-      // Live insertion: call onNewImage immediately when image is discovered
-      onNewImage?.(newImage)
-
-      // Live insertion: report this newly discovered image immediately
-      onProgress?.({ stage: 'scanning', processed: processedCount, total: imageUrls.length, found: images.length, currentUrl: imageUrl, image: newImage })
-
-      // small throttle so progress UI updates smoothly
-      await new Promise(res => setTimeout(res, 10))
-    }
-
-    // Keep-alive: periodically re-fetch the page to discover images that may be added later
-    const startTime = Date.now()
-    let idleScans = 0
-
-    onProgress?.({ stage: 'analyzing', processed: images.length, total: images.length || 1, found: images.length })
-
-    while (!signal?.aborted && (Date.now() - startTime) < keepAliveMs && idleScans < maxIdleScans) {
-      // wait before next scan
-      await new Promise(res => setTimeout(res, pollIntervalMs))
-      if (signal?.aborted) throw new Error('Aborted')
-
-      // fetch again
-      try {
-        const reFetch = await fetchData(url, 'GET', signal)
-        if (signal?.aborted) throw new Error('Aborted')
-        const reBody = typeof reFetch.body === 'string' ? reFetch.body : JSON.stringify(reFetch.body)
-
-        onProgress?.({ stage: 'analyzing', processed: images.length, total: images.length || 1, found: images.length, currentUrl: url })
-
-        const newlyFoundUrls = extractImageUrls(reBody, [], url, reBody)
-        let newAdded = 0
-        for (const candidate of newlyFoundUrls) {
+      } else {
+        // No sequential pattern found, process discovered URLs normally
+        let processedCount = 0
+        for (const imageUrl of imageUrls) {
           if (signal?.aborted) throw new Error('Aborted')
-          if (!candidate) continue
-          if (seenUrls.has(candidate)) continue
-          const type = getFileTypeFromUrl(candidate)
-          if (!type || !fileTypes.includes(type)) continue
-          seenUrls.add(candidate)
-          const newImage: ScrapedImage = { url: candidate, type, source: 'dynamic', alt: `Image from ${new URL(url).hostname}` }
+          if (!imageUrl) continue
+          if (seenUrls.has(imageUrl)) continue
+          seenUrls.add(imageUrl)
+
+          const type = getFileTypeFromUrl(imageUrl)
+          processedCount++
+
+          if (!type || !fileTypes.includes(type)) {
+            onProgress?.({ stage: 'scanning', processed: processedCount, total: imageUrls.length, found: images.length, currentUrl: imageUrl })
+            continue
+          }
+
+          const newImage: ScrapedImage = { url: imageUrl, type, source: 'dynamic', alt: `Image from ${new URL(chapterUrl).hostname} - Chapter ${currentChapter}` }
           images.push(newImage)
-          newAdded++
 
-          // Live insertion: call onNewImage immediately
+          // Live insertion
           onNewImage?.(newImage)
+          onProgress?.({ stage: 'scanning', processed: processedCount, total: imageUrls.length, found: images.length, currentUrl: imageUrl, image: newImage })
 
-          // Report new incremental image
-          onProgress?.({ stage: 'analyzing', processed: images.length, total: images.length, found: images.length, currentUrl: candidate, image: newImage })
           await new Promise(res => setTimeout(res, 10))
         }
-
-        if (newAdded === 0) {
-          idleScans++
-        } else {
-          // reset idle scans so we keep watching for further additions
-          idleScans = 0
-        }
-      } catch (err) {
-        console.warn('re-fetch failed during keep-alive', err)
-        idleScans++
       }
     }
 
-    // Skip metadata enrichment to avoid unnecessary CORS requests after scraping is done
-    // User already has all the image URLs they need
-
+    // Skip the keep-alive logic and metadata enrichment for multi-chapter scraping
     return images
   } catch (error: any) {
     if (error.message === 'Aborted' || options.signal?.aborted) throw new Error('Aborted')
