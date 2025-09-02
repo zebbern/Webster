@@ -56,7 +56,7 @@ const ImageScraper: React.FC = () => {
 
     window.addEventListener('scroll', handleScroll, { passive: true })
     return () => window.removeEventListener('scroll', handleScroll)
-  }, [lastScrollYMain])
+  }, [])
 
   // Sequential pattern state for instant generation when detected
   const [sequentialPattern, setSequentialPattern] = useState<{ basePath: string; extension: string; pad: number } | null>(null)
