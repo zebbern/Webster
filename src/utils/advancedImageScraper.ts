@@ -13,11 +13,12 @@ const fetchData = async (url: string, method: 'GET' | 'HEAD' = 'GET', signal?: A
     const fetched = await blink.data.fetch({ url, method, signal })
     if (signal?.aborted) throw new Error('Aborted')
     
-    // Handle rate limiting (429) with exponential backoff
-    if (fetched.status === 429 && retries > 0) {
+    // Handle rate limiting (429) and SSL handshake failures (525) with exponential backoff
+    if ((fetched.status === 429 || fetched.status === 525) && retries > 0) {
       const delay = Math.pow(2, 3 - retries) * 1000 // 1s, 2s delays
       console.log = originalLog // Temporarily restore for this message
-      console.warn(`Rate limited (429), retrying in ${delay}ms...`)
+      const errorType = fetched.status === 429 ? 'Rate limited' : 'SSL Handshake Failed'
+      console.warn(`${errorType} (${fetched.status}), retrying in ${delay}ms...`)
       console.log = () => {}
       
       await new Promise(resolve => setTimeout(resolve, delay))
