@@ -1,5 +1,6 @@
 import { ScrapedImage } from './advancedImageScraper'
 import { saveAs } from 'file-saver'
+import { convertWebPToPNG, shouldConvertToPNG, getConvertedFilename } from './imageConverter'
 
 export const downloadImage = async (image: ScrapedImage) => {
   try {
@@ -42,10 +43,22 @@ export const downloadImage = async (image: ScrapedImage) => {
       throw new Error('Received empty file')
     }
 
-    const filename = getFilenameFromUrl(image.url) || `image.${image.type}`
+    // Convert WebP to PNG for better compatibility
+    let finalBlob = blob
+    let filename = getFilenameFromUrl(image.url) || `image.${image.type}`
+    
+    if (shouldConvertToPNG(image.type)) {
+      try {
+        finalBlob = await convertWebPToPNG(blob)
+        filename = getConvertedFilename(filename, 'png')
+      } catch (conversionError) {
+        console.warn('Failed to convert WebP to PNG, downloading as WebP:', conversionError)
+        // Continue with original blob if conversion fails
+      }
+    }
 
     try {
-      const saved = await attemptSaveAs(blob, filename)
+      const saved = await attemptSaveAs(finalBlob, filename)
       if (saved) return
     } catch (fsError) {
       console.warn('file-saver failed, falling back to anchor download', fsError)
@@ -53,7 +66,7 @@ export const downloadImage = async (image: ScrapedImage) => {
 
     // Force download using blob URL to avoid redirect
     if (typeof window !== 'undefined') {
-      const objectUrl = URL.createObjectURL(blob)
+      const objectUrl = URL.createObjectURL(finalBlob)
       const a = document.createElement('a')
       a.href = objectUrl
       a.download = filename
@@ -162,17 +175,29 @@ export const downloadAllImages = async (images: ScrapedImage[]) => {
         throw new Error('Received empty file')
       }
 
-      const filename = getFilenameFromUrl(image.url) || `image-${i + 1}.${image.type}`
+      // Convert WebP to PNG for better compatibility
+      let finalBlob = blob
+      let filename = getFilenameFromUrl(image.url) || `image-${i + 1}.${image.type}`
+      
+      if (shouldConvertToPNG(image.type)) {
+        try {
+          finalBlob = await convertWebPToPNG(blob)
+          filename = getConvertedFilename(filename, 'png')
+        } catch (conversionError) {
+          console.warn(`Failed to convert WebP to PNG for image ${i + 1}, downloading as WebP:`, conversionError)
+          // Continue with original blob if conversion fails
+        }
+      }
 
       try {
-        saveAs(blob, filename)
+        saveAs(finalBlob, filename)
         successCount++
       } catch (fsError) {
         console.warn('file-saver failed for image, falling back to anchor download', fsError)
         // Try anchor fallback
         try {
           if (typeof window !== 'undefined') {
-            const objectUrl = URL.createObjectURL(blob)
+            const objectUrl = URL.createObjectURL(finalBlob)
             const a = document.createElement('a')
             a.href = objectUrl
             a.download = filename
