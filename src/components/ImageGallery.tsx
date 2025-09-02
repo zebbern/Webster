@@ -21,6 +21,8 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
   const [exportingHTML, setExportingHTML] = useState(false)
   const [previewMode, setPreviewMode] = useState(false)
   const [scrollInfoOpen, setScrollInfoOpen] = useState<boolean>(false)
+  const [buttonsVisible, setButtonsVisible] = useState<boolean>(true)
+  const [lastScrollY, setLastScrollY] = useState<number>(0)
 
   useEffect(() => {
     onPreviewChange?.(previewMode)
@@ -48,6 +50,40 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [previewMode])
+
+  // Scroll detection for button visibility in preview mode
+  useEffect(() => {
+    if (!previewMode) return
+
+    const handleScroll = () => {
+      const previewContainer = document.getElementById('preview-overlay-scroll')
+      if (!previewContainer) return
+
+      const currentScrollY = previewContainer.scrollTop
+      const containerHeight = previewContainer.clientHeight
+      const scrollHeight = previewContainer.scrollHeight
+      const isAtBottom = currentScrollY + containerHeight >= scrollHeight - 10 // 10px threshold
+
+      // Show buttons when:
+      // 1. Scrolling up (currentScrollY < lastScrollY)
+      // 2. At the bottom of the page
+      // 3. At the very top (currentScrollY < 50)
+      if (currentScrollY < lastScrollY || isAtBottom || currentScrollY < 50) {
+        setButtonsVisible(true)
+      } else if (currentScrollY > lastScrollY) {
+        // Hide buttons when scrolling down
+        setButtonsVisible(false)
+      }
+
+      setLastScrollY(currentScrollY)
+    }
+
+    const previewContainer = document.getElementById('preview-overlay-scroll')
+    if (previewContainer) {
+      previewContainer.addEventListener('scroll', handleScroll, { passive: true })
+      return () => previewContainer.removeEventListener('scroll', handleScroll)
+    }
+  }, [previewMode, lastScrollY])
 
   const handleCopyUrl = async (url: string) => {
     try {
@@ -122,7 +158,9 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
         {/* Exit button */}
         <button
           onClick={() => setPreviewMode(false)}
-          className="fixed top-4 right-4 z-50 p-2 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors"
+          className={`fixed top-4 right-4 z-50 p-2 bg-black/50 text-white rounded-full hover:bg-black/70 transition-all duration-300 ${
+            buttonsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
+          }`}
           title="Exit preview mode"
         >
           <Grid className="h-5 w-5" />
@@ -130,7 +168,9 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
         
         {/* Scroll to top/bottom buttons (placed near bottom of preview) */}
         {showScrollButtons && (
-        <div className="fixed right-4 bottom-6 z-50 flex flex-col items-end space-y-2">
+        <div className={`fixed right-4 bottom-6 z-50 flex flex-col items-end space-y-2 transition-all duration-300 ${
+          buttonsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        }`}>
           <div className="flex items-center space-x-2 mb-1">
             <Tooltip open={scrollInfoOpen} onOpenChange={setScrollInfoOpen}>
               <TooltipTrigger asChild>
@@ -146,17 +186,17 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
           <div className="flex flex-col space-y-2">
             <button
               onClick={scrollToTop}
-              className="p-2 bg-card/90 text-foreground rounded-full hover:bg-card transition-colors shadow-lg"
+              className="p-3 bg-card/90 text-foreground rounded-full hover:bg-card transition-colors shadow-lg"
               title="Scroll to top"
             >
-              <ChevronUp className="h-4 w-4" />
+              <ChevronUp className="h-6 w-6" />
             </button>
             <button
               onClick={scrollToBottom}
-              className="p-2 bg-card/90 text-foreground rounded-full hover:bg-card transition-colors shadow-lg"
+              className="p-3 bg-card/90 text-foreground rounded-full hover:bg-card transition-colors shadow-lg"
               title="Scroll to bottom"
             >
-              <ChevronDown className="h-4 w-4" />
+              <ChevronDown className="h-6 w-6" />
             </button>
           </div>
         </div>
