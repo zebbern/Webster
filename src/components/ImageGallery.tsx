@@ -210,16 +210,28 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
 
         {/* Images with no spacing */}
         <div id="preview-overlay-scroll" className="h-full overflow-y-auto">
-          {images.map((image, index) => (
-            <img
-              key={index}
-              src={image.url}
-              alt={image.alt || `Image ${index + 1}`}
-              className="w-full block"
-              style={{ display: 'block', margin: 0, padding: 0 }}
-              onError={() => onImageError?.(image.url)}
+          {images.length === 0 && initialPreviewMode ? (
+            // Show transparent placeholder when preserving preview mode during chapter navigation
+            <div 
+              className="w-full" 
+              style={{ 
+                height: '100vh', 
+                backgroundColor: 'transparent',
+                display: 'block'
+              }}
             />
-          ))}
+          ) : (
+            images.map((image, index) => (
+              <img
+                key={index}
+                src={image.url}
+                alt={image.alt || `Image ${index + 1}`}
+                className="w-full block"
+                style={{ display: 'block', margin: 0, padding: 0 }}
+                onError={() => onImageError?.(image.url)}
+              />
+            ))
+          )}
         </div>
       </div>
     )
