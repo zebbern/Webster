@@ -47,7 +47,7 @@ class VercelClient {
 // Create client instance
 const vercelClient = new VercelClient()
 
-// Export with same interface as blink client
+// Export with same interface as CORS client
 export default {
   data: {
     fetch: vercelClient.fetch.bind(vercelClient)

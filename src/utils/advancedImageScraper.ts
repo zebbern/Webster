@@ -1,7 +1,7 @@
-import blink from '../cors/client'
+import corsClient from '../cors/client'
 import { urlPatternManager, extractChapterNumber } from './urlPatterns'
 
-// Simple fetch wrapper using blink API with rate limiting
+// Simple fetch wrapper using CORS client API with rate limiting
 const fetchData = async (url: string, method: 'GET' | 'HEAD' = 'GET', signal?: AbortSignal, retries = 2) => {
   // Temporarily silence console during fetch to reduce noise
   const originalLog = console.log
@@ -10,7 +10,7 @@ const fetchData = async (url: string, method: 'GET' | 'HEAD' = 'GET', signal?: A
   console.warn = () => {}
   
   try {
-    const fetched = await blink.data.fetch({ url, method, signal })
+    const fetched = await corsClient.data.fetch({ url, method, signal })
     if (signal?.aborted) throw new Error('Aborted')
     
     // Handle rate limiting (429) and SSL handshake failures (525) with exponential backoff

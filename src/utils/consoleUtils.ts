@@ -18,15 +18,15 @@ export const enableProductionMode = () => {
     const lowerMessage = message.toLowerCase()
     
     return (
-      // Blink/Auth related
-      lowerMessage.includes('initializing blink') ||
+      // CORS Client/Auth related
+      lowerMessage.includes('initializing cors client') ||
       lowerMessage.includes('auth not required') ||
       lowerMessage.includes('no tokens found') ||
       lowerMessage.includes('continuing without authentication') ||
       lowerMessage.includes('checking localstorage') ||
       lowerMessage.includes('no access token found') ||
       lowerMessage.includes('extracting tokens') ||
-      lowerMessage.includes('blink auth') ||
+      lowerMessage.includes('cors client auth') ||
       lowerMessage.includes('authentication') ||
       message.includes('🚀') ||
       message.includes('⚠️') ||
