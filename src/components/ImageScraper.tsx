@@ -35,10 +35,11 @@ const ImageScraper: React.FC = () => {
     }
   }, [])
 
+  // Use ref to persist scroll position across effect reruns
+  const lastScrollRefPersistent = useRef<number>(0)
+
   // Scroll detection for sticky arrows visibility
   useEffect(() => {
-    let lastScrollRef = lastScrollYMain
-    
     const handleScroll = () => {
       let currentScrollY: number
       let windowHeight: number
@@ -61,17 +62,17 @@ const ImageScraper: React.FC = () => {
       const isAtBottom = currentScrollY + windowHeight >= documentHeight - 10 // 10px threshold
 
       // Show arrows when:
-      // 1. Scrolling up (currentScrollY < lastScrollRef)
+      // 1. Scrolling up (currentScrollY < lastScrollRefPersistent.current)
       // 2. At the bottom of the page
       // 3. At the very top (currentScrollY < 50)
-      if (currentScrollY < lastScrollRef || isAtBottom || currentScrollY < 50) {
+      if (currentScrollY < lastScrollRefPersistent.current || isAtBottom || currentScrollY < 50) {
         setStickyArrowsVisible(true)
-      } else if (currentScrollY > lastScrollRef) {
+      } else if (currentScrollY > lastScrollRefPersistent.current) {
         // Hide arrows when scrolling down
         setStickyArrowsVisible(false)
       }
 
-      lastScrollRef = currentScrollY
+      lastScrollRefPersistent.current = currentScrollY
       setLastScrollYMain(currentScrollY)
     }
 
