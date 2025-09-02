@@ -6,7 +6,6 @@ import { copyToClipboard } from '../utils/clipboardUtils'
 import ImageModal from './ImageModal'
 import { downloadHTMLExport } from '../utils/htmlExporter'
 import { Tooltip, TooltipTrigger, TooltipContent } from './ui/tooltip'
-import { getProxiedImageUrl } from '../utils/imageProxy'
 
 interface ImageGalleryProps {
   images: ScrapedImage[]
@@ -211,7 +210,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
             images.map((image, index) => (
               <img
                 key={index}
-                src={getProxiedImageUrl(image.url)}
+                src={image.url}
                 alt={image.alt || `Image ${index + 1}`}
                 className="w-full block"
                 style={{ display: 'block', margin: 0, padding: 0 }}
@@ -270,7 +269,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
               {/* Image */}
               <div className="aspect-square relative overflow-hidden">
                 <img
-                  src={getProxiedImageUrl(image.url)}
+                  src={image.url}
                   alt={image.alt || `Image ${index + 1}`}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                   loading="lazy"

@@ -3,7 +3,6 @@ import { X, Download, ExternalLink, Copy, Check } from 'lucide-react'
 import { ScrapedImage } from '../utils/advancedImageScraper'
 import { downloadImage } from '../utils/downloadUtils'
 import { copyToClipboard } from '../utils/clipboardUtils'
-import { getProxiedImageUrl } from '../utils/imageProxy'
 
 interface ImageModalProps {
   image: ScrapedImage
@@ -67,7 +66,7 @@ const ImageModal: React.FC<ImageModalProps> = ({ image, onClose }) => {
         <div className="p-4">
           <div className="flex justify-center">
             <img
-              src={getProxiedImageUrl(image.url)}
+              src={image.url}
               alt={image.alt || 'Preview'}
               className="max-w-full max-h-[60vh] object-contain rounded-lg"
               onError={(e) => {
