@@ -45,17 +45,23 @@ const ImageScraper: React.FC = () => {
       // 2. At the bottom of the page
       // 3. At the very top (currentScrollY < 50)
       if (currentScrollY < lastScrollYMain || isAtBottom || currentScrollY < 50) {
+        console.log('Showing sticky arrows - scroll up or at bottom/top')
         setStickyArrowsVisible(true)
       } else if (currentScrollY > lastScrollYMain) {
         // Hide arrows when scrolling down
+        console.log('Hiding sticky arrows - scrolling down')
         setStickyArrowsVisible(false)
       }
 
       setLastScrollYMain(currentScrollY)
     }
 
+    console.log('Setting up scroll listener for sticky arrows')
     window.addEventListener('scroll', handleScroll, { passive: true })
-    return () => window.removeEventListener('scroll', handleScroll)
+    return () => {
+      console.log('Removing scroll listener for sticky arrows')
+      window.removeEventListener('scroll', handleScroll)
+    }
   }, [])
 
   // Sequential pattern state for instant generation when detected
@@ -781,6 +787,7 @@ const ImageScraper: React.FC = () => {
           <div className={`fixed bottom-3 left-1/2 transform -translate-x-1/2 transition-all duration-300 ${
             stickyArrowsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
           }`} style={{ zIndex: previewActive ? 9999 : undefined }}>
+            {console.log('Sticky arrows visible state:', stickyArrowsVisible)}
             <div className="flex items-center space-x-2 bg-card/70 backdrop-blur-sm px-2 py-1.5 rounded-full shadow-md border border-border/50">
               <button
                 onClick={() => { handleChapterNavigation('prev'); scheduleUpArrow(1000); }}
