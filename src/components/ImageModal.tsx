@@ -1,7 +1,8 @@
 import React from 'react'
 import { X, Download, ExternalLink, Copy, Check } from 'lucide-react'
-import { ScrapedImage } from '../utils/realImageScraper'
+import { ScrapedImage } from '../utils/advancedImageScraper'
 import { downloadImage } from '../utils/downloadUtils'
+import { copyToClipboard } from '../utils/clipboardUtils'
 
 interface ImageModalProps {
   image: ScrapedImage
@@ -12,25 +13,10 @@ const ImageModal: React.FC<ImageModalProps> = ({ image, onClose }) => {
   const [copied, setCopied] = React.useState(false)
 
   const handleCopyUrl = async () => {
-    try {
-      await navigator.clipboard.writeText(image.url)
+    const success = await copyToClipboard(image.url)
+    if (success) {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
-    } catch (err) {
-      console.error('Failed to copy URL:', err)
-      // Fallback for browsers that don't support clipboard API
-      const textArea = document.createElement('textarea')
-      textArea.value = image.url
-      document.body.appendChild(textArea)
-      textArea.select()
-      try {
-        document.execCommand('copy')
-        setCopied(true)
-        setTimeout(() => setCopied(false), 2000)
-      } catch (fallbackErr) {
-        console.error('Fallback copy failed:', fallbackErr)
-      }
-      document.body.removeChild(textArea)
     }
   }
 

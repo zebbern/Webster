@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Download, Eye, Copy, Check, Grid, Maximize, ChevronUp, ChevronDown, Info } from 'lucide-react'
 import { ScrapedImage } from '../utils/advancedImageScraper'
 import { downloadImage, downloadAllImages } from '../utils/downloadUtils'
+import { copyToClipboard } from '../utils/clipboardUtils'
 import ImageModal from './ImageModal'
 import { downloadHTMLExport } from '../utils/htmlExporter'
 import { Tooltip, TooltipTrigger, TooltipContent } from './ui/tooltip'
@@ -91,12 +92,10 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
   }, [previewMode, lastScrollY])
 
   const handleCopyUrl = async (url: string) => {
-    try {
-      await navigator.clipboard.writeText(url)
+    const success = await copyToClipboard(url)
+    if (success) {
       setCopiedUrl(url)
       setTimeout(() => setCopiedUrl(null), 2000)
-    } catch (err) {
-      console.error('Failed to copy URL:', err)
     }
   }
 

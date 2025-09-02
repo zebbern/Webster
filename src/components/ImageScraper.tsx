@@ -1,11 +1,11 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react'
-import { Search, Download, Filter, Image as ImageIcon, AlertCircle, CheckCircle, Loader2, ChevronLeft, ChevronRight, Info } from 'lucide-react'
+import { Search, Filter, Image as ImageIcon, AlertCircle, CheckCircle, ChevronLeft, ChevronRight, Info } from 'lucide-react'
 import { toast } from 'sonner'
 import ImageGallery from './ImageGallery'
 import ProgressIndicator from './ProgressIndicator'
 import ThemeToggle from './ThemeToggle'
 import { scrapeImages, ScrapedImage, ScrapeProgress } from '../utils/advancedImageScraper'
-import { getNavigationState, parseChapterFromUrl, generateChapterUrl } from '../utils/urlNavigation'
+import { getNavigationState, parseChapterFromUrl } from '../utils/urlNavigation'
 
 import { Tooltip, TooltipTrigger, TooltipContent } from './ui/tooltip'
 
