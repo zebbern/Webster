@@ -186,17 +186,17 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
           <div className="flex flex-col space-y-2">
             <button
               onClick={scrollToTop}
-              className="p-4 bg-card/90 text-foreground rounded-full hover:bg-card transition-colors shadow-lg"
+              className="p-2.5 bg-card/90 text-foreground rounded-full hover:bg-card transition-colors shadow-lg"
               title="Scroll to top"
             >
-              <ChevronUp className="h-8 w-8" />
+              <ChevronUp className="h-5 w-5" />
             </button>
             <button
               onClick={scrollToBottom}
-              className="p-4 bg-card/90 text-foreground rounded-full hover:bg-card transition-colors shadow-lg"
+              className="p-2.5 bg-card/90 text-foreground rounded-full hover:bg-card transition-colors shadow-lg"
               title="Scroll to bottom"
             >
-              <ChevronDown className="h-8 w-8" />
+              <ChevronDown className="h-5 w-5" />
             </button>
           </div>
         </div>
@@ -347,17 +347,17 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
       <div className="fixed right-4 bottom-6 z-40 hidden md:flex flex-col space-y-2">
         <button
           onClick={scrollToTop}
-          className="p-2 bg-card/90 text-foreground rounded-full hover:bg-card transition-colors shadow-lg"
+          className="p-1 bg-card/90 text-foreground rounded-full hover:bg-card transition-colors shadow-lg"
           title="Scroll to top"
         >
-          <ChevronUp className="h-4 w-4" />
+          <ChevronUp className="h-2.5 w-2.5" />
         </button>
         <button
           onClick={scrollToBottom}
-          className="p-2 bg-card/90 text-foreground rounded-full hover:bg-card transition-colors shadow-lg"
+          className="p-1 bg-card/90 text-foreground rounded-full hover:bg-card transition-colors shadow-lg"
           title="Scroll to bottom"
         >
-          <ChevronDown className="h-4 w-4" />
+          <ChevronDown className="h-2.5 w-2.5" />
         </button>
       </div>
       )}

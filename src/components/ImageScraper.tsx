@@ -17,6 +17,9 @@ const ImageScraper: React.FC = () => {
   const [progress, setProgress] = useState<ScrapeProgress | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [stats, setStats] = useState({ total: 0, duplicates: 0, filtered: 0 })
+  const [stickyArrowsVisible, setStickyArrowsVisible] = useState<boolean>(true)
+  const [lastScrollYMain, setLastScrollYMain] = useState<number>(0)
+  const [previewActive, setPreviewActive] = useState<boolean>(false)
   const abortControllerRef = useRef<AbortController | null>(null)
   const upArrowClickTimeoutRef = useRef<number | null>(null)
 
@@ -34,35 +37,83 @@ const ImageScraper: React.FC = () => {
 
   // Scroll detection for sticky arrows visibility
   useEffect(() => {
+    let lastScrollRef = lastScrollYMain
+    
     const handleScroll = () => {
-      const currentScrollY = window.scrollY
-      const windowHeight = window.innerHeight
-      const documentHeight = document.documentElement.scrollHeight
+      let currentScrollY: number
+      let windowHeight: number
+      let documentHeight: number
+      
+      if (previewActive) {
+        // In preview mode, use the preview container's scroll
+        const previewContainer = document.getElementById('preview-overlay-scroll')
+        if (!previewContainer) {
+          console.log('Preview container not found')
+          return
+        }
+        currentScrollY = previewContainer.scrollTop
+        windowHeight = previewContainer.clientHeight
+        documentHeight = previewContainer.scrollHeight
+        console.log('Preview mode scroll:', { currentScrollY, lastScrollRef, windowHeight, documentHeight })
+      } else {
+        // In normal mode, use window scroll
+        currentScrollY = window.scrollY
+        windowHeight = window.innerHeight
+        documentHeight = document.documentElement.scrollHeight
+        console.log('Normal mode scroll:', { currentScrollY, lastScrollRef })
+      }
+      
       const isAtBottom = currentScrollY + windowHeight >= documentHeight - 10 // 10px threshold
 
       // Show arrows when:
-      // 1. Scrolling up (currentScrollY < lastScrollYMain)
+      // 1. Scrolling up (currentScrollY < lastScrollRef)
       // 2. At the bottom of the page
       // 3. At the very top (currentScrollY < 50)
-      if (currentScrollY < lastScrollYMain || isAtBottom || currentScrollY < 50) {
-        console.log('Showing sticky arrows - scroll up or at bottom/top')
+      if (currentScrollY < lastScrollRef || isAtBottom || currentScrollY < 50) {
+        console.log('Showing arrows - scroll up or at bottom/top')
         setStickyArrowsVisible(true)
-      } else if (currentScrollY > lastScrollYMain) {
+      } else if (currentScrollY > lastScrollRef) {
         // Hide arrows when scrolling down
-        console.log('Hiding sticky arrows - scrolling down')
+        console.log('Hiding arrows - scrolling down')
         setStickyArrowsVisible(false)
       }
 
+      lastScrollRef = currentScrollY
       setLastScrollYMain(currentScrollY)
     }
 
-    console.log('Setting up scroll listener for sticky arrows')
-    window.addEventListener('scroll', handleScroll, { passive: true })
-    return () => {
-      console.log('Removing scroll listener for sticky arrows')
-      window.removeEventListener('scroll', handleScroll)
+    // Small delay to ensure DOM elements are available
+    const setupScrollListener = () => {
+      console.log('Setting up scroll listener, previewActive:', previewActive)
+      if (previewActive) {
+        // In preview mode, listen to preview container scroll
+        const previewContainer = document.getElementById('preview-overlay-scroll')
+        if (previewContainer) {
+          console.log('Attaching scroll listener to preview container')
+          previewContainer.addEventListener('scroll', handleScroll, { passive: true })
+          return () => {
+            console.log('Removing scroll listener from preview container')
+            previewContainer.removeEventListener('scroll', handleScroll)
+          }
+        } else {
+          console.log('Preview container not found, retrying in 100ms')
+          // Retry after a short delay if container not found
+          const timeoutId = setTimeout(setupScrollListener, 100)
+          return () => clearTimeout(timeoutId)
+        }
+      } else {
+        console.log('Attaching scroll listener to window')
+        // In normal mode, listen to window scroll
+        window.addEventListener('scroll', handleScroll, { passive: true })
+        return () => {
+          console.log('Removing scroll listener from window')
+          window.removeEventListener('scroll', handleScroll)
+        }
+      }
     }
-  }, [])
+
+    return setupScrollListener()
+  }, [previewActive])
 
   // Sequential pattern state for instant generation when detected
   const [sequentialPattern, setSequentialPattern] = useState<{ basePath: string; extension: string; pad: number } | null>(null)
@@ -74,10 +125,7 @@ const ImageScraper: React.FC = () => {
   const [showScrollButtons, setShowScrollButtons] = useState<boolean>(true)
   const [consecutiveMissThreshold, setConsecutiveMissThreshold] = useState<number>(3)
   const [chapterCount, setChapterCount] = useState<number>(1)
-  const [previewActive, setPreviewActive] = useState<boolean>(false)
   const [validateImages, setValidateImages] = useState<boolean>(false)
-  const [stickyArrowsVisible, setStickyArrowsVisible] = useState<boolean>(true)
-  const [lastScrollYMain, setLastScrollYMain] = useState<number>(0)
   // Tooltip open states for info buttons
   const [smartInfoOpen, setSmartInfoOpen] = useState<boolean>(false)
   const [fastInfoOpen, setFastInfoOpen] = useState<boolean>(false)
@@ -787,7 +835,6 @@ const ImageScraper: React.FC = () => {
           <div className={`fixed bottom-3 left-1/2 transform -translate-x-1/2 transition-all duration-300 ${
             stickyArrowsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
           }`} style={{ zIndex: previewActive ? 9999 : undefined }}>
-            {console.log('Sticky arrows visible state:', stickyArrowsVisible)}
             <div className="flex items-center space-x-2 bg-card/70 backdrop-blur-sm px-2 py-1.5 rounded-full shadow-md border border-border/50">
               <button
                 onClick={() => { handleChapterNavigation('prev'); scheduleUpArrow(1000); }}
