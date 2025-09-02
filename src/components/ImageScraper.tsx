@@ -581,36 +581,50 @@ const ImageScraper: React.FC = () => {
               <div className="space-y-4">
                 {/* Scraping Method */}
                 <div className="p-4 bg-accent/5 border border-accent/20 rounded-lg">
-                  <label className="text-sm font-medium text-foreground mb-3 block">Scraping Method</label>
-                  <div className="flex items-center space-x-2">
-                    <div className="flex items-center space-x-1 bg-input border border-border rounded-lg px-3 py-2 w-full">
-                      <button
-                        onClick={() => setScrapingMethod('smart')}
-                        className={`px-3 py-1 text-sm rounded-md border ${scrapingMethod === 'smart' ? 'bg-primary text-primary-foreground border-primary' : 'bg-transparent border-transparent text-foreground hover:border-primary/70'}`}
-                        disabled={isLoading}
-                        aria-label="Smart"
-                      >
-                        Smart
-                      </button>
+                  <label className="text-sm font-medium text-foreground mb-4 block text-center">Scraping Method</label>
+                  <div className="flex justify-center gap-4">
+                    <button
+                      onClick={() => setScrapingMethod('smart')}
+                      className={`flex-1 max-w-32 px-4 py-3 rounded-lg border-2 transition-all duration-200 ${
+                        scrapingMethod === 'smart' 
+                          ? 'bg-primary text-primary-foreground border-primary shadow-md' 
+                          : 'bg-card text-foreground border-border hover:border-primary/50 hover:bg-accent/20'
+                      }`}
+                      disabled={isLoading}
+                      aria-label="Smart scraping method"
+                    >
+                      <div className="text-center">
+                        <div className="font-semibold">Smart</div>
+                        <div className="text-xs mt-1 opacity-80">Thorough detection</div>
+                      </div>
+                    </button>
 
-                      <button
-                        onClick={() => setScrapingMethod('fast')}
-                        className={`px-3 py-1 text-sm rounded-md border ${scrapingMethod === 'fast' ? 'bg-primary text-primary-foreground border-primary' : 'bg-transparent border-transparent text-foreground hover:border-primary/70'}`}
-                        disabled={isLoading}
-                        aria-label="Fast"
-                      >
-                        Fast
-                      </button>
-
-                      <Tooltip open={smartInfoOpen || fastInfoOpen} onOpenChange={(open) => { setSmartInfoOpen(open); setFastInfoOpen(open); }}>
-                        <TooltipTrigger asChild>
-                          <button onClick={() => { setSmartInfoOpen(prev => !prev); setFastInfoOpen(prev => !prev); }} className="ml-2 w-6 h-6 rounded-full bg-muted/60 hover:bg-muted flex items-center justify-center text-muted-foreground" aria-label="Method info">
-                            <Info className="h-3 w-3" />
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent side="top">Smart: runs thorough DOM + JS detection. Fast: assumes sequential filenames and generates image URLs quickly.</TooltipContent>
-                      </Tooltip>
-                    </div>
+                    <button
+                      onClick={() => setScrapingMethod('fast')}
+                      className={`flex-1 max-w-32 px-4 py-3 rounded-lg border-2 transition-all duration-200 ${
+                        scrapingMethod === 'fast' 
+                          ? 'bg-primary text-primary-foreground border-primary shadow-md' 
+                          : 'bg-card text-foreground border-border hover:border-primary/50 hover:bg-accent/20'
+                      }`}
+                      disabled={isLoading}
+                      aria-label="Fast scraping method"
+                    >
+                      <div className="text-center">
+                        <div className="font-semibold">Fast</div>
+                        <div className="text-xs mt-1 opacity-80">Sequential URLs</div>
+                      </div>
+                    </button>
+                  </div>
+                  
+                  <div className="flex justify-center mt-3">
+                    <Tooltip open={smartInfoOpen || fastInfoOpen} onOpenChange={(open) => { setSmartInfoOpen(open); setFastInfoOpen(open); }}>
+                      <TooltipTrigger asChild>
+                        <button onClick={() => { setSmartInfoOpen(prev => !prev); setFastInfoOpen(prev => !prev); }} className="w-6 h-6 rounded-full bg-muted/60 hover:bg-muted flex items-center justify-center text-muted-foreground" aria-label="Method info">
+                          <Info className="h-4 w-4" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top">Smart: runs thorough DOM + JS detection. Fast: assumes sequential filenames and generates image URLs quickly.</TooltipContent>
+                    </Tooltip>
                   </div>
                 </div>
 
