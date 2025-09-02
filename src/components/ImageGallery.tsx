@@ -186,17 +186,17 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
           <div className="flex flex-col space-y-2">
             <button
               onClick={scrollToTop}
-              className="p-3 bg-card/90 text-foreground rounded-full hover:bg-card transition-colors shadow-lg"
+              className="p-4 bg-card/90 text-foreground rounded-full hover:bg-card transition-colors shadow-lg"
               title="Scroll to top"
             >
-              <ChevronUp className="h-6 w-6" />
+              <ChevronUp className="h-8 w-8" />
             </button>
             <button
               onClick={scrollToBottom}
-              className="p-3 bg-card/90 text-foreground rounded-full hover:bg-card transition-colors shadow-lg"
+              className="p-4 bg-card/90 text-foreground rounded-full hover:bg-card transition-colors shadow-lg"
               title="Scroll to bottom"
             >
-              <ChevronDown className="h-6 w-6" />
+              <ChevronDown className="h-8 w-8" />
             </button>
           </div>
         </div>

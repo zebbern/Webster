@@ -39,7 +39,7 @@ const ImageScraper: React.FC = () => {
   // New: scraping method and sticky arrows toggle
   const [scrapingMethod, setScrapingMethod] = useState<'smart' | 'fast'>('smart')
   const [stickyArrowsEnabled, setStickyArrowsEnabled] = useState<boolean>(true)
-  const [showScrollButtons, setShowScrollButtons] = useState<boolean>(false)
+  const [showScrollButtons, setShowScrollButtons] = useState<boolean>(true)
   const [consecutiveMissThreshold, setConsecutiveMissThreshold] = useState<number>(3)
   const [chapterCount, setChapterCount] = useState<number>(1)
   const [previewActive, setPreviewActive] = useState<boolean>(false)
