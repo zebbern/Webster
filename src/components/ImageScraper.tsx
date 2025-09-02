@@ -35,69 +35,40 @@ const ImageScraper: React.FC = () => {
     }
   }, [])
 
-  // Use ref to persist scroll position across effect reruns
-  const lastScrollRefPersistent = useRef<number>(0)
-
-  // Scroll detection for sticky arrows visibility
+  // Scroll detection for sticky arrows visibility (non-preview mode only)
   useEffect(() => {
+    if (previewActive) return // Let ImageGallery handle scroll in preview mode
+
     const handleScroll = () => {
-      let currentScrollY: number
-      let windowHeight: number
-      let documentHeight: number
-      
-      if (previewActive) {
-        // In preview mode, use the preview container's scroll
-        const previewContainer = document.getElementById('preview-overlay-scroll')
-        if (!previewContainer) return
-        currentScrollY = previewContainer.scrollTop
-        windowHeight = previewContainer.clientHeight
-        documentHeight = previewContainer.scrollHeight
-      } else {
-        // In normal mode, use window scroll
-        currentScrollY = window.scrollY
-        windowHeight = window.innerHeight
-        documentHeight = document.documentElement.scrollHeight
-      }
-      
+      const currentScrollY = window.scrollY
+      const windowHeight = window.innerHeight
+      const documentHeight = document.documentElement.scrollHeight
       const isAtBottom = currentScrollY + windowHeight >= documentHeight - 10 // 10px threshold
 
       // Show arrows when:
-      // 1. Scrolling up (currentScrollY < lastScrollRefPersistent.current)
+      // 1. Scrolling up (currentScrollY < lastScrollYMain)
       // 2. At the bottom of the page
       // 3. At the very top (currentScrollY < 50)
-      if (currentScrollY < lastScrollRefPersistent.current || isAtBottom || currentScrollY < 50) {
+      if (currentScrollY < lastScrollYMain || isAtBottom || currentScrollY < 50) {
         setStickyArrowsVisible(true)
-      } else if (currentScrollY > lastScrollRefPersistent.current) {
+      } else if (currentScrollY > lastScrollYMain) {
         // Hide arrows when scrolling down
         setStickyArrowsVisible(false)
       }
 
-      lastScrollRefPersistent.current = currentScrollY
       setLastScrollYMain(currentScrollY)
     }
 
-    // Small delay to ensure DOM elements are available
-    const setupScrollListener = () => {
-      if (previewActive) {
-        // In preview mode, listen to preview container scroll
-        const previewContainer = document.getElementById('preview-overlay-scroll')
-        if (previewContainer) {
-          previewContainer.addEventListener('scroll', handleScroll, { passive: true })
-          return () => previewContainer.removeEventListener('scroll', handleScroll)
-        } else {
-          // Retry after a short delay if container not found
-          const timeoutId = setTimeout(setupScrollListener, 100)
-          return () => clearTimeout(timeoutId)
-        }
-      } else {
-        // In normal mode, listen to window scroll
-        window.addEventListener('scroll', handleScroll, { passive: true })
-        return () => window.removeEventListener('scroll', handleScroll)
-      }
-    }
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [previewActive, lastScrollYMain])
 
-    return setupScrollListener()
-  }, [previewActive])
+  // Handle button visibility changes from ImageGallery in preview mode
+  const handleButtonVisibilityChange = (visible: boolean) => {
+    if (previewActive) {
+      setStickyArrowsVisible(visible)
+    }
+  }
 
   // Sequential pattern state for instant generation when detected
   const [sequentialPattern, setSequentialPattern] = useState<{ basePath: string; extension: string; pad: number } | null>(null)
@@ -859,7 +830,15 @@ const ImageScraper: React.FC = () => {
 
         {/* Image Gallery */}
         {images.length > 0 && (
-          <ImageGallery images={images} websiteUrl={url} onImageError={handleRemoveImageOnError} onPreviewChange={setPreviewActive} showScrollButtons={showScrollButtons} initialPreviewMode={previewActive} />
+          <ImageGallery 
+            images={images} 
+            websiteUrl={url} 
+            onImageError={handleRemoveImageOnError} 
+            onPreviewChange={setPreviewActive} 
+            onButtonVisibilityChange={handleButtonVisibilityChange}
+            showScrollButtons={showScrollButtons} 
+            initialPreviewMode={previewActive} 
+          />
         )}
       </div>
 
@@ -874,7 +853,7 @@ const ImageScraper: React.FC = () => {
           }`} style={{ zIndex: previewActive ? 9999 : undefined }}>
             <div className="flex items-center space-x-2 bg-card/70 backdrop-blur-sm px-2 py-1.5 rounded-full shadow-md border border-border/50">
               <button
-                onClick={() => { handleChapterNavigation('prev'); scheduleUpArrow(1000); }}
+                onClick={() => handleChapterNavigation('prev')}
                 disabled={!navState.canGoPrev || isLoading}
                 className={`p-3 rounded-full border transition-colors flex items-center justify-center ${
                   navState.canGoPrev && !isLoading
@@ -886,7 +865,7 @@ const ImageScraper: React.FC = () => {
                 <ChevronLeft className="h-6 w-6" />
               </button>
               <button
-                onClick={() => { handleChapterNavigation('next'); scheduleUpArrow(500); }}
+                onClick={() => handleChapterNavigation('next')}
                 disabled={!navState.canGoNext || isLoading}
                 className={`p-3 rounded-full border transition-colors flex items-center justify-center ${
                   navState.canGoNext && !isLoading

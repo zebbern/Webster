@@ -12,11 +12,12 @@ interface ImageGalleryProps {
   websiteUrl?: string
   onImageError?: (url: string) => void
   onPreviewChange?: (active: boolean) => void
+  onButtonVisibilityChange?: (visible: boolean) => void
   showScrollButtons?: boolean
   initialPreviewMode?: boolean
 }
 
-const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', onImageError, onPreviewChange, showScrollButtons = false, initialPreviewMode = false }) => {
+const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', onImageError, onPreviewChange, onButtonVisibilityChange, showScrollButtons = false, initialPreviewMode = false }) => {
   const [selectedImage, setSelectedImage] = useState<ScrapedImage | null>(null)
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null)
   const [downloadingAll, setDownloadingAll] = useState(false)
@@ -74,11 +75,14 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
       // 1. Scrolling up (currentScrollY < lastScrollY)
       // 2. At the bottom of the page
       // 3. At the very top (currentScrollY < 50)
+      const newVisible = currentScrollY < lastScrollY || isAtBottom || currentScrollY < 50
       if (currentScrollY < lastScrollY || isAtBottom || currentScrollY < 50) {
         setButtonsVisible(true)
+        onButtonVisibilityChange?.(true)
       } else if (currentScrollY > lastScrollY) {
         // Hide buttons when scrolling down
         setButtonsVisible(false)
+        onButtonVisibilityChange?.(false)
       }
 
       setLastScrollY(currentScrollY)
