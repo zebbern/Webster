@@ -47,20 +47,15 @@ const ImageScraper: React.FC = () => {
       if (previewActive) {
         // In preview mode, use the preview container's scroll
         const previewContainer = document.getElementById('preview-overlay-scroll')
-        if (!previewContainer) {
-          console.log('Preview container not found')
-          return
-        }
+        if (!previewContainer) return
         currentScrollY = previewContainer.scrollTop
         windowHeight = previewContainer.clientHeight
         documentHeight = previewContainer.scrollHeight
-        console.log('Preview mode scroll:', { currentScrollY, lastScrollRef, windowHeight, documentHeight })
       } else {
         // In normal mode, use window scroll
         currentScrollY = window.scrollY
         windowHeight = window.innerHeight
         documentHeight = document.documentElement.scrollHeight
-        console.log('Normal mode scroll:', { currentScrollY, lastScrollRef })
       }
       
       const isAtBottom = currentScrollY + windowHeight >= documentHeight - 10 // 10px threshold
@@ -70,11 +65,9 @@ const ImageScraper: React.FC = () => {
       // 2. At the bottom of the page
       // 3. At the very top (currentScrollY < 50)
       if (currentScrollY < lastScrollRef || isAtBottom || currentScrollY < 50) {
-        console.log('Showing arrows - scroll up or at bottom/top')
         setStickyArrowsVisible(true)
       } else if (currentScrollY > lastScrollRef) {
         // Hide arrows when scrolling down
-        console.log('Hiding arrows - scrolling down')
         setStickyArrowsVisible(false)
       }
 
@@ -84,31 +77,21 @@ const ImageScraper: React.FC = () => {
 
     // Small delay to ensure DOM elements are available
     const setupScrollListener = () => {
-      console.log('Setting up scroll listener, previewActive:', previewActive)
       if (previewActive) {
         // In preview mode, listen to preview container scroll
         const previewContainer = document.getElementById('preview-overlay-scroll')
         if (previewContainer) {
-          console.log('Attaching scroll listener to preview container')
           previewContainer.addEventListener('scroll', handleScroll, { passive: true })
-          return () => {
-            console.log('Removing scroll listener from preview container')
-            previewContainer.removeEventListener('scroll', handleScroll)
-          }
+          return () => previewContainer.removeEventListener('scroll', handleScroll)
         } else {
-          console.log('Preview container not found, retrying in 100ms')
           // Retry after a short delay if container not found
           const timeoutId = setTimeout(setupScrollListener, 100)
           return () => clearTimeout(timeoutId)
         }
       } else {
-        console.log('Attaching scroll listener to window')
         // In normal mode, listen to window scroll
         window.addEventListener('scroll', handleScroll, { passive: true })
-        return () => {
-          console.log('Removing scroll listener from window')
-          window.removeEventListener('scroll', handleScroll)
-        }
+        return () => window.removeEventListener('scroll', handleScroll)
       }
     }
 
@@ -512,7 +495,7 @@ const ImageScraper: React.FC = () => {
                       }`}
                       title={`Previous chapter (${chapterInfo.chapterNumber - 1})`}
                     >
-                      <ChevronLeft className="h-5 w-5" />
+                      <ChevronLeft className="h-6 w-6" />
                     </button>
 
                     <Tooltip open={navInfoOpen} onOpenChange={setNavInfoOpen}>
@@ -538,7 +521,7 @@ const ImageScraper: React.FC = () => {
                       }`}
                       title={`Next chapter (${chapterInfo.chapterNumber + 1})`}
                     >
-                      <ChevronRight className="h-5 w-5" />
+                      <ChevronRight className="h-6 w-6" />
                     </button>
                   </div>
                 </div>
@@ -822,7 +805,7 @@ const ImageScraper: React.FC = () => {
 
         {/* Image Gallery */}
         {images.length > 0 && (
-          <ImageGallery images={images} websiteUrl={url} onImageError={handleRemoveImageOnError} onPreviewChange={setPreviewActive} showScrollButtons={showScrollButtons} />
+          <ImageGallery images={images} websiteUrl={url} onImageError={handleRemoveImageOnError} onPreviewChange={setPreviewActive} showScrollButtons={showScrollButtons} initialPreviewMode={previewActive} />
         )}
       </div>
 
@@ -839,26 +822,26 @@ const ImageScraper: React.FC = () => {
               <button
                 onClick={() => { handleChapterNavigation('prev'); scheduleUpArrow(1000); }}
                 disabled={!navState.canGoPrev || isLoading}
-                className={`p-2.5 rounded-full border transition-colors flex items-center justify-center ${
+                className={`p-3 rounded-full border transition-colors flex items-center justify-center ${
                   navState.canGoPrev && !isLoading
                     ? 'bg-card/80 border-border/60 hover:bg-accent text-foreground'
                     : 'bg-muted/60 border-muted text-muted-foreground cursor-not-allowed'
                 }`}
                 title={`Previous chapter`}
               >
-                <ChevronLeft className="h-5 w-5" />
+                <ChevronLeft className="h-6 w-6" />
               </button>
               <button
                 onClick={() => { handleChapterNavigation('next'); scheduleUpArrow(500); }}
                 disabled={!navState.canGoNext || isLoading}
-                className={`p-2.5 rounded-full border transition-colors flex items-center justify-center ${
+                className={`p-3 rounded-full border transition-colors flex items-center justify-center ${
                   navState.canGoNext && !isLoading
                     ? 'bg-card/80 border-border/60 hover:bg-accent text-foreground'
                     : 'bg-muted/60 border-muted text-muted-foreground cursor-not-allowed'
                 }`}
                 title={`Next chapter`}
               >
-                <ChevronRight className="h-5 w-5" />
+                <ChevronRight className="h-6 w-6" />
               </button>
             </div>
           </div>

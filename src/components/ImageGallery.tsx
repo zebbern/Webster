@@ -12,14 +12,15 @@ interface ImageGalleryProps {
   onImageError?: (url: string) => void
   onPreviewChange?: (active: boolean) => void
   showScrollButtons?: boolean
+  initialPreviewMode?: boolean
 }
 
-const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', onImageError, onPreviewChange, showScrollButtons = false }) => {
+const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', onImageError, onPreviewChange, showScrollButtons = false, initialPreviewMode = false }) => {
   const [selectedImage, setSelectedImage] = useState<ScrapedImage | null>(null)
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null)
   const [downloadingAll, setDownloadingAll] = useState(false)
   const [exportingHTML, setExportingHTML] = useState(false)
-  const [previewMode, setPreviewMode] = useState(false)
+  const [previewMode, setPreviewMode] = useState(initialPreviewMode)
   const [scrollInfoOpen, setScrollInfoOpen] = useState<boolean>(false)
   const [buttonsVisible, setButtonsVisible] = useState<boolean>(true)
   const [lastScrollY, setLastScrollY] = useState<number>(0)
@@ -27,6 +28,11 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
   useEffect(() => {
     onPreviewChange?.(previewMode)
   }, [previewMode, onPreviewChange])
+
+  // Update preview mode when initialPreviewMode changes
+  useEffect(() => {
+    setPreviewMode(initialPreviewMode)
+  }, [initialPreviewMode])
 
   // Keyboard navigation for preview mode
   useEffect(() => {
