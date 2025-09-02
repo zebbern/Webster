@@ -21,7 +21,6 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
   const [downloadingAll, setDownloadingAll] = useState(false)
   const [exportingHTML, setExportingHTML] = useState(false)
   const [previewMode, setPreviewMode] = useState(initialPreviewMode)
-  const [scrollInfoOpen, setScrollInfoOpen] = useState<boolean>(false)
   const [buttonsVisible, setButtonsVisible] = useState<boolean>(true)
   const [lastScrollY, setLastScrollY] = useState<number>(0)
 
@@ -177,18 +176,6 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
         <div className={`fixed right-4 bottom-6 z-50 flex flex-col items-end space-y-2 transition-all duration-300 ${
           buttonsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}>
-          <div className="flex items-center space-x-2 mb-1">
-            <Tooltip open={scrollInfoOpen} onOpenChange={setScrollInfoOpen}>
-              <TooltipTrigger asChild>
-                <button onClick={() => setScrollInfoOpen(prev => !prev)} className="w-8 h-8 rounded-full bg-muted/50 hover:bg-muted flex items-center justify-center text-muted-foreground" aria-label="Scroll buttons info">
-                  <Info className="h-4 w-4" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="left">
-                Quick scroll controls for preview mode: jump to top or bottom of the preview overlay.
-              </TooltipContent>
-            </Tooltip>
-          </div>
           <div className="flex flex-col space-y-2">
             <button
               onClick={scrollToTop}
