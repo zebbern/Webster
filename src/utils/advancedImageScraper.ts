@@ -74,6 +74,8 @@ export interface ScrapeOptions {
   chapterCount?: number
   // Callback for live image insertion
   onNewImage?: (image: ScrapedImage) => void
+  // Whether to validate images with HEAD requests (default false)
+  validateImages?: boolean
 }
 
 const DEFAULT_KEEP_ALIVE_MS = 8000
@@ -95,6 +97,7 @@ export const scrapeImages = async (
   const preferSequenceOnly = !!options.preferSequenceOnly
   const consecutiveMissThreshold = options.consecutiveMissThreshold ?? DEFAULT_CONSECUTIVE_MISS_THRESHOLD
   const chapterCount = options.chapterCount ?? 1
+  const validateImages = options.validateImages ?? false
 
   // Validate URL
   try {
@@ -214,29 +217,63 @@ export const scrapeImages = async (
             }
           }
 
-          // Process batch in parallel
-          const batchPromises = batch.map(async (candidate) => {
-            try {
-              const res = await fetchData(candidate, 'HEAD', signal)
-              const status = res?.status ?? 200
-              return { candidate, success: status < 400 }
-            } catch (err) {
-              return { candidate, success: false }
-            }
-          })
+          if (validateImages) {
+            // Original validation approach
+            const batchPromises = batch.map(async (candidate) => {
+              try {
+                const res = await fetchData(candidate, 'HEAD', signal)
+                const status = res?.status ?? 200
+                return { candidate, success: status < 400 }
+              } catch (err) {
+                return { candidate, success: false }
+              }
+            })
 
-          const batchResults = await Promise.all(batchPromises)
-          let batchHasSuccess = false
-          
-          for (const result of batchResults) {
-            if (result.success) {
+            const batchResults = await Promise.all(batchPromises)
+            let batchHasSuccess = false
+            
+            for (const result of batchResults) {
+              if (result.success) {
+                batchHasSuccess = true
+                consecutiveMisses = 0
+                chapterImageCount++
+                seenUrls.add(result.candidate)
+                
+                const newImage: ScrapedImage = { 
+                  url: result.candidate, 
+                  type: extension, 
+                  source: 'static', 
+                  alt: `Image from ${new URL(chapterUrl).hostname} - Chapter ${currentChapter}` 
+                }
+                images.push(newImage)
+
+                // Live insertion
+                onNewImage?.(newImage)
+                onProgress?.({ 
+                  stage: 'scanning', 
+                  processed: images.length, 
+                  total: DEFAULT_SEQ_MAX * chapterCount, 
+                  found: images.length, 
+                  currentUrl: result.candidate, 
+                  image: newImage 
+                })
+              }
+            }
+
+            if (!batchHasSuccess) {
+              consecutiveMisses += BATCH_SIZE
+            }
+          } else {
+            // No validation - just add all candidates directly
+            let batchHasSuccess = false
+            for (const candidate of batch) {
               batchHasSuccess = true
               consecutiveMisses = 0
               chapterImageCount++
-              seenUrls.add(result.candidate)
+              seenUrls.add(candidate)
               
               const newImage: ScrapedImage = { 
-                url: result.candidate, 
+                url: candidate, 
                 type: extension, 
                 source: 'static', 
                 alt: `Image from ${new URL(chapterUrl).hostname} - Chapter ${currentChapter}` 
@@ -250,14 +287,14 @@ export const scrapeImages = async (
                 processed: images.length, 
                 total: DEFAULT_SEQ_MAX * chapterCount, 
                 found: images.length, 
-                currentUrl: result.candidate, 
+                currentUrl: candidate, 
                 image: newImage 
               })
             }
-          }
 
-          if (!batchHasSuccess) {
-            consecutiveMisses += BATCH_SIZE
+            if (!batchHasSuccess) {
+              consecutiveMisses += BATCH_SIZE
+            }
           }
 
           currentIndex += BATCH_SIZE

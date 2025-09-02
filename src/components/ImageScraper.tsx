@@ -43,12 +43,14 @@ const ImageScraper: React.FC = () => {
   const [consecutiveMissThreshold, setConsecutiveMissThreshold] = useState<number>(3)
   const [chapterCount, setChapterCount] = useState<number>(1)
   const [previewActive, setPreviewActive] = useState<boolean>(false)
+  const [validateImages, setValidateImages] = useState<boolean>(false)
   // Tooltip open states for info buttons
   const [smartInfoOpen, setSmartInfoOpen] = useState<boolean>(false)
   const [fastInfoOpen, setFastInfoOpen] = useState<boolean>(false)
   const [navInfoOpen, setNavInfoOpen] = useState<boolean>(false)
   const [missInfoOpen, setMissInfoOpen] = useState<boolean>(false)
   const [chapterInfoOpen, setChapterInfoOpen] = useState<boolean>(false)
+  const [validateInfoOpen, setValidateInfoOpen] = useState<boolean>(false)
 
   const availableFileTypes = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'tiff', 'ico']
 
@@ -297,7 +299,8 @@ const ImageScraper: React.FC = () => {
         onNewImage: handleNewImage,
         signal: abortControllerRef.current.signal,
         consecutiveMissThreshold,
-        chapterCount
+        chapterCount,
+        validateImages
       }
 
       if (scrapingMethod === 'fast') {
@@ -594,6 +597,38 @@ const ImageScraper: React.FC = () => {
                       </button>
                     </TooltipTrigger>
                     <TooltipContent side="top">Number of chapters to fetch in a single action when navigating. Use higher values to batch multiple chapters at once.</TooltipContent>
+                  </Tooltip>
+                </div>
+              </div>
+
+              {/* Image Validation Toggle */}
+              <div className="flex items-center space-x-3">
+                <div className="text-sm text-muted-foreground w-24 flex-shrink-0">Validation:</div>
+                <div className="relative flex items-center">
+                  <input
+                    type="checkbox"
+                    id="validateImages"
+                    checked={validateImages}
+                    onChange={(e) => setValidateImages(e.target.checked)}
+                    className="w-4 h-4 text-primary bg-input border-border rounded focus:ring-primary focus:ring-2"
+                    disabled={isLoading}
+                  />
+                  <label htmlFor="validateImages" className="ml-2 text-sm text-foreground cursor-pointer">
+                    Validate images
+                  </label>
+                  
+                  <Tooltip open={validateInfoOpen} onOpenChange={setValidateInfoOpen}>
+                    <TooltipTrigger asChild>
+                      <button onClick={() => setValidateInfoOpen(prev => !prev)} className="ml-2 w-4 h-4 rounded-full bg-muted/60 hover:bg-muted flex items-center justify-center text-muted-foreground" aria-label="Validation info">
+                        <Info className="h-3 w-3" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      <div className="text-xs max-w-48">
+                        <div className="font-medium mb-1">Image Validation</div>
+                        <div>When enabled, checks if each image exists before adding (more requests). When disabled, adds all discovered images directly (faster, fewer requests).</div>
+                      </div>
+                    </TooltipContent>
                   </Tooltip>
                 </div>
               </div>
