@@ -32,6 +32,32 @@ const ImageScraper: React.FC = () => {
     }
   }, [])
 
+  // Scroll detection for sticky arrows visibility
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY
+      const windowHeight = window.innerHeight
+      const documentHeight = document.documentElement.scrollHeight
+      const isAtBottom = currentScrollY + windowHeight >= documentHeight - 10 // 10px threshold
+
+      // Show arrows when:
+      // 1. Scrolling up (currentScrollY < lastScrollYMain)
+      // 2. At the bottom of the page
+      // 3. At the very top (currentScrollY < 50)
+      if (currentScrollY < lastScrollYMain || isAtBottom || currentScrollY < 50) {
+        setStickyArrowsVisible(true)
+      } else if (currentScrollY > lastScrollYMain) {
+        // Hide arrows when scrolling down
+        setStickyArrowsVisible(false)
+      }
+
+      setLastScrollYMain(currentScrollY)
+    }
+
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [lastScrollYMain])
+
   // Sequential pattern state for instant generation when detected
   const [sequentialPattern, setSequentialPattern] = useState<{ basePath: string; extension: string; pad: number } | null>(null)
   const [lastPageUrl, setLastPageUrl] = useState<string | null>(null)
@@ -44,6 +70,8 @@ const ImageScraper: React.FC = () => {
   const [chapterCount, setChapterCount] = useState<number>(1)
   const [previewActive, setPreviewActive] = useState<boolean>(false)
   const [validateImages, setValidateImages] = useState<boolean>(false)
+  const [stickyArrowsVisible, setStickyArrowsVisible] = useState<boolean>(true)
+  const [lastScrollYMain, setLastScrollYMain] = useState<number>(0)
   // Tooltip open states for info buttons
   const [smartInfoOpen, setSmartInfoOpen] = useState<boolean>(false)
   const [fastInfoOpen, setFastInfoOpen] = useState<boolean>(false)
@@ -750,31 +778,33 @@ const ImageScraper: React.FC = () => {
         const navState = getNavigationState(url)
         if (!chapterInfo.hasChapter) return null
         return (
-          <div className="fixed bottom-3 left-1/2 transform -translate-x-1/2" style={{ zIndex: previewActive ? 9999 : undefined }}>
+          <div className={`fixed bottom-3 left-1/2 transform -translate-x-1/2 transition-all duration-300 ${
+            stickyArrowsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
+          }`} style={{ zIndex: previewActive ? 9999 : undefined }}>
             <div className="flex items-center space-x-2 bg-card/70 backdrop-blur-sm px-2 py-1.5 rounded-full shadow-md border border-border/50">
               <button
                 onClick={() => { handleChapterNavigation('prev'); scheduleUpArrow(1000); }}
                 disabled={!navState.canGoPrev || isLoading}
-                className={`p-1.5 rounded-full border transition-colors flex items-center justify-center ${
+                className={`p-2.5 rounded-full border transition-colors flex items-center justify-center ${
                   navState.canGoPrev && !isLoading
                     ? 'bg-card/80 border-border/60 hover:bg-accent text-foreground'
                     : 'bg-muted/60 border-muted text-muted-foreground cursor-not-allowed'
                 }`}
                 title={`Previous chapter`}
               >
-                <ChevronLeft className="h-3.5 w-3.5" />
+                <ChevronLeft className="h-5 w-5" />
               </button>
               <button
                 onClick={() => { handleChapterNavigation('next'); scheduleUpArrow(500); }}
                 disabled={!navState.canGoNext || isLoading}
-                className={`p-1.5 rounded-full border transition-colors flex items-center justify-center ${
+                className={`p-2.5 rounded-full border transition-colors flex items-center justify-center ${
                   navState.canGoNext && !isLoading
                     ? 'bg-card/80 border-border/60 hover:bg-accent text-foreground'
                     : 'bg-muted/60 border-muted text-muted-foreground cursor-not-allowed'
                 }`}
                 title={`Next chapter`}
               >
-                <ChevronRight className="h-3.5 w-3.5" />
+                <ChevronRight className="h-5 w-5" />
               </button>
             </div>
           </div>
