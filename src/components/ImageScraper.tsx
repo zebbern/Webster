@@ -469,111 +469,117 @@ const ImageScraper: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Controls */}
         <div className="bg-card rounded-xl shadow-sm border border-border p-6 mb-8">
-          {/* URL Input */}
+          {/* URL Input Section */}
           <div className="mb-6">
-            <label className="block text-sm font-medium text-foreground mb-2">
+            <label className="block text-sm font-medium text-foreground mb-4 text-center">
               Website URL
-              <span className="ml-2 text-xs text-muted-foreground font-normal">
-                (Works best with manga/comic sites and image galleries)
+              <span className="block text-xs text-muted-foreground font-normal mt-1">
+                Works best with manga/comic sites and image galleries
               </span>
             </label>
 
-            {/* Navigation arrows and chapter controls - each on its own left-aligned line */}
-            {(() => {
-              const navState = getNavigationState(url)
-              const chapterInfo = parseChapterFromUrl(url)
-              return chapterInfo.hasChapter ? (
-                <div className="mb-3">
-                  <div className="flex items-center space-x-3">
+            <div className="space-y-4">
+              {/* URL Input Field */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <input
+                  type="url"
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  placeholder="https://example.com/chapter-0"
+                  className="w-full pl-10 pr-4 py-3 bg-input border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-foreground placeholder:text-muted-foreground"
+                  disabled={isLoading}
+                />
+              </div>
+
+              {/* Chapter Navigation */}
+              {(() => {
+                const navState = getNavigationState(url)
+                const chapterInfo = parseChapterFromUrl(url)
+                return chapterInfo.hasChapter ? (
+                  <div className="flex items-center justify-center space-x-3 p-3 bg-accent/10 border border-accent/20 rounded-lg">
                     <button
                       onClick={() => handleChapterNavigation('prev')}
                       disabled={!navState.canGoPrev || isLoading}
-                      className={`p-3 rounded-lg border transition-colors flex items-center justify-center ${
+                      className={`p-2 rounded-lg border transition-colors flex items-center justify-center ${
                         navState.canGoPrev && !isLoading
                           ? 'bg-card border-border hover:bg-accent text-foreground'
                           : 'bg-muted border-muted text-muted-foreground cursor-not-allowed'
                       }`}
                       title={`Previous chapter (${chapterInfo.chapterNumber - 1})`}
                     >
-                      <ChevronLeft className="h-6 w-6" />
+                      <ChevronLeft className="h-5 w-5" />
                     </button>
 
-                    <Tooltip open={navInfoOpen} onOpenChange={setNavInfoOpen}>
-                      <TooltipTrigger asChild>
-                        <button onClick={() => setNavInfoOpen(prev => !prev)} className="w-8 h-8 rounded-full bg-muted/50 hover:bg-muted flex items-center justify-center text-muted-foreground" aria-label="Navigation info">
-                          <Info className="h-4 w-4" />
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent side="top">
-                        Use the chapter navigation buttons to jump between detected chapters. The scraper will fetch the specified number of chapters per click.
-                      </TooltipContent>
-                    </Tooltip>
-
-                    <div className="flex-1" />
+                    <div className="flex items-center space-x-2 text-sm text-foreground">
+                      <span>Chapter {chapterInfo.chapterNumber}</span>
+                      <Tooltip open={navInfoOpen} onOpenChange={setNavInfoOpen}>
+                        <TooltipTrigger asChild>
+                          <button onClick={() => setNavInfoOpen(prev => !prev)} className="w-5 h-5 rounded-full bg-muted/60 hover:bg-muted flex items-center justify-center text-muted-foreground" aria-label="Navigation info">
+                            <Info className="h-3 w-3" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top">
+                          Use the chapter navigation buttons to jump between detected chapters. The scraper will fetch the specified number of chapters per click.
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
 
                     <button
                       onClick={() => handleChapterNavigation('next')}
                       disabled={!navState.canGoNext || isLoading}
-                      className={`p-3 rounded-lg border transition-colors flex items-center justify-center ${
+                      className={`p-2 rounded-lg border transition-colors flex items-center justify-center ${
                         navState.canGoNext && !isLoading
                           ? 'bg-card border-border hover:bg-accent text-foreground'
                           : 'bg-muted border-muted text-muted-foreground cursor-not-allowed'
                       }`}
                       title={`Next chapter (${chapterInfo.chapterNumber + 1})`}
                     >
-                      <ChevronRight className="h-6 w-6" />
+                      <ChevronRight className="h-5 w-5" />
                     </button>
                   </div>
-                </div>
-              ) : null
-            })()}
+                ) : null
+              })()}
 
-            <div className="relative mb-3">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-              <input
-                type="url"
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                placeholder="https://example.com/chapter-0"
-                className="w-full pl-10 pr-4 py-3 bg-input border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-foreground placeholder:text-muted-foreground"
-                disabled={isLoading}
-              />
+              {/* Start/Stop Button */}
+              <div className="flex justify-center">
+                {!isLoading ? (
+                  <button
+                    onClick={handleScrape}
+                    className="px-8 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-medium flex items-center space-x-2 text-base"
+                    aria-label="Start Scraping"
+                  >
+                    <Search className="h-5 w-5" />
+                    <span>Start Scraping</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleStop}
+                    className="px-8 py-3 bg-destructive text-destructive-foreground rounded-lg hover:bg-destructive/90 transition-colors font-medium flex items-center space-x-2 text-base"
+                  >
+                    <span>Stop Scraping</span>
+                  </button>
+                )}
+              </div>
             </div>
-
-            <div className="mb-3">
-              {!isLoading ? (
-                <button
-                  onClick={handleScrape}
-                  className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-medium flex items-center justify-center"
-                  aria-label="Scrape Images"
-                >
-                  <Search className="h-5 w-5" />
-                </button>
-              ) : (
-                <button
-                  onClick={handleStop}
-                  className="px-6 py-3 bg-destructive text-destructive-foreground rounded-lg hover:bg-destructive/90 transition-colors font-medium flex items-center space-x-2"
-                >
-                  <span>Stop</span>
-                </button>
-              )}
-            </div>
-
-            {/* Chapter Info Display */}
-            {(() => {
-              const chapterInfo = parseChapterFromUrl(url)
-              return chapterInfo.hasChapter ? (
-                <div className="mt-2 text-sm text-muted-foreground">
-                  <div>📖</div>
-                  <div>Chapter {chapterInfo.chapterNumber} detected - Will fetch {chapterCount} chapter(s) per navigation</div>
-                </div>
-              ) : null
-            })()}
           </div>
 
           {/* Configuration Options */}
           <div className="mb-6">
             <h3 className="text-lg font-semibold text-foreground mb-4">Configuration</h3>
+            
+            {/* Current Settings Display */}
+            {(() => {
+              const chapterInfo = parseChapterFromUrl(url)
+              return chapterInfo.hasChapter ? (
+                <div className="mb-6 p-3 bg-accent/10 border border-accent/20 rounded-lg text-center">
+                  <div className="flex items-center justify-center space-x-2 text-sm text-foreground">
+                    <span>📖</span>
+                    <span>Chapter {chapterInfo.chapterNumber} detected - Will fetch {chapterCount} chapter(s) per navigation</span>
+                  </div>
+                </div>
+              ) : null
+            })()}
             
             {/* Main Settings Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
@@ -583,48 +589,69 @@ const ImageScraper: React.FC = () => {
                 <div className="p-4 bg-accent/5 border border-accent/20 rounded-lg">
                   <label className="text-sm font-medium text-foreground mb-4 block text-center">Scraping Method</label>
                   <div className="flex justify-center gap-4">
-                    <button
-                      onClick={() => setScrapingMethod('smart')}
-                      className={`flex-1 max-w-32 px-4 py-3 rounded-lg border-2 transition-all duration-200 ${
-                        scrapingMethod === 'smart' 
-                          ? 'bg-primary text-primary-foreground border-primary shadow-md' 
-                          : 'bg-card text-foreground border-border hover:border-primary/50 hover:bg-accent/20'
-                      }`}
-                      disabled={isLoading}
-                      aria-label="Smart scraping method"
-                    >
-                      <div className="text-center">
-                        <div className="font-semibold">Smart</div>
-                        <div className="text-xs mt-1 opacity-80">Thorough detection</div>
-                      </div>
-                    </button>
+                    <div className={`relative flex-1 max-w-32 rounded-lg border-2 transition-all duration-200 ${
+                      scrapingMethod === 'smart' 
+                        ? 'bg-primary text-primary-foreground border-primary shadow-md' 
+                        : 'bg-card text-foreground border-border hover:border-primary/50 hover:bg-accent/20'
+                    }`}>
+                      <button
+                        onClick={() => setScrapingMethod('smart')}
+                        className="w-full px-4 py-3 rounded-lg"
+                        disabled={isLoading}
+                        aria-label="Smart scraping method"
+                      >
+                        <div className="text-center">
+                          <div className="font-semibold">Smart</div>
+                          <div className="text-xs mt-1 opacity-80">Thorough detection</div>
+                        </div>
+                      </button>
+                      <Tooltip open={smartInfoOpen} onOpenChange={setSmartInfoOpen}>
+                        <TooltipTrigger asChild>
+                          <button 
+                            onClick={() => setSmartInfoOpen(prev => !prev)} 
+                            className={`absolute top-1 right-1 w-4 h-4 rounded-full flex items-center justify-center text-xs ${
+                              scrapingMethod === 'smart' ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-muted/60 text-muted-foreground hover:bg-muted'
+                            }`}
+                            aria-label="Smart method info"
+                          >
+                            <Info className="h-3 w-3" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top">Runs thorough DOM + JS detection to find all images on the page.</TooltipContent>
+                      </Tooltip>
+                    </div>
 
-                    <button
-                      onClick={() => setScrapingMethod('fast')}
-                      className={`flex-1 max-w-32 px-4 py-3 rounded-lg border-2 transition-all duration-200 ${
-                        scrapingMethod === 'fast' 
-                          ? 'bg-primary text-primary-foreground border-primary shadow-md' 
-                          : 'bg-card text-foreground border-border hover:border-primary/50 hover:bg-accent/20'
-                      }`}
-                      disabled={isLoading}
-                      aria-label="Fast scraping method"
-                    >
-                      <div className="text-center">
-                        <div className="font-semibold">Fast</div>
-                        <div className="text-xs mt-1 opacity-80">Sequential URLs</div>
-                      </div>
-                    </button>
-                  </div>
-                  
-                  <div className="flex justify-center mt-3">
-                    <Tooltip open={smartInfoOpen || fastInfoOpen} onOpenChange={(open) => { setSmartInfoOpen(open); setFastInfoOpen(open); }}>
-                      <TooltipTrigger asChild>
-                        <button onClick={() => { setSmartInfoOpen(prev => !prev); setFastInfoOpen(prev => !prev); }} className="w-6 h-6 rounded-full bg-muted/60 hover:bg-muted flex items-center justify-center text-muted-foreground" aria-label="Method info">
-                          <Info className="h-4 w-4" />
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent side="top">Smart: runs thorough DOM + JS detection. Fast: assumes sequential filenames and generates image URLs quickly.</TooltipContent>
-                    </Tooltip>
+                    <div className={`relative flex-1 max-w-32 rounded-lg border-2 transition-all duration-200 ${
+                      scrapingMethod === 'fast' 
+                        ? 'bg-primary text-primary-foreground border-primary shadow-md' 
+                        : 'bg-card text-foreground border-border hover:border-primary/50 hover:bg-accent/20'
+                    }`}>
+                      <button
+                        onClick={() => setScrapingMethod('fast')}
+                        className="w-full px-4 py-3 rounded-lg"
+                        disabled={isLoading}
+                        aria-label="Fast scraping method"
+                      >
+                        <div className="text-center">
+                          <div className="font-semibold">Fast</div>
+                          <div className="text-xs mt-1 opacity-80">Sequential URLs</div>
+                        </div>
+                      </button>
+                      <Tooltip open={fastInfoOpen} onOpenChange={setFastInfoOpen}>
+                        <TooltipTrigger asChild>
+                          <button 
+                            onClick={() => setFastInfoOpen(prev => !prev)} 
+                            className={`absolute top-1 right-1 w-4 h-4 rounded-full flex items-center justify-center text-xs ${
+                              scrapingMethod === 'fast' ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-muted/60 text-muted-foreground hover:bg-muted'
+                            }`}
+                            aria-label="Fast method info"
+                          >
+                            <Info className="h-3 w-3" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top">Assumes sequential filenames and generates image URLs quickly without page analysis.</TooltipContent>
+                      </Tooltip>
+                    </div>
                   </div>
                 </div>
 
