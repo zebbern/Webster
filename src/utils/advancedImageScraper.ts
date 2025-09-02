@@ -82,7 +82,7 @@ export interface ScrapeOptions {
 const DEFAULT_KEEP_ALIVE_MS = 8000
 const DEFAULT_POLL_INTERVAL_MS = 1500
 const DEFAULT_MAX_IDLE_SCANS = 3
-const DEFAULT_SEQ_MAX = 50
+const DEFAULT_SEQ_MAX = 500
 const DEFAULT_CONSECUTIVE_MISS_THRESHOLD = 3
 
 // Real web scraping using only direct HTML fetch
@@ -199,8 +199,8 @@ export const scrapeImages = async (
       if (seqInfo) {
         const { basePath, extension, pad } = seqInfo
         
-        // Process images in parallel batches for much faster validation
-        const BATCH_SIZE = 10
+        // Process images in smaller batches for server-friendly validation
+        const BATCH_SIZE = 3
         let consecutiveMisses = 0
         let chapterImageCount = 0
         let currentIndex = 1
@@ -558,7 +558,7 @@ function generateSequentialImages(patterns: Set<string>): string[] {
   
   patterns.forEach(pattern => {
     const [basePath, extension] = pattern.split('###.')
-    for (let i = 1; i <= 50; i++) {
+    for (let i = 1; i <= DEFAULT_SEQ_MAX; i++) {
       const paddedNumber = i.toString().padStart(3, '0')
       const url = `${basePath}${paddedNumber}.${extension}`
       additionalUrls.push(url)

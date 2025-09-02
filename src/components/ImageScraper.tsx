@@ -141,7 +141,7 @@ const ImageScraper: React.FC = () => {
     }
   }
 
-  const generateSequentialScrapedImages = (basePath: string, extension: string, pad: number, count = 50) => {
+  const generateSequentialScrapedImages = (basePath: string, extension: string, pad: number, count = 500) => {
     const out: ScrapedImage[] = []
     for (let i = 1; i <= count; i++) {
       const padded = i.toString().padStart(pad, '0')
@@ -283,7 +283,7 @@ const ImageScraper: React.FC = () => {
             const chapterNum = targetChapterNumber + i
             const chapterSegment = newSeg.replace(targetChapterNumber.toString(), chapterNum.toString())
             const chapterBase = newBase.replace(oldSeg + '/', chapterSegment + '/')
-            const chapterImages = generateSequentialScrapedImages(chapterBase, sequentialPattern.extension, sequentialPattern.pad, 50)
+            const chapterImages = generateSequentialScrapedImages(chapterBase, sequentialPattern.extension, sequentialPattern.pad, 500)
             // Add chapter info to alt text
             chapterImages.forEach(img => {
               img.alt = `Image from ${new URL(targetUrl).hostname} - Chapter ${chapterNum}`
