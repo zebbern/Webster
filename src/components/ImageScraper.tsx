@@ -459,7 +459,7 @@ const ImageScraper: React.FC = () => {
             <div className="flex items-center space-x-4">
               <ThemeToggle />
               <a href="https://github.com/zebbern" target="_blank" rel="noopener noreferrer" title="zebbern on GitHub" className="rounded-full overflow-hidden w-10 h-10 border border-border hover:shadow-md">
-                <img src="https://github.com/zebbern.png" alt="zebbern" className="w-full h-full object-cover" />
+                <img src="/zebbern.png" alt="zebbern" className="w-full h-full object-cover" />
               </a>
             </div>
           </div>
