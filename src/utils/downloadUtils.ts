@@ -6,9 +6,8 @@ export const downloadImage = async (image: ScrapedImage) => {
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
 
-    // Use the same proxy system as the scraper to avoid CORS errors
-    const WORKING_PROXY = 'https://api.allorigins.win/get?url='
-    const proxyUrl = `${WORKING_PROXY}${encodeURIComponent(image.url)}`
+    // Use our internal API proxy to avoid CORS errors
+    const proxyUrl = `/api/fetch?url=${encodeURIComponent(image.url)}`
     const proxyResponse = await fetch(proxyUrl, { signal: controller.signal })
     
     if (!proxyResponse.ok) {
@@ -16,20 +15,26 @@ export const downloadImage = async (image: ScrapedImage) => {
     }
     
     const proxyData = await proxyResponse.json()
-    if (!proxyData.contents) {
+    if (!proxyData.body) {
       throw new Error('No content from proxy')
     }
     
-    // Convert base64 if needed, or create blob from text content
-    const response = new Response(proxyData.contents)
-
-    clearTimeout(timeoutId)
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+    // Handle different response formats from our API
+    let blob: Blob
+    if (proxyData.encoding === 'base64') {
+      // Binary data returned as base64
+      const binaryString = atob(proxyData.body)
+      const bytes = new Uint8Array(binaryString.length)
+      for (let j = 0; j < binaryString.length; j++) {
+        bytes[j] = binaryString.charCodeAt(j)
+      }
+      blob = new Blob([bytes])
+    } else {
+      // Text data
+      blob = new Blob([proxyData.body])
     }
 
-    const blob = await response.blob()
+    clearTimeout(timeoutId)
 
     if (blob.size === 0) {
       throw new Error('Received empty file')
@@ -117,21 +122,35 @@ export const downloadAllImages = async (images: ScrapedImage[]) => {
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
 
-      const response = await fetch(image.url, { 
-        mode: 'cors',
-        signal: controller.signal,
-        headers: {
-          'Accept': 'image/*,*/*;q=0.8'
-        }
-      })
-
+      // Use our internal API proxy to avoid CORS errors
+      const proxyUrl = `/api/fetch?url=${encodeURIComponent(image.url)}`
+      const proxyResponse = await fetch(proxyUrl, { signal: controller.signal })
+      
       clearTimeout(timeoutId)
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      if (!proxyResponse.ok) {
+        throw new Error(`Proxy failed: ${proxyResponse.status}`)
       }
-
-      const blob = await response.blob()
+      
+      const proxyData = await proxyResponse.json()
+      if (!proxyData.body) {
+        throw new Error('No content from proxy')
+      }
+      
+      // Handle different response formats from our API
+      let blob: Blob
+      if (proxyData.encoding === 'base64') {
+        // Binary data returned as base64
+        const binaryString = atob(proxyData.body)
+        const bytes = new Uint8Array(binaryString.length)
+        for (let j = 0; j < binaryString.length; j++) {
+          bytes[j] = binaryString.charCodeAt(j)
+        }
+        blob = new Blob([bytes])
+      } else {
+        // Text data
+        blob = new Blob([proxyData.body])
+      }
 
       if (blob.size === 0) {
         throw new Error('Received empty file')
