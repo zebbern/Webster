@@ -421,11 +421,11 @@ const ImageScraper: React.FC = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <div className="p-2 bg-primary/10 rounded-lg">
-                <ImageIcon className="h-6 w-6 text-primary" />
+                <span className="text-2xl">🕸️</span>
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-foreground">Image Viewer</h1>
-                <p className="text-muted-foreground">Extract all images from any website simple as fast!</p>
+                <h1 className="text-2xl font-bold text-foreground">Webster</h1>
+                <p className="text-muted-foreground">No ads, no limits, no nonsense start reading adfree today!</p>
               </div>
             </div>
             <div className="flex items-center space-x-4">
