@@ -497,7 +497,29 @@ function extractImageUrls(markdown: string, links: any[], baseUrl: string, extra
 function isImageUrl(url: string): boolean {
   const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.bmp', '.tiff', '.ico']
   try {
-    const lower = url.toLowerCase()
+    // Decode URL to handle encoded characters
+    let decodedUrl: string
+    try {
+      decodedUrl = decodeURIComponent(url)
+    } catch {
+      decodedUrl = url
+    }
+    
+    const lower = decodedUrl.toLowerCase()
+    
+    // Basic validation - must be a valid URL format
+    if (!/^https?:\/\//.test(url)) return false
+    
+    // Check for malformed URLs with excessive encoding or invalid characters
+    if (url.includes('%22') || url.includes('%3A') || url.includes('website%3A')) {
+      return false
+    }
+    
+    // Check if URL contains suspicious patterns that don't look like real image URLs
+    if (lower.includes('primanyreadofpage') || lower.includes('readaction') || lower.includes('potentialaction')) {
+      return false
+    }
+    
     return imageExtensions.some(ext => lower.includes(ext))
   } catch {
     return false

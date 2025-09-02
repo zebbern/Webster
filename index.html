@@ -3,7 +3,17 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <!-- Preload critical resources to prevent FOUC -->
+    <link rel="preload" href="/src/index.css" as="style" />
+    <!-- Add loading state styles to prevent layout shifts -->
+    <style>
+      #root { opacity: 0; transition: opacity 0.2s ease-in; }
+      #root.loaded { opacity: 1; }
+      /* Prevent layout shift during initial load */
+      body { margin: 0; padding: 0; min-height: 100vh; }
+    </style>
     <title>Image Scraper</title>
   </head>
   <body>
