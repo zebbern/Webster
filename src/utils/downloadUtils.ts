@@ -28,7 +28,9 @@ export const downloadImage = async (image: ScrapedImage) => {
       for (let j = 0; j < binaryString.length; j++) {
         bytes[j] = binaryString.charCodeAt(j)
       }
-      blob = new Blob([bytes])
+      // Set proper MIME type for the blob to help browsers handle it correctly
+      const mimeType = getMimeType(image.type)
+      blob = new Blob([bytes], { type: mimeType })
     } else {
       // Text data
       blob = new Blob([proxyData.body])
@@ -49,12 +51,14 @@ export const downloadImage = async (image: ScrapedImage) => {
       console.warn('file-saver failed, falling back to anchor download', fsError)
     }
 
+    // Force download using blob URL to avoid redirect
     if (typeof window !== 'undefined') {
       const objectUrl = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = objectUrl
       a.download = filename
       a.rel = 'noopener'
+      a.style.display = 'none'
       document.body.appendChild(a)
       a.click()
       a.remove()
@@ -146,7 +150,9 @@ export const downloadAllImages = async (images: ScrapedImage[]) => {
         for (let j = 0; j < binaryString.length; j++) {
           bytes[j] = binaryString.charCodeAt(j)
         }
-        blob = new Blob([bytes])
+        // Set proper MIME type for the blob to help browsers handle it correctly
+        const mimeType = getMimeType(image.type)
+        blob = new Blob([bytes], { type: mimeType })
       } else {
         // Text data
         blob = new Blob([proxyData.body])
@@ -170,6 +176,8 @@ export const downloadAllImages = async (images: ScrapedImage[]) => {
             const a = document.createElement('a')
             a.href = objectUrl
             a.download = filename
+            a.rel = 'noopener'
+            a.style.display = 'none'
             document.body.appendChild(a)
             a.click()
             a.remove()
@@ -261,6 +269,21 @@ const tryOpenUrlFallback = (url: string): boolean => {
     console.warn('Failed to open URL fallback:', err)
     return false
   }
+}
+
+const getMimeType = (extension: string): string => {
+  const mimeTypes: { [key: string]: string } = {
+    'jpg': 'image/jpeg',
+    'jpeg': 'image/jpeg',
+    'png': 'image/png',
+    'gif': 'image/gif',
+    'webp': 'image/webp',
+    'svg': 'image/svg+xml',
+    'bmp': 'image/bmp',
+    'tiff': 'image/tiff',
+    'ico': 'image/x-icon'
+  }
+  return mimeTypes[extension.toLowerCase()] || 'application/octet-stream'
 }
 
 const attemptSaveAs = async (blob: Blob, filename: string): Promise<boolean> => {
