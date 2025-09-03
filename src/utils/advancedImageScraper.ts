@@ -241,71 +241,58 @@ export const scrapeImages = async (
             }
           }
 
-          if (validateImages) {
-            // Check each image individually and stop on first failure in batch
-            let batchHasSuccess = false
-            let batchFailed = false
+          // Unified failsafe approach - check images in batch regardless of validateImages setting
+          let batchHasSuccess = false
+          let batchFailed = false
+          
+          for (let i = 0; i < batch.length; i++) {
+            const candidate = batch[i]
+            let imageExists = false
             
-            for (const candidate of batch) {
+            if (validateImages) {
+              // Use HEAD request for validation
               try {
                 const res = await fetchData(candidate, 'HEAD', signal)
                 const status = res?.status ?? 200
-                
-                if (status < 400) {
-                  // Success - add image
-                  batchHasSuccess = true
-                  chapterImageCount++
-                  seenUrls.add(candidate)
-                  
-                  const newImage: ScrapedImage = { 
-                    url: candidate, 
-                    type: extension, 
-                    source: 'static', 
-                    alt: `Image from ${new URL(chapterUrl).hostname} - Chapter ${currentChapter}` 
-                  }
-                  images.push(newImage)
-
-                  // Live insertion
-                  onNewImage?.(newImage)
-                  onProgress?.({ 
-                    stage: 'scanning', 
-                    processed: images.length, 
-                    total: DEFAULT_SEQ_MAX * chapterCount, 
-                    found: images.length, 
-                    currentUrl: candidate, 
-                    image: newImage 
-                  })
-                } else {
-                  // Failed - mark batch as failed and stop checking rest
+                imageExists = status < 400
+                if (!imageExists) {
                   console.log(`Image validation failed: ${candidate} (${status})`)
-                  batchFailed = true
-                  break // Stop checking rest of batch on first failure
                 }
               } catch (err) {
-                // Error - mark batch as failed and stop checking rest
                 console.log(`Image validation error: ${candidate}`, err)
-                batchFailed = true
-                break // Stop checking rest of batch on first failure
+                imageExists = false
+              }
+            } else {
+              // Use Image element testing for no-validation mode
+              imageExists = await new Promise<boolean>((resolve) => {
+                const img = new Image()
+                const timeout = setTimeout(() => {
+                  img.onload = null
+                  img.onerror = null
+                  resolve(false) // Timeout = failure
+                }, 5000) // 5 second timeout
+                
+                img.onload = () => {
+                  clearTimeout(timeout)
+                  resolve(true) // Successfully loaded
+                }
+                
+                img.onerror = () => {
+                  clearTimeout(timeout)
+                  resolve(false) // Failed to load
+                }
+                
+                img.src = candidate
+              })
+              
+              if (!imageExists) {
+                console.log(`Image load test failed: ${candidate}`)
               }
             }
 
-            // Update consecutive misses based on batch result
-            if (batchHasSuccess) {
-              consecutiveMisses = 0 // Reset on any success in batch
-            } else if (batchFailed || batch.length === 0) {
-              consecutiveMisses += 1 // Increment by 1 for each failed batch, not BATCH_SIZE
-            }
-          } else {
-            // No validation - add candidates with reasonable limits
-            // Stop at a reasonable chapter length since we can't validate
-            const maxImagesWithoutValidation = 100
-            
-            if (chapterImageCount >= maxImagesWithoutValidation) {
-              console.log(`Reached maximum ${maxImagesWithoutValidation} images without validation, stopping`)
-              break // Exit the main while loop
-            }
-            
-            for (const candidate of batch) {
+            if (imageExists) {
+              // Success - add image
+              batchHasSuccess = true
               chapterImageCount++
               seenUrls.add(candidate)
               
@@ -322,27 +309,24 @@ export const scrapeImages = async (
               onProgress?.({ 
                 stage: 'scanning', 
                 processed: images.length, 
-                total: Math.min(DEFAULT_SEQ_MAX, maxImagesWithoutValidation) * chapterCount, 
+                total: DEFAULT_SEQ_MAX * chapterCount, 
                 found: images.length, 
                 currentUrl: candidate, 
                 image: newImage 
               })
-              
-              // Stop if we've reached the reasonable limit
-              if (chapterImageCount >= maxImagesWithoutValidation) {
-                console.log(`Reached maximum ${maxImagesWithoutValidation} images without validation, stopping`)
-                break
-              }
-            }
-            
-            // Force exit from main loop if we hit the limit
-            if (chapterImageCount >= maxImagesWithoutValidation) {
+            } else {
+              // Failed image - mark batch as failed and stop checking rest of this batch
+              // This ensures if image 2 fails, images 2 and 3 are not displayed
+              batchFailed = true
               break
             }
-            
-            // When validation is disabled, assume we found images up to reasonable limit
-            // This prevents the infinite loop since consecutiveMisses never increases
-            consecutiveMisses = 0
+          }
+
+          // Update consecutive misses based on batch result
+          if (batchHasSuccess) {
+            consecutiveMisses = 0 // Reset on any success in batch
+          } else if (batchFailed || batch.length === 0) {
+            consecutiveMisses += 1 // Increment by 1 for each failed batch
           }
 
           currentIndex += BATCH_SIZE
