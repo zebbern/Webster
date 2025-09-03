@@ -546,6 +546,11 @@ function isImageUrl(url: string): boolean {
       return false
     }
     
+    // Reject URLs containing JSON characters (from structured data)
+    if (url.includes('{') || url.includes('}') || url.includes('[') || url.includes(']')) {
+      return false
+    }
+    
     // Check if URL contains suspicious patterns that don't look like real image URLs
     if (lower.includes('primanyreadofpage') || lower.includes('readaction') || lower.includes('potentialaction')) {
       return false
