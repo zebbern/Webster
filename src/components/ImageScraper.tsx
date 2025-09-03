@@ -46,18 +46,23 @@ const ImageScraper: React.FC = () => {
     }
 
     if (isNavigating) {
-      // Apply CSS scroll lock
-      document.body.style.overflow = 'hidden'
-      document.body.style.touchAction = 'none'
-      document.documentElement.style.overflow = 'hidden'
+      // Check if we're in fullscreen to avoid interference
+      const isCurrentlyFullscreen = !!(document.fullscreenElement || (document as any).webkitFullscreenElement || (document as any).msFullscreenElement)
       
-      // Add event listeners
+      if (!isCurrentlyFullscreen) {
+        // Apply CSS scroll lock only if not in fullscreen
+        document.body.style.overflow = 'hidden'
+        document.body.style.touchAction = 'none'
+        document.documentElement.style.overflow = 'hidden'
+      }
+      
+      // Add event listeners (these are safe even in fullscreen)
       document.addEventListener('scroll', preventScroll, { passive: false })
       document.addEventListener('touchmove', preventTouchMove, { passive: false })
       document.addEventListener('wheel', preventWheel, { passive: false })
       window.addEventListener('scroll', preventScroll, { passive: false })
       
-      console.log('Navigation lock: Scroll prevention activated')
+      console.log('Navigation lock: Scroll prevention activated', { fullscreen: isCurrentlyFullscreen })
     } else {
       // Remove scroll lock
       document.body.style.overflow = ''
@@ -317,12 +322,36 @@ const ImageScraper: React.FC = () => {
   }
 
   const handleChapterNavigation = async (direction: 'prev' | 'next') => {
+    // Check if currently in fullscreen before navigation
+    const isCurrentlyFullscreen = !!(document.fullscreenElement || (document as any).webkitFullscreenElement || (document as any).msFullscreenElement)
+    
     // Start universal navigation lock
     setIsNavigating(true)
     
     // Clear navigation lock after 2 seconds
     setTimeout(() => {
       setIsNavigating(false)
+      
+      // Restore fullscreen after navigation if it was active
+      if (isCurrentlyFullscreen && previewActive) {
+        console.log('Restoring fullscreen after manual chapter navigation')
+        setTimeout(() => {
+          const enterFullscreen = async () => {
+            try {
+              if (document.documentElement.requestFullscreen) {
+                await document.documentElement.requestFullscreen()
+              } else if ((document.documentElement as any).webkitRequestFullscreen) {
+                await (document.documentElement as any).webkitRequestFullscreen()
+              } else if ((document.documentElement as any).msRequestFullscreen) {
+                await (document.documentElement as any).msRequestFullscreen()
+              }
+            } catch (err) {
+              console.log('Failed to restore fullscreen after manual navigation:', err)
+            }
+          }
+          enterFullscreen()
+        }, 200) // Small delay to ensure DOM is ready
+      }
     }, 2000)
     // Generate URL for the target chapter (single chapter navigation)
     let targetUrl = url
