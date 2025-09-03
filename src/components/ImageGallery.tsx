@@ -30,7 +30,6 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
   const [lastScrollY, setLastScrollY] = useState<number>(0)
   const [autoNavTriggered, setAutoNavTriggered] = useState<boolean>(false)
   const [wasFullscreenBeforeNavigation, setWasFullscreenBeforeNavigation] = useState<boolean>(false)
-  const [initialPreviewScrollPosition, setInitialPreviewScrollPosition] = useState<number>(0)
 
   useEffect(() => {
     onPreviewChange?.(previewMode)
@@ -51,12 +50,17 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
       const timer = setTimeout(() => {
         const enterFullscreen = async () => {
           try {
-            // For mobile Safari: restore to original scroll position from when preview was entered
+            // For mobile Safari: check if we're scrolled down and maintain that state
             if (/iPhone|iPad|iPod|Mac/.test(navigator.userAgent) && /Safari/.test(navigator.userAgent)) {
-              console.log('Mobile Safari detected - restoring to initial preview scroll position:', initialPreviewScrollPosition)
-              window.scrollTo(0, initialPreviewScrollPosition)
+              const isScrolledDown = window.scrollY > 50 // Safari bars typically hide after 50px scroll
+              console.log('Mobile Safari detected - scroll state:', { scrollY: window.scrollY, isScrolledDown })
               
-              // Small delay to let Safari bars adjust to original position
+              if (isScrolledDown) {
+                // If already scrolled down, scroll a bit more to ensure Safari bars are hidden
+                window.scrollTo(0, window.scrollY + 10)
+              }
+              
+              // Small delay to let Safari bars adjust
               await new Promise(resolve => setTimeout(resolve, 100))
             }
             
@@ -77,7 +81,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
       setWasFullscreenBeforeNavigation(false)
       return () => clearTimeout(timer)
     }
-  }, [images, wasFullscreenBeforeNavigation, previewMode, initialPreviewScrollPosition])
+  }, [images, wasFullscreenBeforeNavigation, previewMode])
 
   // Fullscreen management for preview mode - only trigger on preview mode changes
   useEffect(() => {
@@ -95,10 +99,16 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
       try {
         console.log('Requesting fullscreen...')
         
-        // For mobile Safari: use the scroll position from when preview was entered
+        // For mobile Safari: check current scroll state and maintain it
         if (/iPhone|iPad|iPod|Mac/.test(navigator.userAgent) && /Safari/.test(navigator.userAgent)) {
-          console.log('Mobile Safari detected - using initial preview scroll position:', initialPreviewScrollPosition)
-          window.scrollTo(0, initialPreviewScrollPosition)
+          const currentScrollY = window.scrollY
+          const isScrolledDown = currentScrollY > 50 // Safari bars typically hide after 50px scroll
+          console.log('Mobile Safari detected - current state:', { scrollY: currentScrollY, isScrolledDown })
+          
+          if (isScrolledDown) {
+            // If scrolled down, ensure Safari bars stay hidden by scrolling a bit more
+            window.scrollTo(0, currentScrollY + 10)
+          }
           
           // Small delay to let Safari bars adjust
           await new Promise(resolve => setTimeout(resolve, 100))
@@ -140,9 +150,6 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
     if (previewMode) {
       // Only enter fullscreen when first entering preview mode
       console.log('Entering preview mode, requesting fullscreen')
-      
-      // Save the current scroll position when entering preview
-      setInitialPreviewScrollPosition(window.scrollY)
       
       const timer = setTimeout(() => {
         enterFullscreen()
