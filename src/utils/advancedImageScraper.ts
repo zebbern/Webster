@@ -27,6 +27,13 @@ const fetchData = async (url: string, method: 'GET' | 'HEAD' = 'GET', signal?: A
     
     const body = typeof fetched.body === 'string' ? fetched.body : JSON.stringify(fetched.body)
     return { body, status: fetched.status || 200, headers: new Headers() }
+  } catch (error: any) {
+    // Handle fetch errors (including NS_BINDING_ABORTED)
+    console.log = originalLog
+    console.warn = originalWarn
+    
+    // Return a failed status for any fetch error
+    return { body: '', status: 500, headers: new Headers() }
   } finally {
     // Restore console
     console.log = originalLog
