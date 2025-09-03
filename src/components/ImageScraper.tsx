@@ -83,6 +83,7 @@ const ImageScraper: React.FC = () => {
   const [chapterCount, setChapterCount] = useState<number>(1)
   const [validateImages, setValidateImages] = useState<boolean>(false)
   const [fetchInterval, setFetchInterval] = useState<number>(15) // seconds
+  const [autoNextChapter, setAutoNextChapter] = useState<boolean>(false)
   // Tooltip open states for info buttons
   const [smartInfoOpen, setSmartInfoOpen] = useState<boolean>(false)
   const [fastInfoOpen, setFastInfoOpen] = useState<boolean>(false)
@@ -91,6 +92,7 @@ const ImageScraper: React.FC = () => {
   const [chapterInfoOpen, setChapterInfoOpen] = useState<boolean>(false)
   const [validateInfoOpen, setValidateInfoOpen] = useState<boolean>(false)
   const [fetchIntervalInfoOpen, setFetchIntervalInfoOpen] = useState<boolean>(false)
+  const [autoNextChapterInfoOpen, setAutoNextChapterInfoOpen] = useState<boolean>(false)
   
   // URL Pattern Configuration
   const [showUrlPatterns, setShowUrlPatterns] = useState<boolean>(false)
@@ -762,6 +764,37 @@ const ImageScraper: React.FC = () => {
                       </div>
                     </div>
                   </div>
+                  
+                  {/* Auto Next Chapter Toggle */}
+                  <div className="mt-3 pt-3 border-t border-accent/20">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs text-muted-foreground">Auto Next Chapter (Preview Mode)</label>
+                      <div className="flex items-center space-x-2">
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={autoNextChapter}
+                            onChange={(e) => setAutoNextChapter(e.target.checked)}
+                            className="sr-only peer"
+                            disabled={isLoading}
+                          />
+                          <div className="w-9 h-5 bg-muted peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-background after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
+                        </label>
+                        <Tooltip open={autoNextChapterInfoOpen} onOpenChange={setAutoNextChapterInfoOpen}>
+                          <TooltipTrigger asChild>
+                            <button 
+                              onClick={() => setAutoNextChapterInfoOpen(prev => !prev)} 
+                              className="w-5 h-5 rounded-full bg-muted/60 hover:bg-muted flex items-center justify-center text-muted-foreground" 
+                              aria-label="Auto next chapter info"
+                            >
+                              <Info className="h-3 w-3" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top">Automatically loads the next chapter when scrolling to the bottom in preview mode</TooltipContent>
+                        </Tooltip>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Fetch Interval Settings */}
@@ -1021,7 +1054,9 @@ config=/comics/title/ch-{chapter:03d}`}
             onPreviewChange={setPreviewActive} 
             onButtonVisibilityChange={handleButtonVisibilityChange}
             showScrollButtons={showScrollButtons} 
-            initialPreviewMode={previewActive} 
+            initialPreviewMode={previewActive}
+            autoNextChapter={autoNextChapter}
+            onNextChapter={() => handleChapterNavigation('next')}
           />
         )}
       </div>

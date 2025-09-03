@@ -14,9 +14,11 @@ interface ImageGalleryProps {
   onButtonVisibilityChange?: (visible: boolean) => void
   showScrollButtons?: boolean
   initialPreviewMode?: boolean
+  autoNextChapter?: boolean
+  onNextChapter?: () => void
 }
 
-const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', onImageError, onPreviewChange, onButtonVisibilityChange, showScrollButtons = false, initialPreviewMode = false }) => {
+const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', onImageError, onPreviewChange, onButtonVisibilityChange, showScrollButtons = false, initialPreviewMode = false, autoNextChapter = false, onNextChapter }) => {
   const [selectedImage, setSelectedImage] = useState<ScrapedImage | null>(null)
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null)
   const [downloadingAll, setDownloadingAll] = useState(false)
@@ -24,6 +26,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
   const [previewMode, setPreviewMode] = useState(initialPreviewMode)
   const [buttonsVisible, setButtonsVisible] = useState<boolean>(true)
   const [lastScrollY, setLastScrollY] = useState<number>(0)
+  const [autoNavTriggered, setAutoNavTriggered] = useState<boolean>(false)
 
   useEffect(() => {
     onPreviewChange?.(previewMode)
@@ -33,6 +36,11 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
   useEffect(() => {
     setPreviewMode(initialPreviewMode)
   }, [initialPreviewMode])
+
+  // Reset auto nav trigger when images change (new chapter loaded)
+  useEffect(() => {
+    setAutoNavTriggered(false)
+  }, [images])
 
   // Keyboard navigation for preview mode
   useEffect(() => {
@@ -83,6 +91,15 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
         onButtonVisibilityChange?.(false)
       }
 
+      // Auto next chapter functionality
+      if (autoNextChapter && isAtBottom && !autoNavTriggered && onNextChapter) {
+        // Trigger navigation after a short delay to avoid multiple triggers
+        setAutoNavTriggered(true)
+        setTimeout(() => {
+          onNextChapter()
+        }, 1000) // 1 second delay to ensure user intended to go to next chapter
+      }
+
       setLastScrollY(currentScrollY)
     }
 
@@ -91,7 +108,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
       previewContainer.addEventListener('scroll', handleScroll, { passive: true })
       return () => previewContainer.removeEventListener('scroll', handleScroll)
     }
-  }, [previewMode, lastScrollY])
+  }, [previewMode, lastScrollY, autoNextChapter, autoNavTriggered, onNextChapter])
 
   const handleCopyUrl = async (url: string) => {
     const success = await copyToClipboard(url)
