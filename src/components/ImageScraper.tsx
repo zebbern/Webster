@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react'
-import { Search, Filter, AlertCircle, CheckCircle, ChevronLeft, ChevronRight, Info } from 'lucide-react'
+import { Search, Filter, AlertCircle, CheckCircle, ChevronLeft, ChevronRight, Info, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import ImageGallery from './ImageGallery'
 import ProgressIndicator from './ProgressIndicator'
@@ -21,6 +21,7 @@ const ImageScraper: React.FC = () => {
   const [stickyArrowsVisible, setStickyArrowsVisible] = useState<boolean>(true)
   const [lastScrollYMain, setLastScrollYMain] = useState<number>(0)
   const [previewActive, setPreviewActive] = useState<boolean>(false)
+  const [isNavigating, setIsNavigating] = useState<boolean>(false)
   const abortControllerRef = useRef<AbortController | null>(null)
   const upArrowClickTimeoutRef = useRef<number | null>(null)
 
@@ -245,6 +246,13 @@ const ImageScraper: React.FC = () => {
 
 
   const handleChapterNavigation = async (direction: 'prev' | 'next') => {
+    // Start universal navigation lock
+    setIsNavigating(true)
+    
+    // Clear navigation lock after 2 seconds
+    setTimeout(() => {
+      setIsNavigating(false)
+    }, 2000)
     // Generate URL for the target chapter (single chapter navigation)
     let targetUrl = url
     const chapterInfo = parseChapterFromUrl(url)
@@ -384,6 +392,14 @@ const ImageScraper: React.FC = () => {
       toast.error('Please select at least one file type')
       return
     }
+
+    // Start universal navigation lock for scraping
+    setIsNavigating(true)
+    
+    // Clear navigation lock after 2 seconds
+    setTimeout(() => {
+      setIsNavigating(false)
+    }, 2000)
 
     setIsLoading(true)
     setError(null)
@@ -1057,6 +1073,7 @@ config=/comics/title/ch-{chapter:03d}`}
             initialPreviewMode={previewActive}
             autoNextChapter={autoNextChapter}
             onNextChapter={() => handleChapterNavigation('next')}
+            isNavigating={isNavigating}
           />
         )}
       </div>
@@ -1099,6 +1116,18 @@ config=/comics/title/ch-{chapter:03d}`}
           </div>
         )
       })()}
+
+      {/* Universal Navigation Lock Overlay */}
+      {isNavigating && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="flex items-center space-x-4 bg-black/90 text-white px-8 py-6 rounded-xl shadow-2xl border border-white/20">
+            <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
+            <div className="text-xl font-semibold tracking-wide">
+              Loading...
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

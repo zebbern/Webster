@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Download, Eye, Copy, Check, Grid, Maximize, ChevronUp, ChevronDown } from 'lucide-react'
+import { Download, Eye, Copy, Check, Grid, Maximize, ChevronUp, ChevronDown, Loader2 } from 'lucide-react'
 import { ScrapedImage } from '../utils/advancedImageScraper'
 import { downloadImage, downloadAllImages } from '../utils/downloadUtils'
 import { copyToClipboard } from '../utils/clipboardUtils'
@@ -16,9 +16,10 @@ interface ImageGalleryProps {
   initialPreviewMode?: boolean
   autoNextChapter?: boolean
   onNextChapter?: () => void
+  isNavigating?: boolean
 }
 
-const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', onImageError, onPreviewChange, onButtonVisibilityChange, showScrollButtons = false, initialPreviewMode = false, autoNextChapter = false, onNextChapter }) => {
+const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', onImageError, onPreviewChange, onButtonVisibilityChange, showScrollButtons = false, initialPreviewMode = false, autoNextChapter = false, onNextChapter, isNavigating = false }) => {
   const [selectedImage, setSelectedImage] = useState<ScrapedImage | null>(null)
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null)
   const [downloadingAll, setDownloadingAll] = useState(false)
@@ -178,9 +179,10 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
       }
 
       // Auto next chapter functionality
-      if (autoNextChapter && isAtBottom && !autoNavTriggered && onNextChapter) {
-        // Trigger navigation after a short delay to avoid multiple triggers
+      if (autoNextChapter && isAtBottom && !autoNavTriggered && !isNavigating && onNextChapter) {
+        // Start navigation lock and trigger navigation
         setAutoNavTriggered(true)
+        
         setTimeout(() => {
           onNextChapter()
         }, 1000) // 1 second delay to ensure user intended to go to next chapter
@@ -472,6 +474,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
         </button>
       </div>
       )}
+
     </div>
   )
 }
