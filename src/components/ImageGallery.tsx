@@ -16,10 +16,11 @@ interface ImageGalleryProps {
   initialPreviewMode?: boolean
   autoNextChapter?: boolean
   onNextChapter?: () => void
+  onNavigationStart?: () => void
   isNavigating?: boolean
 }
 
-const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', onImageError, onPreviewChange, onButtonVisibilityChange, showScrollButtons = false, initialPreviewMode = false, autoNextChapter = false, onNextChapter, isNavigating = false }) => {
+const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', onImageError, onPreviewChange, onButtonVisibilityChange, showScrollButtons = false, initialPreviewMode = false, autoNextChapter = false, onNextChapter, onNavigationStart, isNavigating = false }) => {
   const [selectedImage, setSelectedImage] = useState<ScrapedImage | null>(null)
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null)
   const [downloadingAll, setDownloadingAll] = useState(false)
@@ -179,13 +180,15 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
       }
 
       // Auto next chapter functionality
-      if (autoNextChapter && isAtBottom && !autoNavTriggered && !isNavigating && onNextChapter) {
-        // Start navigation lock and trigger navigation
+      if (autoNextChapter && isAtBottom && !autoNavTriggered && !isNavigating && onNextChapter && onNavigationStart) {
+        // IMMEDIATELY start navigation lock
         setAutoNavTriggered(true)
+        onNavigationStart()
         
+        // Delay actual navigation to ensure user intended to go to next chapter
         setTimeout(() => {
           onNextChapter()
-        }, 1000) // 1 second delay to ensure user intended to go to next chapter
+        }, 1000)
       }
 
       setLastScrollY(currentScrollY)
