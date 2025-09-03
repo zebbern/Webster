@@ -245,6 +245,16 @@ const ImageScraper: React.FC = () => {
   }
 
 
+  // Function to immediately start navigation lock (for auto navigation)
+  const handleStartNavigation = () => {
+    setIsNavigating(true)
+    
+    // Clear navigation lock after 2 seconds
+    setTimeout(() => {
+      setIsNavigating(false)
+    }, 2000)
+  }
+
   const handleChapterNavigation = async (direction: 'prev' | 'next') => {
     // Start universal navigation lock
     setIsNavigating(true)
@@ -1073,6 +1083,7 @@ config=/comics/title/ch-{chapter:03d}`}
             initialPreviewMode={previewActive}
             autoNextChapter={autoNextChapter}
             onNextChapter={() => handleChapterNavigation('next')}
+            onStartNavigation={handleStartNavigation}
             isNavigating={isNavigating}
           />
         )}
