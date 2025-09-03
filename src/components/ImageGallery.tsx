@@ -27,6 +27,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
   const [buttonsVisible, setButtonsVisible] = useState<boolean>(true)
   const [lastScrollY, setLastScrollY] = useState<number>(0)
   const [autoNavTriggered, setAutoNavTriggered] = useState<boolean>(false)
+  const [fullscreenPending, setFullscreenPending] = useState<boolean>(false)
 
   useEffect(() => {
     onPreviewChange?.(previewMode)
@@ -48,11 +49,20 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
       return !!(document.fullscreenElement || (document as any).webkitFullscreenElement || (document as any).msFullscreenElement)
     }
 
+    const isMobile = () => {
+      return /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+    }
+
     const enterFullscreen = async () => {
       // Only request fullscreen if not already in fullscreen
-      if (isFullscreen()) return
+      if (isFullscreen()) {
+        console.log('Already in fullscreen, skipping request')
+        return
+      }
       
       try {
+        console.log('Requesting fullscreen...', { mobile: isMobile(), userAgent: navigator.userAgent })
+        
         if (document.documentElement.requestFullscreen) {
           await document.documentElement.requestFullscreen()
         } else if ((document.documentElement as any).webkitRequestFullscreen) {
@@ -60,6 +70,8 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
         } else if ((document.documentElement as any).msRequestFullscreen) {
           await (document.documentElement as any).msRequestFullscreen()
         }
+        
+        console.log('Fullscreen request completed')
       } catch (err) {
         // Fullscreen request failed (user denied or not supported)
         console.log('Fullscreen request failed:', err)
@@ -85,13 +97,29 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
     }
 
     if (previewMode) {
-      // Small delay to ensure DOM is ready after image loading
+      // For mobile, we need to be more aggressive about re-requesting fullscreen
+      const delay = isMobile() ? 200 : 100 // Longer delay for mobile
       const timer = setTimeout(() => {
-        enterFullscreen()
-      }, 100)
+        console.log('Timer triggered for fullscreen request', { 
+          previewMode, 
+          imagesLength: images.length, 
+          currentlyFullscreen: isFullscreen() 
+        })
+        
+        if (!isFullscreen()) {
+          if (isMobile()) {
+            // On mobile, set pending flag and wait for user interaction
+            setFullscreenPending(true)
+            console.log('Mobile: Setting fullscreen pending for user interaction')
+          } else {
+            enterFullscreen()
+          }
+        }
+      }, delay)
       return () => clearTimeout(timer)
     } else {
       // Exit fullscreen when preview mode is deactivated
+      setFullscreenPending(false)
       exitFullscreen()
     }
   }, [previewMode, images.length]) // Also depend on images.length to re-trigger after chapter load
@@ -251,6 +279,31 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
     window.scrollTo({ top: bottom, behavior: 'smooth' })
   }
 
+  const handleUserInteraction = async () => {
+    if (fullscreenPending && previewMode) {
+      console.log('User interaction detected, requesting fullscreen')
+      setFullscreenPending(false)
+      
+      const isFullscreen = () => {
+        return !!(document.fullscreenElement || (document as any).webkitFullscreenElement || (document as any).msFullscreenElement)
+      }
+      
+      if (!isFullscreen()) {
+        try {
+          if (document.documentElement.requestFullscreen) {
+            await document.documentElement.requestFullscreen()
+          } else if ((document.documentElement as any).webkitRequestFullscreen) {
+            await (document.documentElement as any).webkitRequestFullscreen()
+          } else if ((document.documentElement as any).msRequestFullscreen) {
+            await (document.documentElement as any).msRequestFullscreen()
+          }
+        } catch (err) {
+          console.log('Fullscreen request from user interaction failed:', err)
+        }
+      }
+    }
+  }
+
   // Preview mode - full window with no spacing
   if (previewMode) {
     return (
@@ -290,8 +343,20 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
         </div>
         )}
 
+        {/* Fullscreen pending indicator for mobile */}
+        {fullscreenPending && (
+          <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 bg-black/80 text-white px-4 py-2 rounded-lg text-sm">
+            Tap to enter fullscreen
+          </div>
+        )}
+
         {/* Images with no spacing */}
-        <div id="preview-overlay-scroll" className="h-full overflow-y-auto">
+        <div 
+          id="preview-overlay-scroll" 
+          className="h-full overflow-y-auto"
+          onClick={handleUserInteraction}
+          onTouchStart={handleUserInteraction}
+        >
           {images.length === 0 && initialPreviewMode ? (
             // Show transparent placeholder when preserving preview mode during chapter navigation
             <div 
