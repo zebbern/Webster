@@ -25,69 +25,24 @@ const ImageScraper: React.FC = () => {
   const abortControllerRef = useRef<AbortController | null>(null)
   const upArrowClickTimeoutRef = useRef<number | null>(null)
 
-  // Navigation lock scroll prevention
+  // Navigation lock with minimal fullscreen interference
   useEffect(() => {
-    const preventScroll = (e: Event) => {
-      e.preventDefault()
-      e.stopPropagation()
-      return false
-    }
-
-    const preventTouchMove = (e: TouchEvent) => {
-      e.preventDefault()
-      e.stopPropagation()
-      return false
-    }
-
-    const preventWheel = (e: WheelEvent) => {
-      e.preventDefault()
-      e.stopPropagation()
-      return false
-    }
-
     if (isNavigating) {
-      // Check if we're in fullscreen to avoid interference
-      const isCurrentlyFullscreen = !!(document.fullscreenElement || (document as any).webkitFullscreenElement || (document as any).msFullscreenElement)
-      
-      if (!isCurrentlyFullscreen) {
-        // Apply CSS scroll lock only if not in fullscreen
-        document.body.style.overflow = 'hidden'
-        document.body.style.touchAction = 'none'
-        document.documentElement.style.overflow = 'hidden'
-      }
-      
-      // Add event listeners (these are safe even in fullscreen)
-      document.addEventListener('scroll', preventScroll, { passive: false })
-      document.addEventListener('touchmove', preventTouchMove, { passive: false })
-      document.addEventListener('wheel', preventWheel, { passive: false })
-      window.addEventListener('scroll', preventScroll, { passive: false })
-      
-      console.log('Navigation lock: Scroll prevention activated', { fullscreen: isCurrentlyFullscreen })
+      // Only modify body, not html element to avoid fullscreen conflicts
+      document.body.style.overflow = 'hidden'
+      document.body.style.touchAction = 'none'
+      console.log('Navigation lock: Body scroll blocked, overlay active')
     } else {
-      // Remove scroll lock
+      // Restore body scroll
       document.body.style.overflow = ''
       document.body.style.touchAction = ''
-      document.documentElement.style.overflow = ''
-      
-      // Remove event listeners
-      document.removeEventListener('scroll', preventScroll)
-      document.removeEventListener('touchmove', preventTouchMove)
-      document.removeEventListener('wheel', preventWheel)
-      window.removeEventListener('scroll', preventScroll)
-      
-      console.log('Navigation lock: Scroll prevention removed')
+      console.log('Navigation lock: Body scroll restored, overlay removed')
     }
 
     return () => {
-      // Cleanup on unmount or state change
-      document.removeEventListener('scroll', preventScroll)
-      document.removeEventListener('touchmove', preventTouchMove)
-      document.removeEventListener('wheel', preventWheel)
-      window.removeEventListener('scroll', preventScroll)
-      
+      // Cleanup on unmount
       document.body.style.overflow = ''
       document.body.style.touchAction = ''
-      document.documentElement.style.overflow = ''
     }
   }, [isNavigating])
 
@@ -1225,12 +1180,19 @@ config=/comics/title/ch-{chapter:03d}`}
           onTouchMove={(e) => e.preventDefault()}
           onWheel={(e) => e.preventDefault()}
           onScroll={(e) => e.preventDefault()}
+          onClick={(e) => e.preventDefault()}
+          onPointerDown={(e) => e.preventDefault()}
+          onMouseDown={(e) => e.preventDefault()}
           style={{ 
             touchAction: 'none',
-            overscrollBehavior: 'none'
+            userSelect: 'none',
+            pointerEvents: 'all'
           }}
         >
-          <div className="flex items-center space-x-4 bg-black/90 text-white px-8 py-6 rounded-xl shadow-2xl border border-white/20">
+          <div 
+            className="flex items-center space-x-4 bg-black/90 text-white px-8 py-6 rounded-xl shadow-2xl border border-white/20"
+            style={{ pointerEvents: 'none' }}
+          >
             <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
             <div className="text-xl font-semibold tracking-wide">
               Loading...
