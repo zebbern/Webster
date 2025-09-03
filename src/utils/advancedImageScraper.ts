@@ -2,7 +2,7 @@ import corsClient from '../cors/client'
 import { urlPatternManager, extractChapterNumber } from './urlPatterns'
 
 // Simple fetch wrapper using CORS client API with rate limiting
-const fetchData = async (url: string, method: 'GET' | 'HEAD' = 'GET', signal?: AbortSignal, retries = 2) => {
+const fetchData = async (url: string, method: 'GET' | 'HEAD' = 'GET', signal?: AbortSignal, retries = 3) => {
   // Temporarily silence console during fetch to reduce noise
   const originalLog = console.log
   const originalWarn = console.warn
@@ -15,14 +15,24 @@ const fetchData = async (url: string, method: 'GET' | 'HEAD' = 'GET', signal?: A
     
     // Handle rate limiting (429) and SSL handshake failures (525) with exponential backoff
     if ((fetched.status === 429 || fetched.status === 525) && retries > 0) {
-      const delay = Math.pow(2, 3 - retries) * 1000 // 1s, 2s delays
+      // Longer delays for SSL issues, shorter for rate limiting
+      const baseDelay = fetched.status === 525 ? 2000 : 1000 // 2s for SSL, 1s for rate limit
+      const delay = baseDelay * Math.pow(2, 3 - retries) // 2s, 4s, 8s for SSL; 1s, 2s, 4s for rate limit
+      
       console.log = originalLog // Temporarily restore for this message
       const errorType = fetched.status === 429 ? 'Rate limited' : 'SSL Handshake Failed'
-      console.warn(`${errorType} (${fetched.status}), retrying in ${delay}ms...`)
+      console.warn(`${errorType} (${fetched.status}) for ${url}, retrying in ${delay}ms... (${retries} retries left)`)
       console.log = () => {}
       
       await new Promise(resolve => setTimeout(resolve, delay))
       return fetchData(url, method, signal, retries - 1)
+    }
+    
+    // Log 525 errors that exceed retry limit
+    if (fetched.status === 525) {
+      console.log = originalLog
+      console.error(`SSL handshake failed permanently for ${url} after all retries`)
+      console.log = () => {}
     }
     
     const body = typeof fetched.body === 'string' ? fetched.body : JSON.stringify(fetched.body)
@@ -31,6 +41,11 @@ const fetchData = async (url: string, method: 'GET' | 'HEAD' = 'GET', signal?: A
     // Handle fetch errors (including NS_BINDING_ABORTED)
     console.log = originalLog
     console.warn = originalWarn
+    
+    // Log the actual error for debugging
+    if (!error.message?.includes('Aborted')) {
+      console.error(`Fetch error for ${url}:`, error.message)
+    }
     
     // Return a failed status for any fetch error
     return { body: '', status: 500, headers: new Headers() }
