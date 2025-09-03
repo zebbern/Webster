@@ -77,11 +77,13 @@ export interface ScrapeOptions {
   onNewImage?: (image: ScrapedImage) => void
   // Whether to validate images with HEAD requests (default false)
   validateImages?: boolean
+  // Custom fetch interval in milliseconds (overrides default timing)
+  fetchInterval?: number
 }
 
-const DEFAULT_KEEP_ALIVE_MS = 8000
-const DEFAULT_POLL_INTERVAL_MS = 1500
-const DEFAULT_MAX_IDLE_SCANS = 3
+// const DEFAULT_KEEP_ALIVE_MS = 8000
+// const DEFAULT_POLL_INTERVAL_MS = 1500
+// const DEFAULT_MAX_IDLE_SCANS = 3
 const DEFAULT_SEQ_MAX = 500
 const DEFAULT_CONSECUTIVE_MISS_THRESHOLD = 3
 
@@ -92,13 +94,15 @@ export const scrapeImages = async (
   options: ScrapeOptions = {}
 ): Promise<ScrapedImage[]> => {
   const { onProgress, signal, onNewImage } = options
-  const keepAliveMs = options.keepAliveMs ?? DEFAULT_KEEP_ALIVE_MS
-  const pollIntervalMs = options.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS
-  const maxIdleScans = options.maxIdleScans ?? DEFAULT_MAX_IDLE_SCANS
-  const preferSequenceOnly = !!options.preferSequenceOnly
+  // Options for scraping behavior (extracted but some unused in current implementation)
+  // const keepAliveMs = options.keepAliveMs ?? DEFAULT_KEEP_ALIVE_MS
+  // const pollIntervalMs = options.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS
+  // const maxIdleScans = options.maxIdleScans ?? DEFAULT_MAX_IDLE_SCANS
+  // const preferSequenceOnly = !!options.preferSequenceOnly
   const consecutiveMissThreshold = options.consecutiveMissThreshold ?? DEFAULT_CONSECUTIVE_MISS_THRESHOLD
   const chapterCount = options.chapterCount ?? 1
   const validateImages = options.validateImages ?? false
+  const fetchInterval = options.fetchInterval ?? 15000 // Default 15 seconds
 
   // Validate URL
   try {
@@ -128,11 +132,11 @@ export const scrapeImages = async (
           processed: images.length, 
           total: DEFAULT_SEQ_MAX * chapterCount, 
           found: images.length, 
-          currentUrl: `Waiting 15 seconds before chapter ${currentChapter}...` 
+          currentUrl: `Waiting ${fetchInterval/1000} seconds before chapter ${currentChapter}...` 
         })
         
-        // 15 second delay
-        await new Promise(resolve => setTimeout(resolve, 15000))
+        // Configurable delay between chapters
+        await new Promise(resolve => setTimeout(resolve, fetchInterval))
         if (signal?.aborted) throw new Error('Aborted')
       }
       
@@ -546,7 +550,7 @@ function detectSequentialPattern(url: string, patterns: Set<string>) {
   const sequentialRegex = /^(.*\/)([0-9]{2,4})\.(jpg|jpeg|png|gif|webp)$/i
   const match = url.match(sequentialRegex)
   if (match) {
-    const [, basePath, numberStr, extension] = match
+    const [, basePath, , extension] = match
     const pattern = `${basePath}###.${extension}`
     patterns.add(pattern)
   }
@@ -602,20 +606,3 @@ function detectStrongSequentialPattern(urls: string[]): { basePath: string, exte
   return null
 }
 
-async function getImageMetadata(imageUrl: string): Promise<Partial<ScrapedImage> | null> {
-  return new Promise((resolve) => {
-    const img = new Image()
-    img.crossOrigin = 'anonymous'
-
-    const timeout = setTimeout(() => resolve(null), 4000)
-    img.onload = () => {
-      clearTimeout(timeout)
-      resolve({ dimensions: { width: img.naturalWidth, height: img.naturalHeight } })
-    }
-    img.onerror = () => {
-      clearTimeout(timeout)
-      resolve(null)
-    }
-    img.src = imageUrl
-  })
-}

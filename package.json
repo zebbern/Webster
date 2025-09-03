@@ -21,6 +21,7 @@
     "sonner": "^2.0.7"
   },
   "devDependencies": {
+    "@types/file-saver": "^2.0.7",
     "@types/react": "^19.1.10",
     "@types/react-dom": "^19.1.7",
     "@vercel/node": "^2.3.0",

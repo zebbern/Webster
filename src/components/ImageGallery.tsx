@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react'
-import { Download, Eye, Copy, Check, Grid, Maximize, ChevronUp, ChevronDown, Info } from 'lucide-react'
+import { Download, Eye, Copy, Check, Grid, Maximize, ChevronUp, ChevronDown } from 'lucide-react'
 import { ScrapedImage } from '../utils/advancedImageScraper'
 import { downloadImage, downloadAllImages } from '../utils/downloadUtils'
 import { copyToClipboard } from '../utils/clipboardUtils'
 import ImageModal from './ImageModal'
 import { downloadHTMLExport } from '../utils/htmlExporter'
-import { Tooltip, TooltipTrigger, TooltipContent } from './ui/tooltip'
 
 interface ImageGalleryProps {
   images: ScrapedImage[]
@@ -75,7 +74,6 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
       // 1. Scrolling up (currentScrollY < lastScrollY)
       // 2. At the bottom of the page
       // 3. At the very top (currentScrollY < 50)
-      const newVisible = currentScrollY < lastScrollY || isAtBottom || currentScrollY < 50
       if (currentScrollY < lastScrollY || isAtBottom || currentScrollY < 50) {
         setButtonsVisible(true)
         onButtonVisibilityChange?.(true)
@@ -119,7 +117,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
     setExportingHTML(true)
     try {
       // Export the HTML matching preview when previewMode is active
-      downloadHTMLExport(images, websiteUrl, previewMode)
+      downloadHTMLExport(images, websiteUrl)
     } catch (err) {
       console.error('Failed to export HTML:', err)
       alert('Failed to export HTML file.')
@@ -277,7 +275,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
                   alt={image.alt || `Image ${index + 1}`}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                   loading="lazy"
-                  onError={(e) => {
+                  onError={() => {
                     // On first load error, notify parent to remove this URL so broken images don't show
                     console.warn('Failed to load image for display:', image.url)
                     onImageError?.(image.url)

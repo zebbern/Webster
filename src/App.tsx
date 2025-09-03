@@ -1,4 +1,3 @@
-import React from 'react'
 import ImageScraper from './components/ImageScraper'
 import { ThemeProvider } from './providers/ThemeProvider'
 import { TooltipProvider } from './components/ui/tooltip'

@@ -331,12 +331,3 @@ const getFilenameFromUrl = (url: string): string | null => {
   }
 }
 
-const ensureUniqueFilename = (filename: string, index: number): string => {
-  const parts = filename.split('.')
-  if (parts.length < 2) return `${filename}-${index + 1}`
-
-  const extension = parts.pop()
-  const name = parts.join('.')
-
-  return `${name}-${index + 1}.${extension}`
-}

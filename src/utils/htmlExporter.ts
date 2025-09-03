@@ -1,6 +1,6 @@
 import { ScrapedImage } from './advancedImageScraper'
 
-export const generateHTMLExport = (images: ScrapedImage[], websiteUrl: string, previewMode = false): string => {
+export const generateHTMLExport = (images: ScrapedImage[], websiteUrl: string): string => {
   // Clean images-only export without any additional text or UI elements
   return `<!DOCTYPE html>
 <html lang="en">
@@ -29,8 +29,8 @@ export const generateHTMLExport = (images: ScrapedImage[], websiteUrl: string, p
 </html>`
 }
 
-export const downloadHTMLExport = (images: ScrapedImage[], websiteUrl: string, previewMode = false) => {
-  const htmlContent = generateHTMLExport(images, websiteUrl, previewMode)
+export const downloadHTMLExport = (images: ScrapedImage[], websiteUrl: string) => {
+  const htmlContent = generateHTMLExport(images, websiteUrl)
   const blob = new Blob([htmlContent], { type: 'text/html' })
   const url = URL.createObjectURL(blob)
   

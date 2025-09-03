@@ -13,6 +13,8 @@ interface ParsedPattern {
   variables: Record<string, string>
   hasChapterVar: boolean
   domain: string
+  hasPadding?: boolean
+  paddingLength?: number
 }
 
 class UrlPatternManager {
@@ -78,7 +80,7 @@ class UrlPatternManager {
     }
     
     // Convert grouped variables back to .env format
-    for (const [groupId, vars] of configGroups.entries()) {
+    for (const [, vars] of configGroups.entries()) {
       if (vars.url && vars.config) {
         envContent.push(`url=${vars.url}`)
         envContent.push(`config=${vars.config}`)
@@ -172,25 +174,6 @@ class UrlPatternManager {
     })
   }
 
-  private parsePattern(pattern: string): ParsedPattern {
-    const hasChapterVar = pattern.includes('{chapter')
-    let hasPadding = false
-    let paddingLength: number | undefined
-
-    // Check for padding format like {chapter:03d}
-    const paddingMatch = pattern.match(/\{chapter:0(\d+)d\}/)
-    if (paddingMatch) {
-      hasPadding = true
-      paddingLength = parseInt(paddingMatch[1], 10)
-    }
-
-    return {
-      template: pattern,
-      hasChapterVar,
-      hasPadding,
-      paddingLength
-    }
-  }
 
   /**
    * Generate chapter URL for a specific website
@@ -260,45 +243,7 @@ class UrlPatternManager {
     }
   }
 
-  private applyPattern(baseUrl: URL, pattern: ParsedPattern, chapterNumber: number): string | null {
-    try {
-      let result = pattern.template
 
-      if (pattern.hasChapterVar) {
-        let chapterStr = chapterNumber.toString()
-        
-        if (pattern.hasPadding && pattern.paddingLength) {
-          chapterStr = chapterNumber.toString().padStart(pattern.paddingLength, '0')
-          // Replace padded format
-          result = result.replace(/\{chapter:0\d+d\}/, chapterStr)
-        } else {
-          // Replace simple format
-          result = result.replace(/\{chapter\}/g, chapterStr)
-        }
-      }
-
-      // Build final URL
-      const finalUrl = new URL(baseUrl)
-      finalUrl.pathname = result
-      return finalUrl.toString()
-    } catch (error) {
-      return null
-    }
-  }
-
-  private isValidChapterUrl(originalUrl: string, generatedUrl: string): boolean {
-    // Basic validation - check if the generated URL is different from original
-    // and follows a reasonable pattern
-    if (originalUrl === generatedUrl) return false
-    
-    try {
-      const original = new URL(originalUrl)
-      const generated = new URL(generatedUrl)
-      return original.hostname === generated.hostname
-    } catch {
-      return false
-    }
-  }
 
   private generateUrlWithAutoDetection(baseUrl: string, chapterNumber: number): string | null {
     // Fallback to the original auto-detection logic

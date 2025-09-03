@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react'
-import { Search, Filter, Image as ImageIcon, AlertCircle, CheckCircle, ChevronLeft, ChevronRight, Info } from 'lucide-react'
+import { Search, Filter, AlertCircle, CheckCircle, ChevronLeft, ChevronRight, Info } from 'lucide-react'
 import { toast } from 'sonner'
 import ImageGallery from './ImageGallery'
 import ProgressIndicator from './ProgressIndicator'
@@ -81,6 +81,7 @@ const ImageScraper: React.FC = () => {
   const [consecutiveMissThreshold, setConsecutiveMissThreshold] = useState<number>(3)
   const [chapterCount, setChapterCount] = useState<number>(1)
   const [validateImages, setValidateImages] = useState<boolean>(false)
+  const [fetchInterval, setFetchInterval] = useState<number>(15) // seconds
   // Tooltip open states for info buttons
   const [smartInfoOpen, setSmartInfoOpen] = useState<boolean>(false)
   const [fastInfoOpen, setFastInfoOpen] = useState<boolean>(false)
@@ -88,6 +89,7 @@ const ImageScraper: React.FC = () => {
   const [missInfoOpen, setMissInfoOpen] = useState<boolean>(false)
   const [chapterInfoOpen, setChapterInfoOpen] = useState<boolean>(false)
   const [validateInfoOpen, setValidateInfoOpen] = useState<boolean>(false)
+  const [fetchIntervalInfoOpen, setFetchIntervalInfoOpen] = useState<boolean>(false)
 
   const availableFileTypes = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'tiff', 'ico']
 
@@ -97,6 +99,55 @@ const ImageScraper: React.FC = () => {
         ? prev.filter(t => t !== type)
         : [...prev, type]
     )
+  }
+
+  const handleChapterCountChange = (newChapterCount: number) => {
+    setChapterCount(newChapterCount)
+    // Enforce minimum 60 seconds for 15+ chapters
+    if (newChapterCount >= 15 && fetchInterval < 60) {
+      setFetchInterval(60)
+    }
+  }
+
+  const handleFetchIntervalChange = (newInterval: number) => {
+    // Enforce minimum intervals based on chapter count
+    const minInterval = chapterCount >= 15 ? 60 : 15
+    const finalInterval = Math.max(newInterval, minInterval)
+    setFetchInterval(finalInterval)
+  }
+
+  const generateChapterUrl = (baseUrl: string, chapterNumber: number) => {
+    try {
+      const urlObj = new URL(baseUrl)
+      const pathSegments = urlObj.pathname.split('/').filter(segment => segment.length > 0)
+      const chapterInfo = parseChapterFromUrl(baseUrl)
+      
+      if (!chapterInfo.hasChapter) return baseUrl
+      
+      // Find and replace the chapter segment
+      for (let i = pathSegments.length - 1; i >= 0; i--) {
+        const segment = pathSegments[i]
+        
+        if (segment === chapterInfo.chapterSegment) {
+          // Determine the new segment format based on the original
+          const chapterMatch = segment.match(/^(chapter|ch|episode|ep|part|p)[-_]?(\d+)$/i)
+          if (chapterMatch) {
+            const prefix = chapterMatch[1]
+            const separator = segment.includes('-') ? '-' : (segment.includes('_') ? '_' : '')
+            pathSegments[i] = `${prefix}${separator}${chapterNumber}`
+          } else if (segment.match(/^\d+$/)) {
+            pathSegments[i] = chapterNumber.toString()
+          }
+          break
+        }
+      }
+      
+      // Reconstruct the URL
+      urlObj.pathname = '/' + pathSegments.join('/') + (baseUrl.endsWith('/') ? '/' : '')
+      return urlObj.toString()
+    } catch (error) {
+      return baseUrl
+    }
   }
 
   const handleScrape = async () => {
@@ -156,44 +207,6 @@ const ImageScraper: React.FC = () => {
     return null
   }
 
-  // Schedule a scroll-to-top action (scrolls container/window but avoids clicking buttons that might interfere with preview mode)
-  const scheduleUpArrow = (delay = 500) => {
-    if (typeof window === 'undefined') return
-    try {
-      if (upArrowClickTimeoutRef.current) {
-        window.clearTimeout(upArrowClickTimeoutRef.current)
-      }
-    } catch (e) {
-      // ignore
-    }
-
-    upArrowClickTimeoutRef.current = window.setTimeout(() => {
-      try {
-        // First check if we're in preview mode and scroll the preview container
-        const previewEl = document.getElementById('preview-overlay-scroll')
-        if (previewEl) {
-          previewEl.scrollTo({ top: 0, behavior: 'smooth' })
-        } else {
-          // Only try to find scroll buttons if not in preview mode to avoid interfering with preview state
-          const nodes = Array.from(document.querySelectorAll('button[title="Scroll to top"]')) as HTMLButtonElement[]
-          let btn: HTMLButtonElement | undefined = nodes.find(b => b.offsetParent !== null && (b as HTMLElement).clientHeight > 0)
-          if (!btn && nodes.length > 0) btn = nodes[0]
-          if (btn) {
-            try { btn.click() } catch (e) { /* ignore */ }
-          } else {
-            window.scrollTo({ top: 0, behavior: 'smooth' })
-          }
-        }
-      } catch (err) {
-        // final fallback
-        try {
-          const previewEl = document.getElementById('preview-overlay-scroll')
-          if (previewEl) previewEl.scrollTo({ top: 0, behavior: 'smooth' })
-          else window.scrollTo({ top: 0, behavior: 'smooth' })
-        } catch (e) { /* ignore */ }
-      }
-    }, delay)
-  }
 
   const handleChapterNavigation = async (direction: 'prev' | 'next') => {
     // Generate URL for the target chapter (single chapter navigation)
@@ -265,8 +278,10 @@ const ImageScraper: React.FC = () => {
           
           setImages(allImages)
           setStats({ total: allImages.length, duplicates: 0, filtered: allImages.length })
-          setUrl(targetUrl)
-          setLastPageUrl(targetUrl)
+          // Update URL to reflect the current chapter position - sync with chapterCount
+          const finalChapterUrl = generateChapterUrl(targetUrl, targetChapterNumber + chapterCount - 1)
+          setUrl(finalChapterUrl)
+          setLastPageUrl(finalChapterUrl)
           setSequentialPattern({ basePath: newBase.replace(oldSeg + '/', newSeg + '/'), extension: sequentialPattern.extension, pad: sequentialPattern.pad })
           return
         }
@@ -274,10 +289,15 @@ const ImageScraper: React.FC = () => {
     }
 
     // Fallback: perform a normal scrape on the new URL
-    setUrl(targetUrl)
+    // Ensure URL reflects the final chapter position for proper synchronization
+    const finalChapterUrl = generateChapterUrl(targetUrl, targetChapterNumber + chapterCount - 1)
+    setUrl(finalChapterUrl)
 
-    // Start the scrape for the target URL
-    handleScrapeWithUrl(targetUrl)
+    // Start the scrape for the target URL but update URL to final position
+    handleScrapeWithUrl(targetUrl).then(() => {
+      // After scraping, ensure URL is synced to final chapter position
+      setUrl(finalChapterUrl)
+    })
   }
 
   // Progress handler that supports live insertion of images reported by the scraper
@@ -337,7 +357,8 @@ const ImageScraper: React.FC = () => {
         signal: abortControllerRef.current.signal,
         consecutiveMissThreshold,
         chapterCount,
-        validateImages
+        validateImages,
+        fetchInterval: fetchInterval * 1000 // Convert seconds to milliseconds
       }
 
       if (scrapingMethod === 'fast') {
@@ -371,7 +392,7 @@ const ImageScraper: React.FC = () => {
       }
       
       if ((scrapedImages && scrapedImages.length) || images.length > 0) {
-        const found = Math.max(scrapedImages.length, images.length)
+        // Images found, continue processing
       } else {
         toast.warning('No images found', {
           description: 'The site may be protected or have no matching images'
@@ -659,20 +680,18 @@ const ImageScraper: React.FC = () => {
                       <div className="relative">
                         <select
                           value={chapterCount}
-                          onChange={(e) => setChapterCount(Number(e.target.value))}
+                          onChange={(e) => handleChapterCountChange(Number(e.target.value))}
                           className="w-full pl-3 pr-8 py-2 text-sm bg-input border border-border rounded-md text-foreground appearance-none"
                           disabled={isLoading}
                         >
-                          <option value={1}>1</option>
-                          <option value={2}>2</option>
-                          <option value={3}>3</option>
-                          <option value={4}>4</option>
-                          <option value={5}>5</option>
-                          <option value={6}>6</option>
-                          <option value={7}>7</option>
-                          <option value={8}>8</option>
-                          <option value={9}>9</option>
-                          <option value={10}>10</option>
+                          {/* Generate options 1-20 individually */}
+                          {Array.from({length: 20}, (_, i) => i + 1).map(num => (
+                            <option key={num} value={num}>{num}</option>
+                          ))}
+                          {/* Generate options 25, 30, 35... up to 200 in increments of 5 */}
+                          {Array.from({length: 36}, (_, i) => (i + 5) * 5).map(num => (
+                            <option key={num} value={num}>{num}</option>
+                          ))}
                         </select>
                         <Tooltip open={chapterInfoOpen} onOpenChange={setChapterInfoOpen}>
                           <TooltipTrigger asChild>
@@ -683,6 +702,45 @@ const ImageScraper: React.FC = () => {
                           <TooltipContent side="top">Number of chapters to fetch in a single action when navigating.</TooltipContent>
                         </Tooltip>
                       </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Fetch Interval Settings */}
+                <div className="p-4 bg-accent/5 border border-accent/20 rounded-lg">
+                  <h4 className="text-sm font-medium text-foreground mb-3">Request Timing</h4>
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Fetch Interval (seconds)</label>
+                    <div className="relative">
+                      <select
+                        value={fetchInterval}
+                        onChange={(e) => handleFetchIntervalChange(Number(e.target.value))}
+                        className="w-full pl-3 pr-8 py-2 text-sm bg-input border border-border rounded-md text-foreground appearance-none"
+                        disabled={isLoading}
+                      >
+                        {/* Generate interval options based on chapter count */}
+                        {chapterCount >= 15 
+                          ? [60, 75, 90, 120, 150, 180, 200].map(seconds => (
+                              <option key={seconds} value={seconds}>{seconds}s</option>
+                            ))
+                          : [15, 20, 25, 30, 45, 60, 75, 90, 120, 150, 180, 200].map(seconds => (
+                              <option key={seconds} value={seconds}>{seconds}s</option>
+                            ))
+                        }
+                      </select>
+                      <Tooltip open={fetchIntervalInfoOpen} onOpenChange={setFetchIntervalInfoOpen}>
+                        <TooltipTrigger asChild>
+                          <button onClick={() => setFetchIntervalInfoOpen(prev => !prev)} className="absolute right-1 top-1/2 transform -translate-y-1/2 w-5 h-5 rounded-full bg-muted/60 hover:bg-muted flex items-center justify-center text-muted-foreground" aria-label="Fetch interval info">
+                            <Info className="h-3 w-3" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top">
+                          {chapterCount >= 15 
+                            ? "Minimum 60 seconds required for 15+ chapters to avoid overwhelming servers."
+                            : "Time between image fetch requests. Minimum 15 seconds, can be reduced for smaller chapter counts."
+                          }
+                        </TooltipContent>
+                      </Tooltip>
                     </div>
                   </div>
                 </div>
