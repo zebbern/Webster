@@ -235,57 +235,65 @@ export const scrapeImages = async (
           }
 
           if (validateImages) {
-            // Original validation approach
-            const batchPromises = batch.map(async (candidate) => {
+            // Check each image individually and stop on first failure in batch
+            let batchHasSuccess = false
+            let batchFailed = false
+            
+            for (const candidate of batch) {
               try {
                 const res = await fetchData(candidate, 'HEAD', signal)
                 const status = res?.status ?? 200
-                return { candidate, success: status < 400 }
-              } catch (err) {
-                return { candidate, success: false }
-              }
-            })
-
-            const batchResults = await Promise.all(batchPromises)
-            let batchHasSuccess = false
-            
-            for (const result of batchResults) {
-              if (result.success) {
-                batchHasSuccess = true
-                consecutiveMisses = 0
-                chapterImageCount++
-                seenUrls.add(result.candidate)
                 
-                const newImage: ScrapedImage = { 
-                  url: result.candidate, 
-                  type: extension, 
-                  source: 'static', 
-                  alt: `Image from ${new URL(chapterUrl).hostname} - Chapter ${currentChapter}` 
-                }
-                images.push(newImage)
+                if (status < 400) {
+                  // Success - add image
+                  batchHasSuccess = true
+                  chapterImageCount++
+                  seenUrls.add(candidate)
+                  
+                  const newImage: ScrapedImage = { 
+                    url: candidate, 
+                    type: extension, 
+                    source: 'static', 
+                    alt: `Image from ${new URL(chapterUrl).hostname} - Chapter ${currentChapter}` 
+                  }
+                  images.push(newImage)
 
-                // Live insertion
-                onNewImage?.(newImage)
-                onProgress?.({ 
-                  stage: 'scanning', 
-                  processed: images.length, 
-                  total: DEFAULT_SEQ_MAX * chapterCount, 
-                  found: images.length, 
-                  currentUrl: result.candidate, 
-                  image: newImage 
-                })
+                  // Live insertion
+                  onNewImage?.(newImage)
+                  onProgress?.({ 
+                    stage: 'scanning', 
+                    processed: images.length, 
+                    total: DEFAULT_SEQ_MAX * chapterCount, 
+                    found: images.length, 
+                    currentUrl: candidate, 
+                    image: newImage 
+                  })
+                } else {
+                  // Failed - mark batch as failed and stop checking rest
+                  console.log(`Image validation failed: ${candidate} (${status})`)
+                  batchFailed = true
+                  break // Stop checking rest of batch on first failure
+                }
+              } catch (err) {
+                // Error - mark batch as failed and stop checking rest
+                console.log(`Image validation error: ${candidate}`, err)
+                batchFailed = true
+                break // Stop checking rest of batch on first failure
               }
             }
 
-            if (!batchHasSuccess) {
-              consecutiveMisses += BATCH_SIZE
+            // Update consecutive misses based on batch result
+            if (batchHasSuccess) {
+              consecutiveMisses = 0 // Reset on any success in batch
+            } else if (batchFailed || batch.length === 0) {
+              consecutiveMisses += 1 // Increment by 1 for each failed batch, not BATCH_SIZE
             }
           } else {
-            // No validation - add candidates but with reasonable limits
-            // When validation is disabled, we assume a reasonable chapter length (50-100 images)
-            const reasonableChapterLimit = 100
-            
+            // No validation - just add all candidates directly (original behavior)
+            let batchHasSuccess = false
             for (const candidate of batch) {
+              batchHasSuccess = true
+              consecutiveMisses = 0
               chapterImageCount++
               seenUrls.add(candidate)
               
@@ -302,23 +310,16 @@ export const scrapeImages = async (
               onProgress?.({ 
                 stage: 'scanning', 
                 processed: images.length, 
-                total: Math.min(DEFAULT_SEQ_MAX, reasonableChapterLimit) * chapterCount, 
+                total: DEFAULT_SEQ_MAX * chapterCount, 
                 found: images.length, 
                 currentUrl: candidate, 
                 image: newImage 
               })
-              
-              // Stop at reasonable limit when validation is disabled
-              if (chapterImageCount >= reasonableChapterLimit) {
-                console.log(`Stopped at ${reasonableChapterLimit} images (validation disabled)`)
-                consecutiveMisses = consecutiveMissThreshold // Force exit from main loop
-                break
-              }
             }
-            
-            // Always increment consecutive misses when validation is disabled
-            // This ensures we don't run forever
-            consecutiveMisses += 1
+
+            if (!batchHasSuccess) {
+              consecutiveMisses += BATCH_SIZE
+            }
           }
 
           currentIndex += BATCH_SIZE
