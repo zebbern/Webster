@@ -29,7 +29,6 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
   const [buttonsVisible, setButtonsVisible] = useState<boolean>(true)
   const [lastScrollY, setLastScrollY] = useState<number>(0)
   const [autoNavTriggered, setAutoNavTriggered] = useState<boolean>(false)
-  const [wasFullscreenBeforeNavigation, setWasFullscreenBeforeNavigation] = useState<boolean>(false)
 
   useEffect(() => {
     onPreviewChange?.(previewMode)
@@ -43,32 +42,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
   // Reset auto nav trigger when images change (new chapter loaded)
   useEffect(() => {
     setAutoNavTriggered(false)
-    
-    // Restore fullscreen if it was active before navigation
-    if (wasFullscreenBeforeNavigation && previewMode) {
-      console.log('Restoring fullscreen after chapter navigation')
-      const timer = setTimeout(() => {
-        const enterFullscreen = async () => {
-          try {
-            
-            if (document.documentElement.requestFullscreen) {
-              await document.documentElement.requestFullscreen()
-            } else if ((document.documentElement as any).webkitRequestFullscreen) {
-              await (document.documentElement as any).webkitRequestFullscreen()
-            } else if ((document.documentElement as any).msRequestFullscreen) {
-              await (document.documentElement as any).msRequestFullscreen()
-            }
-          } catch (err) {
-            console.log('Failed to restore fullscreen:', err)
-          }
-        }
-        enterFullscreen()
-      }, 100)
-      
-      setWasFullscreenBeforeNavigation(false)
-      return () => clearTimeout(timer)
-    }
-  }, [images, wasFullscreenBeforeNavigation, previewMode])
+  }, [images])
 
   // Fullscreen management for preview mode - only trigger on preview mode changes
   useEffect(() => {
@@ -209,13 +183,6 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
 
       // Auto next chapter functionality
       if (autoNextChapter && isAtBottom && !autoNavTriggered && !isNavigating && onNextChapter && onStartNavigation) {
-        // Check if currently in fullscreen before navigation
-        const isCurrentlyFullscreen = !!(document.fullscreenElement || (document as any).webkitFullscreenElement || (document as any).msFullscreenElement)
-        if (isCurrentlyFullscreen && previewMode) {
-          setWasFullscreenBeforeNavigation(true)
-          console.log('Preserving fullscreen state for chapter navigation')
-        }
-        
         // IMMEDIATELY start navigation lock
         setAutoNavTriggered(true)
         onStartNavigation()

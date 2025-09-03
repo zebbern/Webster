@@ -277,36 +277,12 @@ const ImageScraper: React.FC = () => {
   }
 
   const handleChapterNavigation = async (direction: 'prev' | 'next') => {
-    // Check if currently in fullscreen before navigation
-    const isCurrentlyFullscreen = !!(document.fullscreenElement || (document as any).webkitFullscreenElement || (document as any).msFullscreenElement)
-    
     // Start universal navigation lock
     setIsNavigating(true)
     
     // Clear navigation lock after 2 seconds
     setTimeout(() => {
       setIsNavigating(false)
-      
-      // Restore fullscreen after navigation if it was active
-      if (isCurrentlyFullscreen && previewActive) {
-        console.log('Restoring fullscreen after manual chapter navigation')
-        setTimeout(() => {
-          const enterFullscreen = async () => {
-            try {
-              if (document.documentElement.requestFullscreen) {
-                await document.documentElement.requestFullscreen()
-              } else if ((document.documentElement as any).webkitRequestFullscreen) {
-                await (document.documentElement as any).webkitRequestFullscreen()
-              } else if ((document.documentElement as any).msRequestFullscreen) {
-                await (document.documentElement as any).msRequestFullscreen()
-              }
-            } catch (err) {
-              console.log('Failed to restore fullscreen after manual navigation:', err)
-            }
-          }
-          enterFullscreen()
-        }, 200) // Small delay to ensure DOM is ready
-      }
     }, 2000)
     // Generate URL for the target chapter (single chapter navigation)
     let targetUrl = url
