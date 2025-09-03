@@ -44,7 +44,14 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
 
   // Fullscreen management for preview mode
   useEffect(() => {
+    const isFullscreen = () => {
+      return !!(document.fullscreenElement || (document as any).webkitFullscreenElement || (document as any).msFullscreenElement)
+    }
+
     const enterFullscreen = async () => {
+      // Only request fullscreen if not already in fullscreen
+      if (isFullscreen()) return
+      
       try {
         if (document.documentElement.requestFullscreen) {
           await document.documentElement.requestFullscreen()
@@ -60,6 +67,9 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
     }
 
     const exitFullscreen = async () => {
+      // Only exit fullscreen if currently in fullscreen
+      if (!isFullscreen()) return
+      
       try {
         if (document.exitFullscreen) {
           await document.exitFullscreen()
@@ -75,22 +85,16 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
     }
 
     if (previewMode) {
-      // Enter fullscreen when preview mode is activated
-      enterFullscreen()
+      // Small delay to ensure DOM is ready after image loading
+      const timer = setTimeout(() => {
+        enterFullscreen()
+      }, 100)
+      return () => clearTimeout(timer)
     } else {
       // Exit fullscreen when preview mode is deactivated
-      if (document.fullscreenElement || (document as any).webkitFullscreenElement || (document as any).msFullscreenElement) {
-        exitFullscreen()
-      }
+      exitFullscreen()
     }
-
-    // Cleanup function to exit fullscreen if component unmounts while in preview
-    return () => {
-      if (previewMode && (document.fullscreenElement || (document as any).webkitFullscreenElement || (document as any).msFullscreenElement)) {
-        exitFullscreen()
-      }
-    }
-  }, [previewMode])
+  }, [previewMode, images.length]) // Also depend on images.length to re-trigger after chapter load
 
   // Handle fullscreen change events (user pressing ESC or browser controls)
   useEffect(() => {
