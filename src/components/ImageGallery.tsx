@@ -30,6 +30,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
   const [lastScrollY, setLastScrollY] = useState<number>(0)
   const [autoNavTriggered, setAutoNavTriggered] = useState<boolean>(false)
   const [wasFullscreenBeforeNavigation, setWasFullscreenBeforeNavigation] = useState<boolean>(false)
+  const [initialPreviewScrollPosition, setInitialPreviewScrollPosition] = useState<number>(0)
 
   useEffect(() => {
     onPreviewChange?.(previewMode)
@@ -50,6 +51,15 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
       const timer = setTimeout(() => {
         const enterFullscreen = async () => {
           try {
+            // For mobile Safari: restore to original scroll position from when preview was entered
+            if (/iPhone|iPad|iPod|Mac/.test(navigator.userAgent) && /Safari/.test(navigator.userAgent)) {
+              console.log('Mobile Safari detected - restoring to initial preview scroll position:', initialPreviewScrollPosition)
+              window.scrollTo(0, initialPreviewScrollPosition)
+              
+              // Small delay to let Safari bars adjust to original position
+              await new Promise(resolve => setTimeout(resolve, 100))
+            }
+            
             if (document.documentElement.requestFullscreen) {
               await document.documentElement.requestFullscreen()
             } else if ((document.documentElement as any).webkitRequestFullscreen) {
@@ -67,7 +77,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
       setWasFullscreenBeforeNavigation(false)
       return () => clearTimeout(timer)
     }
-  }, [images, wasFullscreenBeforeNavigation, previewMode])
+  }, [images, wasFullscreenBeforeNavigation, previewMode, initialPreviewScrollPosition])
 
   // Fullscreen management for preview mode - only trigger on preview mode changes
   useEffect(() => {
@@ -84,6 +94,15 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
       
       try {
         console.log('Requesting fullscreen...')
+        
+        // For mobile Safari: use the scroll position from when preview was entered
+        if (/iPhone|iPad|iPod|Mac/.test(navigator.userAgent) && /Safari/.test(navigator.userAgent)) {
+          console.log('Mobile Safari detected - using initial preview scroll position:', initialPreviewScrollPosition)
+          window.scrollTo(0, initialPreviewScrollPosition)
+          
+          // Small delay to let Safari bars adjust
+          await new Promise(resolve => setTimeout(resolve, 100))
+        }
         
         if (document.documentElement.requestFullscreen) {
           await document.documentElement.requestFullscreen()
@@ -121,6 +140,10 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
     if (previewMode) {
       // Only enter fullscreen when first entering preview mode
       console.log('Entering preview mode, requesting fullscreen')
+      
+      // Save the current scroll position when entering preview
+      setInitialPreviewScrollPosition(window.scrollY)
+      
       const timer = setTimeout(() => {
         enterFullscreen()
       }, 100)
