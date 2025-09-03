@@ -42,6 +42,79 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
     setAutoNavTriggered(false)
   }, [images])
 
+  // Fullscreen management for preview mode
+  useEffect(() => {
+    const enterFullscreen = async () => {
+      try {
+        if (document.documentElement.requestFullscreen) {
+          await document.documentElement.requestFullscreen()
+        } else if ((document.documentElement as any).webkitRequestFullscreen) {
+          await (document.documentElement as any).webkitRequestFullscreen()
+        } else if ((document.documentElement as any).msRequestFullscreen) {
+          await (document.documentElement as any).msRequestFullscreen()
+        }
+      } catch (err) {
+        // Fullscreen request failed (user denied or not supported)
+        console.log('Fullscreen request failed:', err)
+      }
+    }
+
+    const exitFullscreen = async () => {
+      try {
+        if (document.exitFullscreen) {
+          await document.exitFullscreen()
+        } else if ((document as any).webkitExitFullscreen) {
+          await (document as any).webkitExitFullscreen()
+        } else if ((document as any).msExitFullscreen) {
+          await (document as any).msExitFullscreen()
+        }
+      } catch (err) {
+        // Exit fullscreen failed
+        console.log('Exit fullscreen failed:', err)
+      }
+    }
+
+    if (previewMode) {
+      // Enter fullscreen when preview mode is activated
+      enterFullscreen()
+    } else {
+      // Exit fullscreen when preview mode is deactivated
+      if (document.fullscreenElement || (document as any).webkitFullscreenElement || (document as any).msFullscreenElement) {
+        exitFullscreen()
+      }
+    }
+
+    // Cleanup function to exit fullscreen if component unmounts while in preview
+    return () => {
+      if (previewMode && (document.fullscreenElement || (document as any).webkitFullscreenElement || (document as any).msFullscreenElement)) {
+        exitFullscreen()
+      }
+    }
+  }, [previewMode])
+
+  // Handle fullscreen change events (user pressing ESC or browser controls)
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const isFullscreen = !!(document.fullscreenElement || (document as any).webkitFullscreenElement || (document as any).msFullscreenElement)
+      
+      // If user exits fullscreen manually while in preview mode, exit preview mode
+      if (!isFullscreen && previewMode) {
+        setPreviewMode(false)
+      }
+    }
+
+    // Add event listeners for different browsers
+    document.addEventListener('fullscreenchange', handleFullscreenChange)
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange)
+    document.addEventListener('msfullscreenchange', handleFullscreenChange)
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange)
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange)
+      document.removeEventListener('msfullscreenchange', handleFullscreenChange)
+    }
+  }, [previewMode])
+
   // Keyboard navigation for preview mode
   useEffect(() => {
     if (!previewMode) return
