@@ -25,6 +25,67 @@ const ImageScraper: React.FC = () => {
   const abortControllerRef = useRef<AbortController | null>(null)
   const upArrowClickTimeoutRef = useRef<number | null>(null)
 
+  // Navigation lock scroll prevention
+  useEffect(() => {
+    const preventScroll = (e: Event) => {
+      e.preventDefault()
+      e.stopPropagation()
+      return false
+    }
+
+    const preventTouchMove = (e: TouchEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      return false
+    }
+
+    const preventWheel = (e: WheelEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      return false
+    }
+
+    if (isNavigating) {
+      // Apply CSS scroll lock
+      document.body.style.overflow = 'hidden'
+      document.body.style.touchAction = 'none'
+      document.documentElement.style.overflow = 'hidden'
+      
+      // Add event listeners
+      document.addEventListener('scroll', preventScroll, { passive: false })
+      document.addEventListener('touchmove', preventTouchMove, { passive: false })
+      document.addEventListener('wheel', preventWheel, { passive: false })
+      window.addEventListener('scroll', preventScroll, { passive: false })
+      
+      console.log('Navigation lock: Scroll prevention activated')
+    } else {
+      // Remove scroll lock
+      document.body.style.overflow = ''
+      document.body.style.touchAction = ''
+      document.documentElement.style.overflow = ''
+      
+      // Remove event listeners
+      document.removeEventListener('scroll', preventScroll)
+      document.removeEventListener('touchmove', preventTouchMove)
+      document.removeEventListener('wheel', preventWheel)
+      window.removeEventListener('scroll', preventScroll)
+      
+      console.log('Navigation lock: Scroll prevention removed')
+    }
+
+    return () => {
+      // Cleanup on unmount or state change
+      document.removeEventListener('scroll', preventScroll)
+      document.removeEventListener('touchmove', preventTouchMove)
+      document.removeEventListener('wheel', preventWheel)
+      window.removeEventListener('scroll', preventScroll)
+      
+      document.body.style.overflow = ''
+      document.body.style.touchAction = ''
+      document.documentElement.style.overflow = ''
+    }
+  }, [isNavigating])
+
   // Cleanup timeout on unmount
   useEffect(() => {
     return () => {
@@ -1130,7 +1191,16 @@ config=/comics/title/ch-{chapter:03d}`}
 
       {/* Universal Navigation Lock Overlay */}
       {isNavigating && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+        <div 
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm"
+          onTouchMove={(e) => e.preventDefault()}
+          onWheel={(e) => e.preventDefault()}
+          onScroll={(e) => e.preventDefault()}
+          style={{ 
+            touchAction: 'none',
+            overscrollBehavior: 'none'
+          }}
+        >
           <div className="flex items-center space-x-4 bg-black/90 text-white px-8 py-6 rounded-xl shadow-2xl border border-white/20">
             <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
             <div className="text-xl font-semibold tracking-wide">
