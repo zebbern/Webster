@@ -50,19 +50,6 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
       const timer = setTimeout(() => {
         const enterFullscreen = async () => {
           try {
-            // For mobile Safari: check if we're scrolled down and maintain that state
-            if (/iPhone|iPad|iPod|Mac/.test(navigator.userAgent) && /Safari/.test(navigator.userAgent)) {
-              const isScrolledDown = window.scrollY > 50 // Safari bars typically hide after 50px scroll
-              console.log('Mobile Safari detected - scroll state:', { scrollY: window.scrollY, isScrolledDown })
-              
-              if (isScrolledDown) {
-                // If already scrolled down, scroll a bit more to ensure Safari bars are hidden
-                window.scrollTo(0, window.scrollY + 10)
-              }
-              
-              // Small delay to let Safari bars adjust
-              await new Promise(resolve => setTimeout(resolve, 100))
-            }
             
             if (document.documentElement.requestFullscreen) {
               await document.documentElement.requestFullscreen()
@@ -99,20 +86,6 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
       try {
         console.log('Requesting fullscreen...')
         
-        // For mobile Safari: check current scroll state and maintain it
-        if (/iPhone|iPad|iPod|Mac/.test(navigator.userAgent) && /Safari/.test(navigator.userAgent)) {
-          const currentScrollY = window.scrollY
-          const isScrolledDown = currentScrollY > 50 // Safari bars typically hide after 50px scroll
-          console.log('Mobile Safari detected - current state:', { scrollY: currentScrollY, isScrolledDown })
-          
-          if (isScrolledDown) {
-            // If scrolled down, ensure Safari bars stay hidden by scrolling a bit more
-            window.scrollTo(0, currentScrollY + 10)
-          }
-          
-          // Small delay to let Safari bars adjust
-          await new Promise(resolve => setTimeout(resolve, 100))
-        }
         
         if (document.documentElement.requestFullscreen) {
           await document.documentElement.requestFullscreen()
