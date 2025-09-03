@@ -78,6 +78,33 @@ const ProgressIndicator: React.FC<ProgressIndicatorProps> = ({ progress }) => {
           <span>{progress.found} images found</span>
         )}
       </div>
+      
+      {/* Chapter Results */}
+      {progress.chapterResults && progress.chapterResults.length > 1 && (
+        <div className="mt-3 pt-3 border-t border-border">
+          <div className="text-xs font-medium text-foreground mb-2">Chapter Progress</div>
+          <div className="flex items-center space-x-1 flex-wrap gap-1">
+            {progress.chapterResults.map((result) => (
+              <div
+                key={result.chapterNumber}
+                className={`px-2 py-1 rounded text-xs font-medium ${
+                  result.success 
+                    ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                    : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+                }`}
+                title={result.success ? `Chapter ${result.chapterNumber}: ${result.imageCount} images` : `Chapter ${result.chapterNumber}: ${result.error}`}
+              >
+                Ch{result.chapterNumber}{result.success ? ` (${result.imageCount})` : ' ✗'}
+              </div>
+            ))}
+          </div>
+          {progress.failedChapters && progress.failedChapters.length > 0 && (
+            <div className="text-xs text-red-600 dark:text-red-400 mt-1">
+              Failed: {progress.failedChapters.join(', ')}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

@@ -6,6 +6,7 @@ import ProgressIndicator from './ProgressIndicator'
 import ThemeToggle from './ThemeToggle'
 import { scrapeImages, ScrapedImage, ScrapeProgress } from '../utils/advancedImageScraper'
 import { getNavigationState, parseChapterFromUrl } from '../utils/urlNavigation'
+import { urlPatternManager } from '../utils/urlPatterns'
 
 import { Tooltip, TooltipTrigger, TooltipContent } from './ui/tooltip'
 
@@ -90,6 +91,11 @@ const ImageScraper: React.FC = () => {
   const [chapterInfoOpen, setChapterInfoOpen] = useState<boolean>(false)
   const [validateInfoOpen, setValidateInfoOpen] = useState<boolean>(false)
   const [fetchIntervalInfoOpen, setFetchIntervalInfoOpen] = useState<boolean>(false)
+  
+  // URL Pattern Configuration
+  const [showUrlPatterns, setShowUrlPatterns] = useState<boolean>(false)
+  const [customUrlPatterns, setCustomUrlPatterns] = useState<string>('')
+  const [urlPatternsOpen, setUrlPatternsOpen] = useState<boolean>(false)
 
   const availableFileTypes = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'tiff', 'ico']
 
@@ -147,6 +153,34 @@ const ImageScraper: React.FC = () => {
       return urlObj.toString()
     } catch (error) {
       return baseUrl
+    }
+  }
+
+  const handleUrlPatternsApply = () => {
+    try {
+      if (customUrlPatterns.trim()) {
+        // Import custom patterns into the URL pattern manager
+        urlPatternManager.importFromEnvFormat(customUrlPatterns)
+        toast.success('URL patterns imported successfully')
+      } else {
+        toast.info('No patterns to import')
+      }
+    } catch (error: any) {
+      toast.error(`Failed to import URL patterns: ${error.message}`)
+    }
+  }
+
+  const handleUrlPatternsExport = () => {
+    try {
+      const exported = urlPatternManager.exportToEnvFormat()
+      setCustomUrlPatterns(exported)
+      if (exported) {
+        toast.success('Current patterns exported to editor')
+      } else {
+        toast.info('No patterns configured to export')
+      }
+    } catch (error: any) {
+      toast.error(`Failed to export URL patterns: ${error.message}`)
     }
   }
 
@@ -303,6 +337,15 @@ const ImageScraper: React.FC = () => {
   // Progress handler that supports live insertion of images reported by the scraper
   const handleProgress = useCallback((p: ScrapeProgress) => {
     setProgress(p)
+    
+    // Handle chapter results and show failure notifications
+    if (p.chapterResults && chapterCount > 1) {
+      const latestResult = p.chapterResults[p.chapterResults.length - 1]
+      if (latestResult && !latestResult.success) {
+        toast.error(`Chapter ${latestResult.chapterNumber} failed: ${latestResult.error}`)
+      }
+    }
+    
     if (p.image) {
       setImages(prev => {
         // avoid duplicates
@@ -392,7 +435,22 @@ const ImageScraper: React.FC = () => {
       }
       
       if ((scrapedImages && scrapedImages.length) || images.length > 0) {
-        // Images found, continue processing
+        // Show chapter results summary for multi-chapter scraping
+        if (chapterCount > 1 && progress?.chapterResults) {
+          const successful = progress.chapterResults.filter(r => r.success)
+          const failed = progress.chapterResults.filter(r => !r.success)
+          const totalImages = successful.reduce((sum, r) => sum + r.imageCount, 0)
+          
+          if (failed.length > 0) {
+            toast.warning(`Multi-chapter scraping completed with issues`, {
+              description: `Found ${totalImages} images across ${successful.length}/${chapterCount} chapters. Failed chapters: ${failed.map(r => r.chapterNumber).join(', ')}`
+            })
+          } else {
+            toast.success(`Multi-chapter scraping completed successfully`, {
+              description: `Found ${totalImages} images across all ${chapterCount} chapters`
+            })
+          }
+        }
       } else {
         toast.warning('No images found', {
           description: 'The site may be protected or have no matching images'
@@ -856,6 +914,74 @@ const ImageScraper: React.FC = () => {
                   </button>
                 ))}
               </div>
+            </div>
+            
+            {/* URL Pattern Configuration */}
+            <div className="p-4 bg-accent/5 border border-accent/20 rounded-lg">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center space-x-2">
+                  <Filter className="h-5 w-5 text-muted-foreground" />
+                  <label className="text-sm font-medium text-foreground">URL Patterns</label>
+                  <Tooltip open={urlPatternsOpen} onOpenChange={setUrlPatternsOpen}>
+                    <TooltipTrigger asChild>
+                      <button onClick={() => setUrlPatternsOpen(prev => !prev)} className="w-5 h-5 rounded-full bg-muted/60 hover:bg-muted flex items-center justify-center text-muted-foreground" aria-label="URL patterns info">
+                        <Info className="h-3 w-3" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      <div className="text-xs max-w-64">
+                        <div className="font-medium mb-1">Custom URL Patterns</div>
+                        <div>Configure custom chapter URL patterns for specific websites. Use .env format with domain-specific templates.</div>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+                <button
+                  onClick={() => setShowUrlPatterns(prev => !prev)}
+                  className="px-3 py-1 text-xs bg-secondary text-secondary-foreground rounded hover:bg-secondary/90 transition-colors"
+                >
+                  {showUrlPatterns ? 'Hide' : 'Configure'}
+                </button>
+              </div>
+              
+              {showUrlPatterns && (
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-2 block">Pattern Configuration (.env format)</label>
+                    <textarea
+                      value={customUrlPatterns}
+                      onChange={(e) => setCustomUrlPatterns(e.target.value)}
+                      placeholder={`# Example URL patterns:
+# manga-site.com
+url=https://manga-site.com/manga/title/chapter-1
+config=/manga/title/chapter-{chapter}
+
+# comic-reader.net  
+url=https://comic-reader.net/comics/title/ch-001
+config=/comics/title/ch-{chapter:03d}`}
+                      className="w-full h-24 px-3 py-2 text-xs bg-input border border-border rounded-md text-foreground font-mono resize-none"
+                      disabled={isLoading}
+                    />
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={handleUrlPatternsApply}
+                      disabled={isLoading || !customUrlPatterns.trim()}
+                      className="px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors disabled:opacity-50"
+                    >
+                      Apply Patterns
+                    </button>
+                    <button
+                      onClick={handleUrlPatternsExport}
+                      disabled={isLoading}
+                      className="px-3 py-1.5 text-sm bg-secondary text-secondary-foreground rounded hover:bg-secondary/90 transition-colors"
+                    >
+                      Export Current
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

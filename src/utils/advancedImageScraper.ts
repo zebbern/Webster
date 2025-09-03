@@ -48,6 +48,14 @@ export interface ScrapedImage {
   isDuplicate?: boolean
 }
 
+export interface ChapterResult {
+  chapterNumber: number
+  url: string
+  success: boolean
+  imageCount: number
+  error?: string
+}
+
 export interface ScrapeProgress {
   stage: 'loading' | 'scanning' | 'analyzing' | 'processing'
   processed: number
@@ -56,6 +64,10 @@ export interface ScrapeProgress {
   currentUrl?: string
   // When present, the scraper is reporting a single newly-validated image (live insertion)
   image?: ScrapedImage
+  // Multi-chapter results tracking
+  chapterResults?: ChapterResult[]
+  failedChapters?: number[]
+  successfulChapters?: number[]
 }
 
 export interface ScrapeOptions {

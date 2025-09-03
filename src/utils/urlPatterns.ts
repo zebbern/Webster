@@ -98,7 +98,7 @@ class UrlPatternManager {
     return envContent.join('\n')
   }
 
-  private parseEnvContent(content: string): UrlConfig[] {
+  public parseEnvContent(content: string): UrlConfig[] {
     const configs: UrlConfig[] = []
     const lines = content.split('\n').filter(line => line.trim() && !line.startsWith('#'))
     
@@ -320,6 +320,49 @@ class UrlPatternManager {
    */
   public hasPatternFor(domain: string): boolean {
     return this.configs.has(domain)
+  }
+
+  /**
+   * Import patterns from .env format string
+   */
+  public importFromEnvFormat(envContent: string): void {
+    const configs = this.parseEnvContent(envContent)
+    
+    configs.forEach(config => {
+      const domain = new URL(config.url).hostname
+      this.configs.set(domain, {
+        template: config.config,
+        variables: config.variables,
+        hasChapterVar: this.hasChapterVariable(config.config, config.variables),
+        domain: domain
+      })
+    })
+  }
+
+  /**
+   * Export current patterns to .env format string
+   */
+  public exportToEnvFormat(): string {
+    return this.reconstructEnvFromConfigs()
+  }
+
+  private reconstructEnvFromConfigs(): string {
+    const envContent: string[] = []
+    
+    for (const [domain, pattern] of this.configs.entries()) {
+      envContent.push(`# ${domain}`)
+      envContent.push(`url=https://${domain}/example`)
+      envContent.push(`config=${pattern.template}`)
+      
+      // Add variables if any
+      for (const [key, value] of Object.entries(pattern.variables)) {
+        envContent.push(`${key}=${value}`)
+      }
+      
+      envContent.push('') // Empty line between configs
+    }
+
+    return envContent.join('\n')
   }
 }
 
