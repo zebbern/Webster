@@ -281,11 +281,11 @@ export const scrapeImages = async (
               consecutiveMisses += BATCH_SIZE
             }
           } else {
-            // No validation - just add all candidates directly
-            let batchHasSuccess = false
+            // No validation - add candidates but with reasonable limits
+            // When validation is disabled, we assume a reasonable chapter length (50-100 images)
+            const reasonableChapterLimit = 100
+            
             for (const candidate of batch) {
-              batchHasSuccess = true
-              consecutiveMisses = 0
               chapterImageCount++
               seenUrls.add(candidate)
               
@@ -302,16 +302,23 @@ export const scrapeImages = async (
               onProgress?.({ 
                 stage: 'scanning', 
                 processed: images.length, 
-                total: DEFAULT_SEQ_MAX * chapterCount, 
+                total: Math.min(DEFAULT_SEQ_MAX, reasonableChapterLimit) * chapterCount, 
                 found: images.length, 
                 currentUrl: candidate, 
                 image: newImage 
               })
+              
+              // Stop at reasonable limit when validation is disabled
+              if (chapterImageCount >= reasonableChapterLimit) {
+                console.log(`Stopped at ${reasonableChapterLimit} images (validation disabled)`)
+                consecutiveMisses = consecutiveMissThreshold // Force exit from main loop
+                break
+              }
             }
-
-            if (!batchHasSuccess) {
-              consecutiveMisses += BATCH_SIZE
-            }
+            
+            // Always increment consecutive misses when validation is disabled
+            // This ensures we don't run forever
+            consecutiveMisses += 1
           }
 
           currentIndex += BATCH_SIZE
