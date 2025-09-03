@@ -296,11 +296,16 @@ export const scrapeImages = async (
               consecutiveMisses += 1 // Increment by 1 for each failed batch, not BATCH_SIZE
             }
           } else {
-            // No validation - just add all candidates directly (original behavior)
-            let batchHasSuccess = false
+            // No validation - add candidates with reasonable limits
+            // Stop at a reasonable chapter length since we can't validate
+            const maxImagesWithoutValidation = 100
+            
+            if (chapterImageCount >= maxImagesWithoutValidation) {
+              console.log(`Reached maximum ${maxImagesWithoutValidation} images without validation, stopping`)
+              break // Exit the main while loop
+            }
+            
             for (const candidate of batch) {
-              batchHasSuccess = true
-              consecutiveMisses = 0
               chapterImageCount++
               seenUrls.add(candidate)
               
@@ -317,16 +322,27 @@ export const scrapeImages = async (
               onProgress?.({ 
                 stage: 'scanning', 
                 processed: images.length, 
-                total: DEFAULT_SEQ_MAX * chapterCount, 
+                total: Math.min(DEFAULT_SEQ_MAX, maxImagesWithoutValidation) * chapterCount, 
                 found: images.length, 
                 currentUrl: candidate, 
                 image: newImage 
               })
+              
+              // Stop if we've reached the reasonable limit
+              if (chapterImageCount >= maxImagesWithoutValidation) {
+                console.log(`Reached maximum ${maxImagesWithoutValidation} images without validation, stopping`)
+                break
+              }
             }
-
-            if (!batchHasSuccess) {
-              consecutiveMisses += BATCH_SIZE
+            
+            // Force exit from main loop if we hit the limit
+            if (chapterImageCount >= maxImagesWithoutValidation) {
+              break
             }
+            
+            // When validation is disabled, assume we found images up to reasonable limit
+            // This prevents the infinite loop since consecutiveMisses never increases
+            consecutiveMisses = 0
           }
 
           currentIndex += BATCH_SIZE
