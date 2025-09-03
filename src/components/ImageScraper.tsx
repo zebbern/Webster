@@ -245,18 +245,14 @@ const ImageScraper: React.FC = () => {
   }
 
 
-  // Separate function to immediately start navigation lock
-  const handleNavigationStart = () => {
+  const handleChapterNavigation = async (direction: 'prev' | 'next') => {
+    // Start universal navigation lock
     setIsNavigating(true)
     
     // Clear navigation lock after 2 seconds
     setTimeout(() => {
       setIsNavigating(false)
     }, 2000)
-  }
-
-  const handleChapterNavigation = async (direction: 'prev' | 'next') => {
-    // Navigation lock is already started by handleNavigationStart
     // Generate URL for the target chapter (single chapter navigation)
     let targetUrl = url
     const chapterInfo = parseChapterFromUrl(url)
@@ -572,7 +568,7 @@ const ImageScraper: React.FC = () => {
                 return chapterInfo.hasChapter ? (
                   <div className="flex items-center justify-center space-x-3 p-3 bg-accent/10 border border-accent/20 rounded-lg">
                     <button
-                      onClick={() => { handleNavigationStart(); handleChapterNavigation('prev'); }}
+                      onClick={() => handleChapterNavigation('prev')}
                       disabled={!navState.canGoPrev || isLoading}
                       className={`p-2 rounded-lg border transition-colors flex items-center justify-center ${
                         navState.canGoPrev && !isLoading
@@ -599,7 +595,7 @@ const ImageScraper: React.FC = () => {
                     </div>
 
                     <button
-                      onClick={() => { handleNavigationStart(); handleChapterNavigation('next'); }}
+                      onClick={() => handleChapterNavigation('next')}
                       disabled={!navState.canGoNext || isLoading}
                       className={`p-2 rounded-lg border transition-colors flex items-center justify-center ${
                         navState.canGoNext && !isLoading
@@ -1077,7 +1073,6 @@ config=/comics/title/ch-{chapter:03d}`}
             initialPreviewMode={previewActive}
             autoNextChapter={autoNextChapter}
             onNextChapter={() => handleChapterNavigation('next')}
-            onNavigationStart={handleNavigationStart}
             isNavigating={isNavigating}
           />
         )}
@@ -1094,7 +1089,7 @@ config=/comics/title/ch-{chapter:03d}`}
           }`} style={{ zIndex: previewActive ? 9999 : undefined }}>
             <div className="flex items-center space-x-2 bg-card/70 backdrop-blur-sm px-2 py-1.5 rounded-full shadow-md border border-border/50">
               <button
-                onClick={() => { handleNavigationStart(); handleChapterNavigation('prev'); }}
+                onClick={() => handleChapterNavigation('prev')}
                 disabled={!navState.canGoPrev || isLoading}
                 className={`p-3 rounded-full border transition-colors flex items-center justify-center ${
                   navState.canGoPrev && !isLoading
@@ -1106,7 +1101,7 @@ config=/comics/title/ch-{chapter:03d}`}
                 <ChevronLeft className="h-6 w-6" />
               </button>
               <button
-                onClick={() => { handleNavigationStart(); handleChapterNavigation('next'); }}
+                onClick={() => handleChapterNavigation('next')}
                 disabled={!navState.canGoNext || isLoading}
                 className={`p-3 rounded-full border transition-colors flex items-center justify-center ${
                   navState.canGoNext && !isLoading
