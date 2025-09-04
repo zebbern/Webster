@@ -263,130 +263,157 @@ export const scrapeImages = async (
           throw new Error('Empty response from server')
         }
 
-      onProgress?.({ stage: 'scanning', processed: images.length, total: DEFAULT_SEQ_MAX * chapterCount, found: images.length, currentUrl: chapterUrl })
+        onProgress?.({ stage: 'scanning', processed: images.length, total: DEFAULT_SEQ_MAX * chapterCount, found: images.length, currentUrl: chapterUrl })
 
-      // Extract initial candidates for this chapter
-      let imageUrls = extractImageUrls(body, [], chapterUrl, body)
-      imageUrls = Array.from(new Set(imageUrls))
+        // Extract initial candidates for this chapter
+        let imageUrls = extractImageUrls(body, [], chapterUrl, body)
+        imageUrls = Array.from(new Set(imageUrls))
 
-      // Check for strong sequential patterns 
-      const seqInfo = detectStrongSequentialPattern(imageUrls)
-      if (seqInfo) {
-        const { basePath, extension, pad } = seqInfo
-        
-        // Process images in smaller batches for server-friendly validation
-        const BATCH_SIZE = 3
-        let consecutiveMisses = 0
-        let chapterImageCount = 0
-        let currentIndex = 1
-
-        while (currentIndex <= DEFAULT_SEQ_MAX && consecutiveMisses < consecutiveMissThreshold) {
-          if (signal?.aborted) throw new Error('Aborted')
+        // Check for strong sequential patterns 
+        const seqInfo = detectStrongSequentialPattern(imageUrls)
+        if (seqInfo) {
+          const { basePath, extension, pad } = seqInfo
           
-          // Create batch of candidates
-          const batch: string[] = []
-          for (let j = 0; j < BATCH_SIZE && (currentIndex + j) <= DEFAULT_SEQ_MAX; j++) {
-            const padded = (currentIndex + j).toString().padStart(pad, '0')
-            const candidate = `${basePath}${padded}.${extension}`
-            if (!seenUrls.has(candidate)) {
-              batch.push(candidate)
+          // Process images in smaller batches for server-friendly validation
+          const BATCH_SIZE = 3
+          let consecutiveMisses = 0
+          let chapterImageCount = 0
+          let currentIndex = 1
+
+          while (currentIndex <= DEFAULT_SEQ_MAX && consecutiveMisses < consecutiveMissThreshold) {
+            if (signal?.aborted) throw new Error('Aborted')
+            
+            // Create batch of candidates
+            const batch: string[] = []
+            for (let j = 0; j < BATCH_SIZE && (currentIndex + j) <= DEFAULT_SEQ_MAX; j++) {
+              const padded = (currentIndex + j).toString().padStart(pad, '0')
+              const candidate = `${basePath}${padded}.${extension}`
+              if (!seenUrls.has(candidate)) {
+                batch.push(candidate)
+              }
             }
+
+            // Unified failsafe approach - check images in batch regardless of validateImages setting
+            let batchHasSuccess = false
+            let batchFailed = false
+            
+            for (let i = 0; i < batch.length; i++) {
+              const candidate = batch[i]
+              let imageExists = false
+            
+              if (validateImages) {
+                // Use HEAD request for validation
+                try {
+                  const res = await fetchData(candidate, 'HEAD', signal)
+                  const status = res?.status ?? 200
+                  imageExists = status < 400
+                  if (!imageExists) {
+                    console.log(`Image validation failed: ${candidate} (${status})`)
+                  }
+                } catch (err) {
+                  console.log(`Image validation error: ${candidate}`, err)
+                  imageExists = false
+                }
+              } else {
+                // Use Image element testing for no-validation mode
+                imageExists = await new Promise<boolean>((resolve) => {
+                  const img = new Image()
+                  const timeout = setTimeout(() => {
+                    img.onload = null
+                    img.onerror = null
+                    resolve(false) // Timeout = failure
+                  }, 5000) // 5 second timeout
+                  
+                  img.onload = () => {
+                    clearTimeout(timeout)
+                    resolve(true) // Successfully loaded
+                  }
+                  
+                  img.onerror = () => {
+                    clearTimeout(timeout)
+                    resolve(false) // Failed to load
+                  }
+                  
+                  img.src = candidate
+                })
+                
+                if (!imageExists) {
+                  console.log(`Image load test failed: ${candidate}`)
+                }
+              }
+
+              if (imageExists) {
+                // Success - add image
+                batchHasSuccess = true
+                chapterImageCount++
+                seenUrls.add(candidate)
+                
+                const newImage: ScrapedImage = { 
+                  url: candidate, 
+                  type: extension, 
+                  source: 'static', 
+                  alt: `Image from ${new URL(chapterUrl).hostname} - Chapter ${currentChapter}` 
+                }
+                images.push(newImage)
+
+                // Live insertion
+                onNewImage?.(newImage)
+                onProgress?.({ 
+                  stage: 'scanning', 
+                  processed: images.length, 
+                  total: DEFAULT_SEQ_MAX * chapterCount, 
+                  found: images.length, 
+                  currentUrl: candidate, 
+                  image: newImage 
+                })
+              } else {
+                // Failed image - mark batch as failed and stop checking rest of this batch
+                // This ensures if image 2 fails, images 2 and 3 are not displayed
+                batchFailed = true
+                break
+              }
+            }
+
+            // Update consecutive misses based on batch result
+            if (batchHasSuccess) {
+              consecutiveMisses = 0 // Reset on any success in batch
+            } else if (batchFailed || batch.length === 0) {
+              consecutiveMisses += 1 // Increment by 1 for each failed batch
+            }
+
+            currentIndex += BATCH_SIZE
           }
 
-          // Unified failsafe approach - check images in batch regardless of validateImages setting
-          let batchHasSuccess = false
-          let batchFailed = false
-          
-          for (let i = 0; i < batch.length; i++) {
-            const candidate = batch[i]
-            let imageExists = false
-            
-            if (validateImages) {
-              // Use HEAD request for validation
-              try {
-                const res = await fetchData(candidate, 'HEAD', signal)
-                const status = res?.status ?? 200
-                imageExists = status < 400
-                if (!imageExists) {
-                  console.log(`Image validation failed: ${candidate} (${status})`)
-                }
-              } catch (err) {
-                console.log(`Image validation error: ${candidate}`, err)
-                imageExists = false
-              }
-            } else {
-              // Use Image element testing for no-validation mode
-              imageExists = await new Promise<boolean>((resolve) => {
-                const img = new Image()
-                const timeout = setTimeout(() => {
-                  img.onload = null
-                  img.onerror = null
-                  resolve(false) // Timeout = failure
-                }, 5000) // 5 second timeout
-                
-                img.onload = () => {
-                  clearTimeout(timeout)
-                  resolve(true) // Successfully loaded
-                }
-                
-                img.onerror = () => {
-                  clearTimeout(timeout)
-                  resolve(false) // Failed to load
-                }
-                
-                img.src = candidate
-              })
-              
-              if (!imageExists) {
-                console.log(`Image load test failed: ${candidate}`)
-              }
-            }
+          // If first chapter found no sequential images, try non-sequential approach for this chapter
+          if (chapterImageCount === 0 && currentChapter === 1) {
+            // Process discovered URLs (dedupe and filter by type)
+            let processedCount = 0
+            for (const imageUrl of imageUrls) {
+              if (signal?.aborted) throw new Error('Aborted')
+              if (!imageUrl) continue
+              if (seenUrls.has(imageUrl)) continue
+              seenUrls.add(imageUrl)
 
-            if (imageExists) {
-              // Success - add image
-              batchHasSuccess = true
-              chapterImageCount++
-              seenUrls.add(candidate)
-              
-              const newImage: ScrapedImage = { 
-                url: candidate, 
-                type: extension, 
-                source: 'static', 
-                alt: `Image from ${new URL(chapterUrl).hostname} - Chapter ${currentChapter}` 
+              const type = getFileTypeFromUrl(imageUrl)
+              processedCount++
+
+              if (!type || !fileTypes.includes(type)) {
+                onProgress?.({ stage: 'scanning', processed: processedCount, total: imageUrls.length, found: images.length, currentUrl: imageUrl })
+                continue
               }
+
+              const newImage: ScrapedImage = { url: imageUrl, type, source: 'dynamic', alt: `Image from ${new URL(chapterUrl).hostname} - Chapter ${currentChapter}` }
               images.push(newImage)
 
               // Live insertion
               onNewImage?.(newImage)
-              onProgress?.({ 
-                stage: 'scanning', 
-                processed: images.length, 
-                total: DEFAULT_SEQ_MAX * chapterCount, 
-                found: images.length, 
-                currentUrl: candidate, 
-                image: newImage 
-              })
-            } else {
-              // Failed image - mark batch as failed and stop checking rest of this batch
-              // This ensures if image 2 fails, images 2 and 3 are not displayed
-              batchFailed = true
-              break
+              onProgress?.({ stage: 'scanning', processed: processedCount, total: imageUrls.length, found: images.length, currentUrl: imageUrl, image: newImage })
+
+              await new Promise(res => setTimeout(res, 10))
             }
           }
-
-          // Update consecutive misses based on batch result
-          if (batchHasSuccess) {
-            consecutiveMisses = 0 // Reset on any success in batch
-          } else if (batchFailed || batch.length === 0) {
-            consecutiveMisses += 1 // Increment by 1 for each failed batch
-          }
-
-          currentIndex += BATCH_SIZE
-        }
-
-        // If first chapter found no sequential images, try non-sequential approach for this chapter
-        if (chapterImageCount === 0 && currentChapter === 1) {
-          // Process discovered URLs (dedupe and filter by type)
+        } else {
+          // No sequential pattern found, process discovered URLs normally
           let processedCount = 0
           for (const imageUrl of imageUrls) {
             if (signal?.aborted) throw new Error('Aborted')
@@ -411,32 +438,6 @@ export const scrapeImages = async (
 
             await new Promise(res => setTimeout(res, 10))
           }
-        }
-      } else {
-        // No sequential pattern found, process discovered URLs normally
-        let processedCount = 0
-        for (const imageUrl of imageUrls) {
-          if (signal?.aborted) throw new Error('Aborted')
-          if (!imageUrl) continue
-          if (seenUrls.has(imageUrl)) continue
-          seenUrls.add(imageUrl)
-
-          const type = getFileTypeFromUrl(imageUrl)
-          processedCount++
-
-          if (!type || !fileTypes.includes(type)) {
-            onProgress?.({ stage: 'scanning', processed: processedCount, total: imageUrls.length, found: images.length, currentUrl: imageUrl })
-            continue
-          }
-
-          const newImage: ScrapedImage = { url: imageUrl, type, source: 'dynamic', alt: `Image from ${new URL(chapterUrl).hostname} - Chapter ${currentChapter}` }
-          images.push(newImage)
-
-          // Live insertion
-          onNewImage?.(newImage)
-          onProgress?.({ stage: 'scanning', processed: processedCount, total: imageUrls.length, found: images.length, currentUrl: imageUrl, image: newImage })
-
-          await new Promise(res => setTimeout(res, 10))
         }
         
         // Calculate chapter success
