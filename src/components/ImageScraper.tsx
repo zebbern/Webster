@@ -8,7 +8,7 @@ import ChapterNavigation from './ChapterNavigation'
 import ScrapingConfiguration from './ScrapingConfiguration'
 import ImageFiltering from './ImageFiltering'
 import { scrapeImages, ScrapedImage, ScrapeProgress } from '../utils/advancedImageScraper'
-import { getNavigationState, parseChapterFromUrl } from '../utils/urlNavigation'
+import { parseChapterFromUrl } from '../utils/urlNavigation'
 import { urlPatternManager } from '../utils/urlPatterns'
 import { Tooltip, TooltipTrigger, TooltipContent } from './ui/tooltip'
 
@@ -20,8 +20,6 @@ const ImageScraper: React.FC = () => {
   const [progress, setProgress] = useState<ScrapeProgress | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [stats, setStats] = useState({ total: 0, duplicates: 0, filtered: 0 })
-  const [stickyArrowsVisible, setStickyArrowsVisible] = useState<boolean>(true)
-  const [lastScrollYMain, setLastScrollYMain] = useState<number>(0)
   const [previewActive, setPreviewActive] = useState<boolean>(false)
   const [isNavigating, setIsNavigating] = useState<boolean>(false)
   const abortControllerRef = useRef<AbortController | null>(null)
@@ -75,40 +73,6 @@ const ImageScraper: React.FC = () => {
     }
   }, [])
 
-  // Scroll detection for sticky arrows visibility (non-preview mode only)
-  useEffect(() => {
-    if (previewActive) return // Let ImageGallery handle scroll in preview mode
-
-    const handleScroll = () => {
-      const currentScrollY = window.scrollY
-      const windowHeight = window.innerHeight
-      const documentHeight = document.documentElement.scrollHeight
-      const isAtBottom = currentScrollY + windowHeight >= documentHeight - 10 // 10px threshold
-
-      // Show arrows when:
-      // 1. Scrolling up (currentScrollY < lastScrollYMain)
-      // 2. At the bottom of the page
-      // 3. At the very top (currentScrollY < 50)
-      if (currentScrollY < lastScrollYMain || isAtBottom || currentScrollY < 50) {
-        setStickyArrowsVisible(true)
-      } else if (currentScrollY > lastScrollYMain) {
-        // Hide arrows when scrolling down
-        setStickyArrowsVisible(false)
-      }
-
-      setLastScrollYMain(currentScrollY)
-    }
-
-    window.addEventListener('scroll', handleScroll, { passive: true })
-    return () => window.removeEventListener('scroll', handleScroll)
-  }, [previewActive, lastScrollYMain])
-
-  // Handle button visibility changes from ImageGallery in preview mode
-  const handleButtonVisibilityChange = (visible: boolean) => {
-    if (previewActive) {
-      setStickyArrowsVisible(visible)
-    }
-  }
 
   // Sequential pattern state for instant generation when detected
   const [sequentialPattern, setSequentialPattern] = useState<{ basePath: string; extension: string; pad: number } | null>(null)
@@ -116,7 +80,6 @@ const ImageScraper: React.FC = () => {
 
   // New: scraping method and sticky arrows toggle
   const [scrapingMethod, setScrapingMethod] = useState<'smart' | 'fast'>('fast')
-  const [stickyArrowsEnabled, setStickyArrowsEnabled] = useState<boolean>(false)
   const [showScrollButtons, setShowScrollButtons] = useState<boolean>(true)
   const [consecutiveMissThreshold, setConsecutiveMissThreshold] = useState<number>(2)
   const [chapterCount, setChapterCount] = useState<number>(1)
@@ -705,16 +668,11 @@ const ImageScraper: React.FC = () => {
 
               {/* Chapter Navigation */}
               <ChapterNavigation
-                url={url}
                 chapterInfo={parseChapterFromUrl(url)}
-                navState={getNavigationState(url)}
                 chapterCount={chapterCount}
                 targetChapterRange={targetChapterRange}
-                isLoading={isLoading}
-                isNavigating={isNavigating}
                 tooltipOpen={tooltipStates.navInfo}
                 onTooltipOpenChange={(open) => handleTooltipToggle('navInfo')}
-                onNavigate={handleChapterNavigation}
               />
 
               {/* Start/Stop Button */}
@@ -771,8 +729,6 @@ const ImageScraper: React.FC = () => {
               onAutoNextChapterChange={setAutoNextChapter}
               fetchInterval={fetchInterval}
               onFetchIntervalChange={handleFetchIntervalChange}
-              stickyArrowsEnabled={stickyArrowsEnabled}
-              onStickyArrowsEnabledChange={setStickyArrowsEnabled}
               showScrollButtons={showScrollButtons}
               onShowScrollButtonsChange={setShowScrollButtons}
               validateImages={validateImages}
@@ -907,7 +863,6 @@ config=/comics/title/ch-{chapter:03d}`}
             websiteUrl={url} 
             onImageError={handleRemoveImageOnError} 
             onPreviewChange={setPreviewActive} 
-            onButtonVisibilityChange={handleButtonVisibilityChange}
             showScrollButtons={showScrollButtons} 
             initialPreviewMode={previewActive}
             autoNextChapter={autoNextChapter}
@@ -929,44 +884,6 @@ config=/comics/title/ch-{chapter:03d}`}
         )}
       </div>
 
-      {/* Sticky bottom-center navigation arrows */}
-      {stickyArrowsEnabled && (() => {
-        const chapterInfo = parseChapterFromUrl(url)
-        const navState = getNavigationState(url)
-        if (!chapterInfo.hasChapter) return null
-        return (
-          <div className={`fixed bottom-3 left-1/2 transform -translate-x-1/2 transition-all duration-300 ${
-            stickyArrowsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
-          }`} style={{ zIndex: previewActive ? 9999 : undefined }}>
-            <div className="flex items-center space-x-2 bg-card/70 backdrop-blur-sm px-2 py-1.5 rounded-full shadow-md border border-border/50">
-              <button
-                onClick={() => handleChapterNavigation('prev')}
-                disabled={!navState.canGoPrev || isLoading || isNavigating}
-                className={`p-3 rounded-full border transition-colors flex items-center justify-center ${
-                  navState.canGoPrev && !isLoading && !isNavigating
-                    ? 'bg-card/80 border-border/60 hover:bg-accent text-foreground'
-                    : 'bg-muted/60 border-muted text-muted-foreground cursor-not-allowed'
-                }`}
-                title={isNavigating ? 'Navigation in progress...' : `Previous chapter`}
-              >
-                <ChevronLeft className="h-6 w-6" />
-              </button>
-              <button
-                onClick={() => handleChapterNavigation('next')}
-                disabled={!navState.canGoNext || isLoading || isNavigating}
-                className={`p-3 rounded-full border transition-colors flex items-center justify-center ${
-                  navState.canGoNext && !isLoading && !isNavigating
-                    ? 'bg-card/80 border-border/60 hover:bg-accent text-foreground'
-                    : 'bg-muted/60 border-muted text-muted-foreground cursor-not-allowed'
-                }`}
-                title={isNavigating ? 'Navigation in progress...' : `Next chapter`}
-              >
-                <ChevronRight className="h-6 w-6" />
-              </button>
-            </div>
-          </div>
-        )
-      })()}
 
       {/* Universal Navigation Lock Overlay */}
       {isNavigating && (

@@ -20,8 +20,6 @@ interface ScrapingConfigurationProps {
   onFetchIntervalChange: (value: number) => void
   
   // Interface options
-  stickyArrowsEnabled: boolean
-  onStickyArrowsEnabledChange: (value: boolean) => void
   showScrollButtons: boolean
   onShowScrollButtonsChange: (value: boolean) => void
   
@@ -61,8 +59,6 @@ const ScrapingConfiguration: React.FC<ScrapingConfigurationProps> = ({
   onAutoNextChapterChange,
   fetchInterval,
   onFetchIntervalChange,
-  stickyArrowsEnabled,
-  onStickyArrowsEnabledChange,
   showScrollButtons,
   onShowScrollButtonsChange,
   validateImages,
@@ -287,29 +283,6 @@ const ScrapingConfiguration: React.FC<ScrapingConfigurationProps> = ({
           <div className="p-4 bg-accent/5 border border-accent/20 rounded-lg">
             <h4 className="text-sm font-medium text-foreground mb-3">Interface Options</h4>
             <div className="space-y-3">
-              <label className="flex items-center space-x-3 text-sm cursor-pointer">
-                <div className="relative">
-                  <input 
-                    type="checkbox" 
-                    checked={stickyArrowsEnabled} 
-                    onChange={(e) => onStickyArrowsEnabledChange(e.target.checked)}
-                    className="sr-only"
-                  />
-                  <div className={`w-4 h-4 rounded border-2 transition-all duration-200 ${
-                    stickyArrowsEnabled 
-                      ? 'bg-primary border-primary' 
-                      : 'bg-background border-border hover:border-primary/50'
-                  }`}>
-                    {stickyArrowsEnabled && (
-                      <svg className="w-3 h-3 text-primary-foreground absolute top-0.5 left-0.5" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
-                    )}
-                  </div>
-                </div>
-                <span className="text-foreground">Show sticky navigation arrows</span>
-              </label>
-
               <label className="flex items-center space-x-3 text-sm cursor-pointer">
                 <div className="relative">
                   <input 
