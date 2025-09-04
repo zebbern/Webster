@@ -20,6 +20,7 @@ interface ChapterNavigationProps {
   chapterCount: number
   targetChapterRange: { start: number; end: number } | null
   isLoading: boolean
+  isNavigating: boolean
   tooltipOpen: boolean
   onTooltipOpenChange: (open: boolean) => void
   onNavigate: (direction: 'prev' | 'next') => void
@@ -31,6 +32,7 @@ const ChapterNavigation: React.FC<ChapterNavigationProps> = ({
   chapterCount,
   targetChapterRange,
   isLoading,
+  isNavigating,
   tooltipOpen,
   onTooltipOpenChange,
   onNavigate
@@ -42,13 +44,13 @@ const ChapterNavigation: React.FC<ChapterNavigationProps> = ({
       <div className="flex items-center justify-center space-x-3 p-3 bg-accent/10 border border-accent/20 rounded-lg">
         <button
           onClick={() => onNavigate('prev')}
-          disabled={!navState.canGoPrev || isLoading || chapterInfo.chapterNumber <= chapterCount}
+          disabled={!navState.canGoPrev || isLoading || isNavigating || chapterInfo.chapterNumber <= chapterCount}
           className={`p-2 rounded-lg border transition-colors flex items-center justify-center ${
-            navState.canGoPrev && !isLoading && chapterInfo.chapterNumber > chapterCount
+            navState.canGoPrev && !isLoading && !isNavigating && chapterInfo.chapterNumber > chapterCount
               ? 'bg-card border-border hover:bg-accent text-foreground'
               : 'bg-muted border-muted text-muted-foreground cursor-not-allowed'
           }`}
-          title={`Previous ${chapterCount} chapter(s)`}
+          title={isNavigating ? 'Navigation in progress...' : `Previous ${chapterCount} chapter(s)`}
         >
           <ChevronLeft className="h-5 w-5" />
         </button>
@@ -85,13 +87,13 @@ const ChapterNavigation: React.FC<ChapterNavigationProps> = ({
 
         <button
           onClick={() => onNavigate('next')}
-          disabled={!navState.canGoNext || isLoading}
+          disabled={!navState.canGoNext || isLoading || isNavigating}
           className={`p-2 rounded-lg border transition-colors flex items-center justify-center ${
-            navState.canGoNext && !isLoading
+            navState.canGoNext && !isLoading && !isNavigating
               ? 'bg-card border-border hover:bg-accent text-foreground'
               : 'bg-muted border-muted text-muted-foreground cursor-not-allowed'
           }`}
-          title={`Next ${chapterCount} chapter(s)`}
+          title={isNavigating ? 'Navigation in progress...' : `Next ${chapterCount} chapter(s)`}
         >
           <ChevronRight className="h-5 w-5" />
         </button>

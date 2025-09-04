@@ -402,6 +402,12 @@ const ImageScraper: React.FC = () => {
     const chapterInfo = parseChapterFromUrl(url)
     if (!chapterInfo.hasChapter) return
     
+    // Prevent navigation if already navigating or loading
+    if (isNavigating || isLoading) {
+      console.log('Navigation blocked: already navigating or loading')
+      return
+    }
+    
     // Calculate the target chapter range
     const increment = direction === 'next' ? chapterCount : -chapterCount
     const startChapter = chapterInfo.chapterNumber + increment
@@ -419,16 +425,22 @@ const ImageScraper: React.FC = () => {
     // Update URL immediately to final position
     const finalChapterUrl = updateChapterUrl(endChapter, true)
     
-    // Clear navigation lock after 3 seconds
+    // Clear navigation lock after 2 seconds (reduced from 3)
     setTimeout(() => {
       setIsNavigating(false)
       setTargetChapterRange(null)
-    }, 3000)
+    }, 2000)
     
-    // Generate starting URL for scraping
+    // Clear existing images and reset state for new chapter
+    setImages([])
+    setStats({ total: 0, duplicates: 0, filtered: 0 })
+    setError(null)
+    setProgress(null)
+    
+    // Generate starting URL for potential scraping
     const startingUrl = updateChapterUrl(startChapter, false)
 
-    // If we have a sequential pattern detected from previous scrape, assume same structure in next chapters
+    // If we have a sequential pattern detected from previous scrape, generate images instantly
     if (sequentialPattern && lastPageUrl) {
       const oldChapterInfo = parseChapterFromUrl(lastPageUrl)
       const newChapterInfo = parseChapterFromUrl(startingUrl)
@@ -438,7 +450,7 @@ const ImageScraper: React.FC = () => {
         let newBase = sequentialPattern.basePath
         if (!newBase.endsWith('/')) newBase = newBase + '/'
         if (oldSeg && newSeg && newBase.includes(oldSeg)) {
-          // Generate images for multiple chapters
+          // Generate images for multiple chapters instantly (no scraping)
           const allImages: ScrapedImage[] = []
           for (let i = 0; i < chapterCount; i++) {
             const chapterNum = startChapter + i
@@ -453,18 +465,21 @@ const ImageScraper: React.FC = () => {
           }
           
           setImages(allImages)
-          setStats({ total: allImages.length, duplicates: 0, filtered: allImages.length })
+          setStats({ total: allImages.length, duplicates: 0, filtered: allImages.filter(img => shouldFilterImage(img.url)).length })
           // URL already updated to final position above
           setLastPageUrl(finalChapterUrl)
           setSequentialPattern({ basePath: newBase.replace(oldSeg + '/', newSeg + '/'), extension: sequentialPattern.extension, pad: sequentialPattern.pad })
+          
+          // Show success message
+          toast.success(`Loaded ${allImages.length} images from chapter ${startChapter}${chapterCount > 1 ? `-${endChapter}` : ''}`)
           return
         }
       }
     }
 
-    // Fallback: perform a normal scrape on the starting URL
-    // URL already updated to final position above
-    handleScrapeWithUrl(startingUrl)
+    // If no sequential pattern, just update URL and clear state
+    // User needs to manually click "Start Scraping" to begin scraping the new chapter
+    toast.info(`Navigated to chapter ${startChapter}${chapterCount > 1 ? `-${endChapter}` : ''}. Click "Start Scraping" to load images.`)
   }
 
   // Progress handler that supports live insertion of images reported by the scraper
@@ -696,6 +711,7 @@ const ImageScraper: React.FC = () => {
                 chapterCount={chapterCount}
                 targetChapterRange={targetChapterRange}
                 isLoading={isLoading}
+                isNavigating={isNavigating}
                 tooltipOpen={tooltipStates.navInfo}
                 onTooltipOpenChange={(open) => handleTooltipToggle('navInfo')}
                 onNavigate={handleChapterNavigation}
@@ -897,9 +913,14 @@ config=/comics/title/ch-{chapter:03d}`}
             autoNextChapter={autoNextChapter}
             onNextChapter={() => {
               const now = Date.now()
-              if (now - lastAutoScrollTime >= 20000) { // 20 second cooldown
+              // Increased cooldown to 30 seconds and check for navigation/loading state
+              if (now - lastAutoScrollTime >= 30000 && !isNavigating && !isLoading) { 
+                console.log('Auto next chapter triggered')
                 setLastAutoScrollTime(now)
                 handleChapterNavigation('next')
+              } else {
+                const remainingTime = Math.max(0, 30000 - (now - lastAutoScrollTime)) / 1000
+                console.log(`Auto next chapter blocked: ${remainingTime.toFixed(1)}s cooldown remaining, navigating: ${isNavigating}, loading: ${isLoading}`)
               }
             }}
             onStartNavigation={handleStartNavigation}
@@ -920,25 +941,25 @@ config=/comics/title/ch-{chapter:03d}`}
             <div className="flex items-center space-x-2 bg-card/70 backdrop-blur-sm px-2 py-1.5 rounded-full shadow-md border border-border/50">
               <button
                 onClick={() => handleChapterNavigation('prev')}
-                disabled={!navState.canGoPrev || isLoading}
+                disabled={!navState.canGoPrev || isLoading || isNavigating}
                 className={`p-3 rounded-full border transition-colors flex items-center justify-center ${
-                  navState.canGoPrev && !isLoading
+                  navState.canGoPrev && !isLoading && !isNavigating
                     ? 'bg-card/80 border-border/60 hover:bg-accent text-foreground'
                     : 'bg-muted/60 border-muted text-muted-foreground cursor-not-allowed'
                 }`}
-                title={`Previous chapter`}
+                title={isNavigating ? 'Navigation in progress...' : `Previous chapter`}
               >
                 <ChevronLeft className="h-6 w-6" />
               </button>
               <button
                 onClick={() => handleChapterNavigation('next')}
-                disabled={!navState.canGoNext || isLoading}
+                disabled={!navState.canGoNext || isLoading || isNavigating}
                 className={`p-3 rounded-full border transition-colors flex items-center justify-center ${
-                  navState.canGoNext && !isLoading
+                  navState.canGoNext && !isLoading && !isNavigating
                     ? 'bg-card/80 border-border/60 hover:bg-accent text-foreground'
                     : 'bg-muted/60 border-muted text-muted-foreground cursor-not-allowed'
                 }`}
-                title={`Next chapter`}
+                title={isNavigating ? 'Navigation in progress...' : `Next chapter`}
               >
                 <ChevronRight className="h-6 w-6" />
               </button>
