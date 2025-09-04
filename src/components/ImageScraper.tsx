@@ -806,7 +806,7 @@ config=/comics/title/ch-{chapter:03d}`}
                 // Update URL to next chapter and trigger scraping
                 const chapterInfo = parseChapterFromUrl(url)
                 if (chapterInfo.hasChapter) {
-                  const nextChapterNumber = chapterInfo.chapterNumber + 1  // Fixed: go to next chapter, not +chapterCount
+                  const nextChapterNumber = chapterInfo.chapterNumber + chapterCount
                   const nextChapterUrl = updateChapterUrl(nextChapterNumber, true)
                   console.log(`Auto navigating to chapter ${nextChapterNumber}`)
                   
