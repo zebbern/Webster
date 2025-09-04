@@ -72,17 +72,15 @@ const ScrapingConfiguration: React.FC<ScrapingConfigurationProps> = ({
 }) => {
   return (
     <div className="space-y-6">
-      <h3 className="text-lg font-semibold text-foreground">Configuration</h3>
-      
       {/* Main Settings Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Left Column - Core Settings */}
         <div className="space-y-4">
           {/* Scraping Method */}
           <div className="p-4 bg-accent/5 border border-accent/20 rounded-lg">
-            <label className="text-sm font-medium text-foreground mb-4 block text-center">Scraping Method</label>
-            <div className="flex justify-center gap-3">
-              <div className={`relative flex-1 max-w-24 rounded-lg border-2 transition-all duration-200 ${
+            <h4 className="text-sm font-medium text-foreground mb-3">Scraping Method</h4>
+            <div className="flex gap-3">
+              <div className={`relative flex-1 rounded-lg border-2 transition-all duration-200 ${
                 scrapingMethod === 'smart' 
                   ? 'bg-primary text-primary-foreground border-primary shadow-md' 
                   : 'bg-card text-foreground border-border hover:border-primary/50 hover:bg-accent/20'
@@ -102,8 +100,8 @@ const ScrapingConfiguration: React.FC<ScrapingConfigurationProps> = ({
                   <TooltipTrigger asChild>
                     <button 
                       onClick={() => onTooltipToggle('smartInfo')} 
-                      className={`absolute top-1 right-1 w-4 h-4 rounded-full flex items-center justify-center text-xs ${
-                        scrapingMethod === 'smart' ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-muted/60 text-muted-foreground hover:bg-muted'
+                      className={`absolute top-1 right-1 w-5 h-5 rounded-full flex items-center justify-center ${
+                        scrapingMethod === 'smart' ? 'bg-primary-foreground/20 text-primary-foreground hover:bg-primary-foreground/30' : 'bg-muted/60 text-muted-foreground hover:bg-muted'
                       }`}
                       aria-label="Smart method info"
                     >
@@ -114,7 +112,7 @@ const ScrapingConfiguration: React.FC<ScrapingConfigurationProps> = ({
                 </Tooltip>
               </div>
 
-              <div className={`relative flex-1 max-w-24 rounded-lg border-2 transition-all duration-200 ${
+              <div className={`relative flex-1 rounded-lg border-2 transition-all duration-200 ${
                 scrapingMethod === 'fast' 
                   ? 'bg-primary text-primary-foreground border-primary shadow-md' 
                   : 'bg-card text-foreground border-border hover:border-primary/50 hover:bg-accent/20'
@@ -134,8 +132,8 @@ const ScrapingConfiguration: React.FC<ScrapingConfigurationProps> = ({
                   <TooltipTrigger asChild>
                     <button 
                       onClick={() => onTooltipToggle('fastInfo')} 
-                      className={`absolute top-1 right-1 w-4 h-4 rounded-full flex items-center justify-center text-xs ${
-                        scrapingMethod === 'fast' ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-muted/60 text-muted-foreground hover:bg-muted'
+                      className={`absolute top-1 right-1 w-5 h-5 rounded-full flex items-center justify-center ${
+                        scrapingMethod === 'fast' ? 'bg-primary-foreground/20 text-primary-foreground hover:bg-primary-foreground/30' : 'bg-muted/60 text-muted-foreground hover:bg-muted'
                       }`}
                       aria-label="Fast method info"
                     >
@@ -339,30 +337,30 @@ const ScrapingConfiguration: React.FC<ScrapingConfigurationProps> = ({
               </Tooltip>
             </div>
           </div>
-        </div>
-      </div>
 
-      {/* File Types Section */}
-      <div className="p-4 bg-accent/5 border border-accent/20 rounded-lg">
-        <div className="flex items-center space-x-2 mb-4">
-          <Filter className="h-5 w-5 text-muted-foreground" />
-          <label className="text-sm font-medium text-foreground">File Types ({fileTypes.length} selected)</label>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {availableFileTypes.map(type => (
-            <button
-              key={type}
-              onClick={() => onFileTypeToggle(type)}
-              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                fileTypes.includes(type)
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted text-muted-foreground hover:bg-muted/80'
-              }`}
-              disabled={isLoading}
-            >
-              .{type}
-            </button>
-          ))}
+          {/* File Types Section */}
+          <div className="p-4 bg-accent/5 border border-accent/20 rounded-lg">
+            <div className="flex items-center space-x-2 mb-4">
+              <Filter className="h-5 w-5 text-muted-foreground" />
+              <h4 className="text-sm font-medium text-foreground">File Types ({fileTypes.length} selected)</h4>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {availableFileTypes.map(type => (
+                <button
+                  key={type}
+                  onClick={() => onFileTypeToggle(type)}
+                  className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                    fileTypes.includes(type)
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                  }`}
+                  disabled={isLoading}
+                >
+                  .{type}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     </div>
