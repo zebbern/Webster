@@ -99,13 +99,13 @@ const ImageScraper: React.FC = () => {
 
   // New: scraping method and sticky arrows toggle
   const [scrapingMethod, setScrapingMethod] = useState<'smart' | 'fast'>('fast')
-  const [stickyArrowsEnabled, setStickyArrowsEnabled] = useState<boolean>(true)
+  const [stickyArrowsEnabled, setStickyArrowsEnabled] = useState<boolean>(false)
   const [showScrollButtons, setShowScrollButtons] = useState<boolean>(true)
-  const [consecutiveMissThreshold, setConsecutiveMissThreshold] = useState<number>(3)
+  const [consecutiveMissThreshold, setConsecutiveMissThreshold] = useState<number>(2)
   const [chapterCount, setChapterCount] = useState<number>(1)
   const [validateImages, setValidateImages] = useState<boolean>(false)
   const [fetchInterval, setFetchInterval] = useState<number>(15) // seconds
-  const [autoNextChapter, setAutoNextChapter] = useState<boolean>(false)
+  const [autoNextChapter, setAutoNextChapter] = useState<boolean>(true)
   const [lastAutoScrollTime, setLastAutoScrollTime] = useState<number>(0)
   // Tooltip open states for info buttons
   const [smartInfoOpen, setSmartInfoOpen] = useState<boolean>(false)
@@ -734,21 +734,21 @@ const ImageScraper: React.FC = () => {
                 {/* Scraping Method */}
                 <div className="p-4 bg-accent/5 border border-accent/20 rounded-lg">
                   <label className="text-sm font-medium text-foreground mb-4 block text-center">Scraping Method</label>
-                  <div className="flex justify-center gap-4">
-                    <div className={`relative flex-1 max-w-32 rounded-lg border-2 transition-all duration-200 ${
+                  <div className="flex justify-center gap-3">
+                    <div className={`relative flex-1 max-w-24 rounded-lg border-2 transition-all duration-200 ${
                       scrapingMethod === 'smart' 
                         ? 'bg-primary text-primary-foreground border-primary shadow-md' 
                         : 'bg-card text-foreground border-border hover:border-primary/50 hover:bg-accent/20'
                     }`}>
                       <button
                         onClick={() => setScrapingMethod('smart')}
-                        className="w-full px-4 py-3 rounded-lg"
+                        className="w-full px-3 py-2.5 rounded-lg"
                         disabled={isLoading}
                         aria-label="Smart scraping method"
                       >
                         <div className="text-center">
-                          <div className="font-semibold">Smart</div>
-                          <div className="text-xs mt-1 opacity-80">Thorough detection</div>
+                          <div className="font-semibold text-sm">Smart</div>
+                          <div className="text-xs mt-0.5 opacity-80">Thorough</div>
                         </div>
                       </button>
                       <Tooltip open={smartInfoOpen} onOpenChange={setSmartInfoOpen}>
@@ -767,20 +767,20 @@ const ImageScraper: React.FC = () => {
                       </Tooltip>
                     </div>
 
-                    <div className={`relative flex-1 max-w-32 rounded-lg border-2 transition-all duration-200 ${
+                    <div className={`relative flex-1 max-w-24 rounded-lg border-2 transition-all duration-200 ${
                       scrapingMethod === 'fast' 
                         ? 'bg-primary text-primary-foreground border-primary shadow-md' 
                         : 'bg-card text-foreground border-border hover:border-primary/50 hover:bg-accent/20'
                     }`}>
                       <button
                         onClick={() => setScrapingMethod('fast')}
-                        className="w-full px-4 py-3 rounded-lg"
+                        className="w-full px-3 py-2.5 rounded-lg"
                         disabled={isLoading}
                         aria-label="Fast scraping method"
                       >
                         <div className="text-center">
-                          <div className="font-semibold">Fast</div>
-                          <div className="text-xs mt-1 opacity-80">Sequential URLs</div>
+                          <div className="font-semibold text-sm">Fast</div>
+                          <div className="text-xs mt-0.5 opacity-80">Sequential</div>
                         </div>
                       </button>
                       <Tooltip open={fastInfoOpen} onOpenChange={setFastInfoOpen}>
