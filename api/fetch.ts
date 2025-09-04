@@ -38,7 +38,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         'Cache-Control': 'no-cache',
       },
       redirect: 'follow',
-      signal: AbortSignal.timeout(30000), // 30 second timeout
+      signal: AbortSignal.timeout(5000), // 5 second timeout
     }
 
     const response = await fetch(url, fetchOptions)
@@ -82,10 +82,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   } catch (error) {
     console.error('Fetch error:', error)
     
-    if (error instanceof TypeError && error.message.includes('fetch')) {
-      return res.status(500).json({ error: 'Failed to fetch URL' })
+    // Check for timeout errors
+    if (error instanceof Error && error.name === 'TimeoutError') {
+      return res.status(408).json({ error: 'Request timeout (5 seconds)', type: 'timeout' })
     }
     
-    return res.status(500).json({ error: 'Internal server error' })
+    // Check for network/fetch errors
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      return res.status(500).json({ error: 'Failed to fetch URL', type: 'network' })
+    }
+    
+    // Check for abort errors
+    if (error instanceof Error && error.name === 'AbortError') {
+      return res.status(408).json({ error: 'Request was aborted', type: 'abort' })
+    }
+    
+    return res.status(500).json({ error: 'Internal server error', type: 'unknown' })
   }
 }

@@ -13,14 +13,26 @@ const fetchData = async (url: string, method: 'GET' | 'HEAD' = 'GET', signal?: A
     const fetched = await corsClient.data.fetch({ url, method, signal })
     if (signal?.aborted) throw new Error('Aborted')
     
-    // Handle rate limiting (429) and SSL handshake failures (525) with exponential backoff
-    if ((fetched.status === 429 || fetched.status === 525) && retries > 0) {
-      // Longer delays for SSL issues, shorter for rate limiting
-      const baseDelay = fetched.status === 525 ? 2000 : 1000 // 2s for SSL, 1s for rate limit
-      const delay = baseDelay * Math.pow(2, 3 - retries) // 2s, 4s, 8s for SSL; 1s, 2s, 4s for rate limit
+    // Handle rate limiting (429), SSL handshake failures (525), and timeout (408) with exponential backoff
+    if ((fetched.status === 429 || fetched.status === 525 || fetched.status === 408) && retries > 0) {
+      // Longer delays for SSL issues and timeouts, shorter for rate limiting
+      let baseDelay: number
+      let errorType: string
+      
+      if (fetched.status === 525) {
+        baseDelay = 2000 // 2s for SSL
+        errorType = 'SSL Handshake Failed'
+      } else if (fetched.status === 408) {
+        baseDelay = 1500 // 1.5s for timeouts
+        errorType = 'Request Timeout'
+      } else {
+        baseDelay = 1000 // 1s for rate limit
+        errorType = 'Rate Limited'
+      }
+      
+      const delay = baseDelay * Math.pow(2, 3 - retries) // Exponential backoff
       
       console.log = originalLog // Temporarily restore for this message
-      const errorType = fetched.status === 429 ? 'Rate limited' : 'SSL Handshake Failed'
       console.warn(`${errorType} (${fetched.status}) for ${url}, retrying in ${delay}ms... (${retries} retries left)`)
       console.log = () => {}
       
@@ -151,6 +163,11 @@ export const scrapeImages = async (
 
   const images: ScrapedImage[] = []
   const seenUrls = new Set<string>()
+  
+  // Chapter tracking for multi-chapter scraping
+  const chapterResults: ChapterResult[] = []
+  const failedChapters: number[] = []
+  const successfulChapters: number[] = []
 
   onProgress?.({ stage: 'loading', processed: 0, total: 1, found: 0, currentUrl: url })
 
@@ -221,10 +238,30 @@ export const scrapeImages = async (
         currentUrl: `Fetching chapter ${currentChapter}: ${chapterUrl}` 
       })
 
-      // Fetch the chapter
-      const fetched = await fetchData(chapterUrl, 'GET', signal)
-      if (signal?.aborted) throw new Error('Aborted')
-      const body = typeof fetched.body === 'string' ? fetched.body : JSON.stringify(fetched.body)
+      // Fetch the chapter with error tracking
+      let chapterSuccess = false
+      let chapterError: string | undefined
+      let chapterImageCountStart = images.length
+      
+      try {
+        const fetched = await fetchData(chapterUrl, 'GET', signal)
+        if (signal?.aborted) throw new Error('Aborted')
+        
+        // Check for failed fetch (timeout, network error, etc.)
+        if (fetched.status >= 400) {
+          const errorMsg = fetched.status === 408 ? 'Request timeout (5 seconds)' : 
+                          fetched.status === 404 ? 'Chapter not found' :
+                          fetched.status === 403 ? 'Access forbidden' :
+                          `HTTP ${fetched.status}`
+          throw new Error(errorMsg)
+        }
+        
+        const body = typeof fetched.body === 'string' ? fetched.body : JSON.stringify(fetched.body)
+        
+        // Check for empty responses
+        if (!body || body.trim().length === 0) {
+          throw new Error('Empty response from server')
+        }
 
       onProgress?.({ stage: 'scanning', processed: images.length, total: DEFAULT_SEQ_MAX * chapterCount, found: images.length, currentUrl: chapterUrl })
 
@@ -401,15 +438,96 @@ export const scrapeImages = async (
 
           await new Promise(res => setTimeout(res, 10))
         }
+        
+        // Calculate chapter success
+        const chapterImageCount = images.length - chapterImageCountStart
+        chapterSuccess = chapterImageCount > 0
+        
+        if (!chapterSuccess) {
+          chapterError = `No images found in chapter ${currentChapter}`
+        }
+        
+      } catch (error: any) {
+        chapterSuccess = false
+        chapterError = error.message || 'Unknown error occurred'
+        console.error(`Chapter ${currentChapter} failed:`, error)
+      }
+      
+      // Record chapter result
+      const chapterResult: ChapterResult = {
+        chapterNumber: currentChapter,
+        url: chapterUrl,
+        success: chapterSuccess,
+        imageCount: images.length - chapterImageCountStart,
+        error: chapterError
+      }
+      
+      chapterResults.push(chapterResult)
+      
+      if (chapterSuccess) {
+        successfulChapters.push(currentChapter)
+      } else {
+        failedChapters.push(currentChapter)
+        
+        // For multi-chapter scraping, stop if a chapter fails to prevent skipping
+        if (chapterCount > 1) {
+          console.warn(`Chapter ${currentChapter} failed, stopping to prevent chapter skipping`)
+          onProgress?.({ 
+            stage: 'analyzing', 
+            processed: images.length, 
+            total: DEFAULT_SEQ_MAX * chapterCount, 
+            found: images.length, 
+            currentUrl: `Stopped at failed chapter ${currentChapter}`,
+            chapterResults: [...chapterResults],
+            failedChapters: [...failedChapters],
+            successfulChapters: [...successfulChapters]
+          })
+          break // Stop processing further chapters
+        }
       }
     }
 
-    // Skip the keep-alive logic and metadata enrichment for multi-chapter scraping
+    // Final progress report with chapter results
+    onProgress?.({ 
+      stage: 'processing', 
+      processed: images.length, 
+      total: images.length, 
+      found: images.length,
+      chapterResults: [...chapterResults],
+      failedChapters: [...failedChapters],
+      successfulChapters: [...successfulChapters]
+    })
+    
+    // If we have failed chapters in multi-chapter mode, include warning in final progress
+    if (chapterCount > 1 && failedChapters.length > 0) {
+      const errorMessage = `Stopped at failed chapter ${failedChapters[0]} to prevent skipping chapters`
+      onProgress?.({ 
+        stage: 'processing', 
+        processed: images.length, 
+        total: images.length, 
+        found: images.length,
+        currentUrl: errorMessage,
+        chapterResults: [...chapterResults],
+        failedChapters: [...failedChapters],
+        successfulChapters: [...successfulChapters]
+      })
+    }
+    
     return images
   } catch (error: any) {
     if (error.message === 'Aborted' || options.signal?.aborted) throw new Error('Aborted')
+    
+    // Handle specific error types with better messages
+    if (error.message?.includes('Request timeout')) {
+      throw new Error('Request timed out after 5 seconds. Server may be slow or unreachable.')
+    }
+    
+    if (error.message?.includes('Empty response')) {
+      throw new Error('Server returned empty response. Chapter may not exist or be accessible.')
+    }
+    
     console.warn('Direct fetch failed in advancedImageScraper:', error)
-    return []
+    throw new Error(error.message || 'Failed to scrape images')
   }
 }
 
