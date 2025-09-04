@@ -390,15 +390,24 @@ const ImageScraper: React.FC = () => {
     }
     
     if (p.image && !isImageStateResetting) {
+      console.log(`Adding image: ${p.image.url}`)
       setImages(prev => {
         // Prevent updates during reset to avoid race conditions
-        if (isImageStateResetting) return prev
+        if (isImageStateResetting) {
+          console.log('Blocked image update during reset')
+          return prev
+        }
         // avoid duplicates
-        if (prev.find(i => i.url === p.image!.url)) return prev
+        if (prev.find(i => i.url === p.image!.url)) {
+          console.log('Duplicate image skipped')
+          return prev
+        }
         const next = [...prev, p.image!]
         setStats({ total: next.length, duplicates: 0, filtered: next.length })
         return next
       })
+    } else if (p.image && isImageStateResetting) {
+      console.log('Image blocked by reset state:', p.image.url)
     }
   }, [chapterCount, isImageStateResetting])
 
@@ -452,8 +461,9 @@ const ImageScraper: React.FC = () => {
     setSequentialPattern(null)
     // Clear request cache to prevent stale requests from affecting new scraping session
     clearRequestCache()
-    // Allow a small delay to ensure all pending updates are blocked
-    await new Promise(resolve => setTimeout(resolve, 50))
+    // Allow a very small delay to ensure state updates are flushed
+    await new Promise(resolve => setTimeout(resolve, 10))
+    // Reset the flag before starting the scraper so images can be added
     setIsImageStateResetting(false)
 
     abortControllerRef.current = new AbortController()
