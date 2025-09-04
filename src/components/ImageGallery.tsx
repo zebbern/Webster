@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { Download, Eye, Copy, Check, Grid, Maximize, ChevronUp, ChevronDown, Loader2 } from 'lucide-react'
 import { ScrapedImage } from '../utils/advancedImageScraper'
 import { downloadImage, downloadAllImages } from '../utils/downloadUtils'
@@ -29,6 +29,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
   const [buttonsVisible, setButtonsVisible] = useState<boolean>(true)
   const [lastScrollY, setLastScrollY] = useState<number>(0)
   const [autoNavTriggered, setAutoNavTriggered] = useState<boolean>(false)
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     onPreviewChange?.(previewMode)
@@ -68,53 +69,69 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [previewMode])
 
+  // Throttled scroll handler to improve performance
+  const handleScrollThrottled = useCallback(() => {
+    const previewContainer = document.getElementById('preview-overlay-scroll')
+    if (!previewContainer) return
+
+    const currentScrollY = previewContainer.scrollTop
+    const containerHeight = previewContainer.clientHeight
+    const scrollHeight = previewContainer.scrollHeight
+    const isAtBottom = currentScrollY + containerHeight >= scrollHeight - 10 // 10px threshold
+
+    // Show buttons when:
+    // 1. Scrolling up (currentScrollY < lastScrollY)
+    // 2. At the bottom of the page
+    // 3. At the very top (currentScrollY < 50)
+    if (currentScrollY < lastScrollY || isAtBottom || currentScrollY < 50) {
+      setButtonsVisible(true)
+      onButtonVisibilityChange?.(true)
+    } else if (currentScrollY > lastScrollY) {
+      // Hide buttons when scrolling down
+      setButtonsVisible(false)
+      onButtonVisibilityChange?.(false)
+    }
+
+    // Auto next chapter functionality
+    if (autoNextChapter && isAtBottom && !autoNavTriggered && !isNavigating && onNextChapter && onStartNavigation) {
+      // IMMEDIATELY start navigation lock
+      setAutoNavTriggered(true)
+      onStartNavigation()
+      
+      // Delay actual navigation to ensure user intended to go to next chapter
+      setTimeout(() => {
+        onNextChapter()
+      }, 1000)
+    }
+
+    setLastScrollY(currentScrollY)
+  }, [lastScrollY, autoNextChapter, autoNavTriggered, isNavigating, onNextChapter, onStartNavigation, onButtonVisibilityChange])
+
   // Scroll detection for button visibility in preview mode
   useEffect(() => {
     if (!previewMode) return
 
     const handleScroll = () => {
-      const previewContainer = document.getElementById('preview-overlay-scroll')
-      if (!previewContainer) return
-
-      const currentScrollY = previewContainer.scrollTop
-      const containerHeight = previewContainer.clientHeight
-      const scrollHeight = previewContainer.scrollHeight
-      const isAtBottom = currentScrollY + containerHeight >= scrollHeight - 10 // 10px threshold
-
-      // Show buttons when:
-      // 1. Scrolling up (currentScrollY < lastScrollY)
-      // 2. At the bottom of the page
-      // 3. At the very top (currentScrollY < 50)
-      if (currentScrollY < lastScrollY || isAtBottom || currentScrollY < 50) {
-        setButtonsVisible(true)
-        onButtonVisibilityChange?.(true)
-      } else if (currentScrollY > lastScrollY) {
-        // Hide buttons when scrolling down
-        setButtonsVisible(false)
-        onButtonVisibilityChange?.(false)
+      // Clear existing timeout
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current)
       }
-
-      // Auto next chapter functionality
-      if (autoNextChapter && isAtBottom && !autoNavTriggered && !isNavigating && onNextChapter && onStartNavigation) {
-        // IMMEDIATELY start navigation lock
-        setAutoNavTriggered(true)
-        onStartNavigation()
-        
-        // Delay actual navigation to ensure user intended to go to next chapter
-        setTimeout(() => {
-          onNextChapter()
-        }, 1000)
-      }
-
-      setLastScrollY(currentScrollY)
+      
+      // Throttle scroll handling to every 16ms (60fps)
+      scrollTimeoutRef.current = setTimeout(handleScrollThrottled, 16)
     }
 
     const previewContainer = document.getElementById('preview-overlay-scroll')
     if (previewContainer) {
       previewContainer.addEventListener('scroll', handleScroll, { passive: true })
-      return () => previewContainer.removeEventListener('scroll', handleScroll)
+      return () => {
+        previewContainer.removeEventListener('scroll', handleScroll)
+        if (scrollTimeoutRef.current) {
+          clearTimeout(scrollTimeoutRef.current)
+        }
+      }
     }
-  }, [previewMode, lastScrollY, autoNextChapter, autoNavTriggered, onNextChapter])
+  }, [previewMode, handleScrollThrottled])
 
   const handleCopyUrl = async (url: string) => {
     const success = await copyToClipboard(url)
@@ -222,7 +239,16 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
 
 
         {/* Images with no spacing */}
-        <div id="preview-overlay-scroll" className="h-full overflow-y-auto">
+        <div 
+          id="preview-overlay-scroll" 
+          className="h-full overflow-y-auto"
+          style={{
+            willChange: 'scroll-position',
+            transform: 'translateZ(0)', // Force hardware acceleration
+            backfaceVisibility: 'hidden', // Improve rendering performance
+            WebkitOverflowScrolling: 'touch' // Smooth scrolling on mobile
+          }}
+        >
           {images.length === 0 && initialPreviewMode ? (
             // Show transparent placeholder when preserving preview mode during chapter navigation
             <div 
@@ -240,7 +266,16 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
                 src={image.url}
                 alt={image.alt || `Image ${index + 1}`}
                 className="w-full block"
-                style={{ display: 'block', margin: 0, padding: 0 }}
+                style={{ 
+                  display: 'block', 
+                  margin: 0, 
+                  padding: 0,
+                  willChange: 'auto', // Optimize for potential transforms
+                  backfaceVisibility: 'hidden', // Improve rendering performance
+                  transform: 'translateZ(0)' // Force hardware acceleration
+                }}
+                loading="lazy"
+                decoding="async"
                 onError={() => onImageError?.(image.url)}
               />
             ))
