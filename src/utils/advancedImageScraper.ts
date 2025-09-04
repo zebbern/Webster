@@ -4,6 +4,12 @@ import { urlPatternManager, extractChapterNumber } from './urlPatterns'
 // Request deduplication cache to prevent conflicting simultaneous requests
 const requestCache = new Map<string, Promise<{ body: string; status: number; headers: Headers }>>()
 
+// Function to clear the request cache (useful between chapter navigations)
+export const clearRequestCache = () => {
+  console.log(`Clearing request cache (${requestCache.size} entries)`)
+  requestCache.clear()
+}
+
 // Simple fetch wrapper using CORS client API with rate limiting and deduplication
 const fetchData = async (url: string, method: 'GET' | 'HEAD' = 'GET', signal?: AbortSignal, retries = 3) => {
   // Create cache key based on URL and method

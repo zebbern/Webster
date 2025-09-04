@@ -7,7 +7,7 @@ import ThemeToggle from './ThemeToggle'
 import ChapterNavigation from './ChapterNavigation'
 import ScrapingConfiguration from './ScrapingConfiguration'
 import ImageFiltering from './ImageFiltering'
-import { scrapeImages, ScrapedImage, ScrapeProgress } from '../utils/advancedImageScraper'
+import { scrapeImages, ScrapedImage, ScrapeProgress, clearRequestCache } from '../utils/advancedImageScraper'
 import { parseChapterFromUrl } from '../utils/urlNavigation'
 import { urlPatternManager } from '../utils/urlPatterns'
 import { Tooltip, TooltipTrigger, TooltipContent } from './ui/tooltip'
@@ -20,6 +20,7 @@ const ImageScraper: React.FC = () => {
   const [progress, setProgress] = useState<ScrapeProgress | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [stats, setStats] = useState({ total: 0, duplicates: 0, filtered: 0 })
+  const [isImageStateResetting, setIsImageStateResetting] = useState(false)
   const [previewActive, setPreviewActive] = useState<boolean>(false)
   const [isNavigating, setIsNavigating] = useState<boolean>(false)
   const abortControllerRef = useRef<AbortController | null>(null)
@@ -45,6 +46,24 @@ const ImageScraper: React.FC = () => {
       document.body.style.touchAction = ''
     }
   }, [isNavigating])
+
+  // Safety mechanism: reset stuck states after component mount
+  useEffect(() => {
+    const resetStuckStates = () => {
+      if (!isLoading && isNavigating) {
+        console.warn('Detected stuck navigation state, resetting...')
+        setIsNavigating(false)
+      }
+      if (isImageStateResetting) {
+        console.warn('Detected stuck image reset state, resetting...')
+        setIsImageStateResetting(false)
+      }
+    }
+    
+    // Check for stuck states every 30 seconds
+    const interval = setInterval(resetStuckStates, 30000)
+    return () => clearInterval(interval)
+  }, [isLoading, isNavigating, isImageStateResetting])
 
   // Load filters from localStorage on mount
   useEffect(() => {
@@ -347,17 +366,18 @@ const ImageScraper: React.FC = () => {
 
 
   // Function to immediately start navigation lock (for auto navigation)
-  const handleStartNavigation = () => {
+  const handleStartNavigation = useCallback(() => {
     setIsNavigating(true)
     
-    // Clear navigation lock after 3 seconds
+    // Extended lock for auto navigation to allow for proper chapter processing
+    // Will be cleared either by timeout or when scraping completes
     setTimeout(() => {
       setIsNavigating(false)
-    }, 3000)
-  }
+    }, 10000) // 10 seconds for multi-chapter processing
+  }, [])
 
 
-  // Progress handler that supports live insertion of images reported by the scraper
+  // Progress handler that supports live insertion of images reported by the scraper with race condition protection
   const handleProgress = useCallback((p: ScrapeProgress) => {
     setProgress(p)
     
@@ -369,8 +389,10 @@ const ImageScraper: React.FC = () => {
       }
     }
     
-    if (p.image) {
+    if (p.image && !isImageStateResetting) {
       setImages(prev => {
+        // Prevent updates during reset to avoid race conditions
+        if (isImageStateResetting) return prev
         // avoid duplicates
         if (prev.find(i => i.url === p.image!.url)) return prev
         const next = [...prev, p.image!]
@@ -378,18 +400,22 @@ const ImageScraper: React.FC = () => {
         return next
       })
     }
-  }, [])
+  }, [chapterCount, isImageStateResetting])
 
-  // Live image insertion handler
+  // Live image insertion handler with race condition protection
   const handleNewImage = useCallback((image: ScrapedImage) => {
+    if (isImageStateResetting) return // Prevent updates during reset
+    
     setImages(prev => {
+      // Double-check to prevent race conditions
+      if (isImageStateResetting) return prev
       // avoid duplicates
       if (prev.find(i => i.url === image.url)) return prev
       const next = [...prev, image]
       setStats({ total: next.length, duplicates: 0, filtered: next.length })
       return next
     })
-  }, [])
+  }, [isImageStateResetting])
 
   const handleScrapeWithUrl = async (targetUrl?: string) => {
     const scrapeUrl = targetUrl || url
@@ -406,21 +432,29 @@ const ImageScraper: React.FC = () => {
       return
     }
 
-    // Only set navigation lock if not already set by navigation
+    // Only set navigation lock if not already set by navigation (e.g., auto next chapter)
     if (!isNavigating) {
       setIsNavigating(true)
       
-      // Clear navigation lock after 3 seconds
+      // Clear navigation lock after 5 seconds to allow for multi-chapter processing
       setTimeout(() => {
         setIsNavigating(false)
-      }, 3000)
+      }, 5000)
     }
 
     setIsLoading(true)
     setError(null)
+    
+    // Safely reset image state with race condition protection
+    setIsImageStateResetting(true)
     setImages([])
     setStats({ total: 0, duplicates: 0, filtered: 0 })
     setSequentialPattern(null)
+    // Clear request cache to prevent stale requests from affecting new scraping session
+    clearRequestCache()
+    // Allow a small delay to ensure all pending updates are blocked
+    await new Promise(resolve => setTimeout(resolve, 50))
+    setIsImageStateResetting(false)
 
     abortControllerRef.current = new AbortController()
 
@@ -514,6 +548,8 @@ const ImageScraper: React.FC = () => {
     } finally {
     setIsLoading(false)
     setProgress(null)
+    // Clear navigation lock when scraping completes (success or failure)
+    setIsNavigating(false)
     }
   }
 
@@ -799,23 +835,28 @@ config=/comics/title/ch-{chapter:03d}`}
             onNextChapter={() => {
               const now = Date.now()
               // Increased cooldown to 30 seconds and check for loading state
-              if (now - lastAutoScrollTime >= 30000 && !isLoading) { 
+              if (now - lastAutoScrollTime >= 30000 && !isLoading && !isNavigating) { 
                 console.log('Auto next chapter triggered - starting scraping')
                 setLastAutoScrollTime(now)
                 
-                // Update URL to next chapter and trigger scraping
+                // Update URL to next chapter and trigger scraping with the new URL
                 const chapterInfo = parseChapterFromUrl(url)
                 if (chapterInfo.hasChapter) {
                   const nextChapterNumber = chapterInfo.chapterNumber + chapterCount
                   const nextChapterUrl = updateChapterUrl(nextChapterNumber, true)
                   console.log(`Auto navigating to chapter ${nextChapterNumber}`)
                   
-                  // Trigger the main scraping functionality
-                  handleScrape()
+                  // Use the new URL directly instead of relying on state update
+                  if (nextChapterUrl && nextChapterUrl !== url) {
+                    handleScrapeWithUrl(nextChapterUrl)
+                  } else {
+                    console.warn('Failed to generate next chapter URL, falling back to current URL')
+                    handleScrape()
+                  }
                 }
               } else {
                 const remainingTime = Math.max(0, 30000 - (now - lastAutoScrollTime)) / 1000
-                console.log(`Auto next chapter blocked: ${remainingTime.toFixed(1)}s cooldown remaining, loading: ${isLoading}`)
+                console.log(`Auto next chapter blocked: ${remainingTime.toFixed(1)}s cooldown remaining, loading: ${isLoading}, navigating: ${isNavigating}`)
               }
             }}
             onStartNavigation={handleStartNavigation}
