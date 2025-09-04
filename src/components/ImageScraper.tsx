@@ -610,8 +610,8 @@ const ImageScraper: React.FC = () => {
                   onClick={() => setShowConfiguration(prev => !prev)}
                   className={`p-3 rounded-lg transition-colors font-medium flex items-center justify-center ${
                     showConfiguration 
-                      ? 'bg-blue-500 text-white hover:bg-blue-600' 
-                      : 'bg-blue-100 text-blue-600 hover:bg-blue-200'
+                      ? 'bg-primary/80 text-primary-foreground hover:bg-primary' 
+                      : 'bg-primary text-primary-foreground hover:bg-primary/90'
                   }`}
                   title={showConfiguration ? 'Hide Configuration' : 'Show Configuration'}
                   aria-label="Toggle Configuration"
