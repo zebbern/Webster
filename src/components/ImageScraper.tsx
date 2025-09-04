@@ -46,6 +46,21 @@ const ImageScraper: React.FC = () => {
     }
   }, [isNavigating])
 
+  // Load filters from localStorage on mount
+  useEffect(() => {
+    try {
+      const savedFilters = localStorage.getItem('webster-image-filters')
+      if (savedFilters) {
+        const filters = JSON.parse(savedFilters)
+        if (Array.isArray(filters)) {
+          setImageFilters(filters)
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to load image filters from localStorage:', error)
+    }
+  }, [])
+
   // Cleanup timeout on unmount
   useEffect(() => {
     return () => {
@@ -121,6 +136,12 @@ const ImageScraper: React.FC = () => {
   const [showUrlPatterns, setShowUrlPatterns] = useState<boolean>(false)
   const [customUrlPatterns, setCustomUrlPatterns] = useState<string>('')
   const [urlPatternsOpen, setUrlPatternsOpen] = useState<boolean>(false)
+  
+  // URL/Image Filtering
+  const [imageFilters, setImageFilters] = useState<string[]>([])
+  const [newFilter, setNewFilter] = useState<string>('')
+  const [showImageFilters, setShowImageFilters] = useState<boolean>(false)
+  const [filterInfoOpen, setFilterInfoOpen] = useState<boolean>(false)
   
   // Chapter navigation state
   const [targetChapterRange, setTargetChapterRange] = useState<{start: number, end: number} | null>(null)
@@ -244,6 +265,43 @@ const ImageScraper: React.FC = () => {
     } catch (error: any) {
       toast.error(`Failed to export URL patterns: ${error.message}`)
     }
+  }
+
+  // Image filter management functions
+  const handleAddFilter = () => {
+    if (newFilter.trim() && !imageFilters.includes(newFilter.trim().toLowerCase())) {
+      const filter = newFilter.trim().toLowerCase()
+      setImageFilters(prev => [...prev, filter])
+      setNewFilter('')
+      toast.success(`Added filter: "${filter}"`)
+      
+      // Save to localStorage
+      const updatedFilters = [...imageFilters, filter]
+      localStorage.setItem('webster-image-filters', JSON.stringify(updatedFilters))
+    }
+  }
+
+  const handleRemoveFilter = (filterToRemove: string) => {
+    setImageFilters(prev => prev.filter(f => f !== filterToRemove))
+    toast.info(`Removed filter: "${filterToRemove}"`)
+    
+    // Update localStorage
+    const updatedFilters = imageFilters.filter(f => f !== filterToRemove)
+    localStorage.setItem('webster-image-filters', JSON.stringify(updatedFilters))
+  }
+
+  const handleClearAllFilters = () => {
+    setImageFilters([])
+    toast.info('Cleared all image filters')
+    localStorage.removeItem('webster-image-filters')
+  }
+
+  // Check if an image URL should be filtered out
+  const shouldFilterImage = (url: string): boolean => {
+    if (imageFilters.length === 0) return false
+    
+    const urlLower = url.toLowerCase()
+    return imageFilters.some(filter => urlLower.includes(filter))
   }
 
   const handleScrape = async () => {
@@ -478,7 +536,8 @@ const ImageScraper: React.FC = () => {
         consecutiveMissThreshold,
         chapterCount,
         validateImages,
-        fetchInterval: fetchInterval * 1000 // Convert seconds to milliseconds
+        fetchInterval: fetchInterval * 1000, // Convert seconds to milliseconds
+        imageFilter: shouldFilterImage // Pass filter function to scraper
       }
 
       if (scrapingMethod === 'fast') {
@@ -1132,16 +1191,118 @@ config=/comics/title/ch-{chapter:03d}`}
                 <span className="font-medium">{stats.total} images found</span>
               </div>
               <div className="text-sm text-accent/80">
-                {stats.filtered} after filtering • {stats.duplicates} duplicates removed
+                {(() => {
+                  const filteredCount = images.filter(img => shouldFilterImage(img.url)).length
+                  const displayedCount = images.length - filteredCount
+                  return `${displayedCount} displayed • ${filteredCount} filtered out • ${stats.duplicates} duplicates removed`
+                })()}
               </div>
             </div>
           )}
+          
+          {/* Image Filtering Section */}
+          <div className="p-4 bg-accent/5 border border-accent/20 rounded-lg">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center space-x-2">
+                <Filter className="h-5 w-5 text-muted-foreground" />
+                <label className="text-sm font-medium text-foreground">Image Filtering</label>
+                <Tooltip open={filterInfoOpen} onOpenChange={setFilterInfoOpen}>
+                  <TooltipTrigger asChild>
+                    <button onClick={() => setFilterInfoOpen(prev => !prev)} className="w-5 h-5 rounded-full bg-muted/60 hover:bg-muted flex items-center justify-center text-muted-foreground" aria-label="Image filtering info">
+                      <Info className="h-3 w-3" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    <div className="text-xs max-w-64">
+                      <div className="font-medium mb-1">URL/Image Filtering</div>
+                      <div>Filter out unwanted images by adding text patterns. Images containing these patterns in their URLs will be excluded from results.</div>
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              <div className="flex items-center space-x-2">
+                {imageFilters.length > 0 && (
+                  <span className="text-xs text-muted-foreground bg-muted/30 px-2 py-1 rounded">
+                    {imageFilters.length} filter{imageFilters.length !== 1 ? 's' : ''}
+                  </span>
+                )}
+                <button
+                  onClick={() => setShowImageFilters(prev => !prev)}
+                  className="px-3 py-1 text-xs bg-secondary text-secondary-foreground rounded hover:bg-secondary/90 transition-colors"
+                >
+                  {showImageFilters ? 'Hide' : 'Configure'}
+                </button>
+              </div>
+            </div>
+            
+            {showImageFilters && (
+              <div className="space-y-3">
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="text"
+                    value={newFilter}
+                    onChange={(e) => setNewFilter(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleAddFilter()}
+                    placeholder="Enter text to filter (e.g., 'logo', 'ad', 'banner')"
+                    className="flex-1 px-3 py-2 text-xs bg-input border border-border rounded-md text-foreground placeholder:text-muted-foreground"
+                    disabled={isLoading}
+                  />
+                  <button
+                    onClick={handleAddFilter}
+                    disabled={isLoading || !newFilter.trim() || imageFilters.includes(newFilter.trim().toLowerCase())}
+                    className="px-3 py-2 text-xs bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Add Filter
+                  </button>
+                </div>
+                
+                {imageFilters.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground">Active Filters:</span>
+                      <button
+                        onClick={handleClearAllFilters}
+                        className="text-xs text-destructive hover:text-destructive/80 transition-colors"
+                      >
+                        Clear All
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {imageFilters.map(filter => (
+                        <span
+                          key={filter}
+                          className="inline-flex items-center space-x-1 px-2 py-1 bg-muted/60 text-foreground rounded text-xs"
+                        >
+                          <span>{filter}</span>
+                          <button
+                            onClick={() => handleRemoveFilter(filter)}
+                            className="text-muted-foreground hover:text-destructive transition-colors ml-1"
+                            aria-label={`Remove filter: ${filter}`}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                <div className="text-xs text-muted-foreground">
+                  <div className="font-medium mb-1">Example filters:</div>
+                  <div>• "logo" - filters out company logos</div>
+                  <div>• "ad" or "banner" - removes advertisements</div>
+                  <div>• "watermark" - excludes watermarked images</div>
+                  <div>• "thumb" or "preview" - skips thumbnails</div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Image Gallery */}
         {images.length > 0 && (
           <ImageGallery 
-            images={images} 
+            images={images.filter(img => !shouldFilterImage(img.url))} 
             websiteUrl={url} 
             onImageError={handleRemoveImageOnError} 
             onPreviewChange={setPreviewActive} 

@@ -125,6 +125,8 @@ export interface ScrapeOptions {
   validateImages?: boolean
   // Custom fetch interval in milliseconds (overrides default timing)
   fetchInterval?: number
+  // Function to filter out unwanted images by URL
+  imageFilter?: (url: string) => boolean
 }
 
 // const DEFAULT_KEEP_ALIVE_MS = 8000
@@ -149,6 +151,7 @@ export const scrapeImages = async (
   const chapterCount = options.chapterCount ?? 1
   const validateImages = options.validateImages ?? false
   const fetchInterval = options.fetchInterval ?? 15000 // Default 15 seconds
+  const imageFilter = options.imageFilter // Optional image filtering function
 
   // Validate URL
   try {
@@ -343,22 +346,30 @@ export const scrapeImages = async (
               }
 
               if (imageExists) {
-                // Success - add image
-                batchHasSuccess = true
-                chapterImageCount++
-                seenUrls.add(candidate)
-                
-                const newImage: ScrapedImage = { 
-                  url: candidate, 
-                  type: extension, 
-                  source: 'static', 
-                  alt: `Image from ${new URL(chapterUrl).hostname} - Chapter ${currentChapter}` 
-                }
-                images.push(newImage)
+                // Check if image should be filtered out
+                if (imageFilter && imageFilter(candidate)) {
+                  console.log(`Image filtered out: ${candidate}`)
+                  // Still count as successful but don't add to results
+                  batchHasSuccess = true
+                  chapterImageCount++
+                  seenUrls.add(candidate)
+                } else {
+                  // Success - add image
+                  batchHasSuccess = true
+                  chapterImageCount++
+                  seenUrls.add(candidate)
+                  
+                  const newImage: ScrapedImage = { 
+                    url: candidate, 
+                    type: extension, 
+                    source: 'static', 
+                    alt: `Image from ${new URL(chapterUrl).hostname} - Chapter ${currentChapter}` 
+                  }
+                  images.push(newImage)
 
-                // Live insertion
-                onNewImage?.(newImage)
-                onProgress?.({ 
+                  // Live insertion
+                  onNewImage?.(newImage)
+                  onProgress?.({ 
                   stage: 'scanning', 
                   processed: images.length, 
                   total: DEFAULT_SEQ_MAX * chapterCount, 
@@ -366,6 +377,7 @@ export const scrapeImages = async (
                   currentUrl: candidate, 
                   image: newImage 
                 })
+                }
               } else {
                 // Failed image - mark batch as failed and stop checking rest of this batch
                 // This ensures if image 2 fails, images 2 and 3 are not displayed
@@ -402,6 +414,13 @@ export const scrapeImages = async (
                 continue
               }
 
+              // Check if image should be filtered out
+              if (imageFilter && imageFilter(imageUrl)) {
+                console.log(`Image filtered out: ${imageUrl}`)
+                onProgress?.({ stage: 'scanning', processed: processedCount, total: imageUrls.length, found: images.length, currentUrl: imageUrl })
+                continue
+              }
+
               const newImage: ScrapedImage = { url: imageUrl, type, source: 'dynamic', alt: `Image from ${new URL(chapterUrl).hostname} - Chapter ${currentChapter}` }
               images.push(newImage)
 
@@ -425,6 +444,13 @@ export const scrapeImages = async (
             processedCount++
 
             if (!type || !fileTypes.includes(type)) {
+              onProgress?.({ stage: 'scanning', processed: processedCount, total: imageUrls.length, found: images.length, currentUrl: imageUrl })
+              continue
+            }
+
+            // Check if image should be filtered out
+            if (imageFilter && imageFilter(imageUrl)) {
+              console.log(`Image filtered out: ${imageUrl}`)
               onProgress?.({ stage: 'scanning', processed: processedCount, total: imageUrls.length, found: images.length, currentUrl: imageUrl })
               continue
             }
