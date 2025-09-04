@@ -277,10 +277,9 @@ const ImageScraper: React.FC = () => {
   const handleScrape = async () => {
     const chapterInfo = parseChapterFromUrl(url)
     if (chapterInfo.hasChapter && chapterCount > 1) {
-      // Calculate and display target chapter range
+      // Calculate target chapter range for URL update
       const startChapter = chapterInfo.chapterNumber
       const endChapter = startChapter + chapterCount - 1
-      setTargetChapterRange({ start: startChapter, end: endChapter })
       
       // Update URL immediately to final position for better UX
       updateChapterUrl(endChapter, true)
@@ -290,9 +289,6 @@ const ImageScraper: React.FC = () => {
     } else {
       await handleScrapeWithUrl()
     }
-    
-    // Clear target range after scraping
-    setTargetChapterRange(null)
   }
 
   const handleStop = () => {
@@ -416,7 +412,6 @@ const ImageScraper: React.FC = () => {
       // Clear navigation lock after 3 seconds
       setTimeout(() => {
         setIsNavigating(false)
-        setTargetChapterRange(null)
       }, 3000)
     }
 
