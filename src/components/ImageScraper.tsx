@@ -621,11 +621,7 @@ const ImageScraper: React.FC = () => {
                 <div className="mb-6 p-3 bg-accent/10 border border-accent/20 rounded-lg text-center">
                   <div className="flex items-center justify-center space-x-2 text-sm text-foreground">
                     <span>📖</span>
-                    {targetChapterRange ? (
-                      <span>Loading chapters {targetChapterRange.start}-{targetChapterRange.end}...</span>
-                    ) : (
-                      <span>Chapter {chapterInfo.chapterNumber} detected - Will fetch {chapterCount} chapter(s) per action</span>
-                    )}
+                    <span>Chapter {chapterInfo.chapterNumber} detected - Will fetch {chapterCount} chapter(s) per action</span>
                   </div>
                 </div>
               ) : null
