@@ -106,6 +106,7 @@ const ImageScraper: React.FC = () => {
   const [validateImages, setValidateImages] = useState<boolean>(false)
   const [fetchInterval, setFetchInterval] = useState<number>(15) // seconds
   const [autoNextChapter, setAutoNextChapter] = useState<boolean>(false)
+  const [lastAutoScrollTime, setLastAutoScrollTime] = useState<number>(0)
   // Tooltip open states for info buttons
   const [smartInfoOpen, setSmartInfoOpen] = useState<boolean>(false)
   const [fastInfoOpen, setFastInfoOpen] = useState<boolean>(false)
@@ -133,15 +134,15 @@ const ImageScraper: React.FC = () => {
 
   const handleChapterCountChange = (newChapterCount: number) => {
     setChapterCount(newChapterCount)
-    // Enforce minimum 60 seconds for 15+ chapters
-    if (newChapterCount >= 15 && fetchInterval < 60) {
-      setFetchInterval(60)
+    // Enforce minimum 30 seconds for 15+ chapters
+    if (newChapterCount >= 15 && fetchInterval < 30) {
+      setFetchInterval(30)
     }
   }
 
   const handleFetchIntervalChange = (newInterval: number) => {
     // Enforce minimum intervals based on chapter count
-    const minInterval = chapterCount >= 15 ? 60 : 15
+    const minInterval = chapterCount >= 15 ? 30 : 15
     const finalInterval = Math.max(newInterval, minInterval)
     setFetchInterval(finalInterval)
   }
@@ -209,7 +210,17 @@ const ImageScraper: React.FC = () => {
   }
 
   const handleScrape = async () => {
-    await handleScrapeWithUrl()
+    const chapterInfo = parseChapterFromUrl(url)
+    if (chapterInfo.hasChapter && chapterCount > 1) {
+      // Calculate final chapter position after scraping
+      const finalChapterNumber = chapterInfo.chapterNumber + chapterCount - 1
+      const finalChapterUrl = generateChapterUrl(url, finalChapterNumber)
+      await handleScrapeWithUrl(url)
+      // Update URL to final chapter position after scraping
+      setUrl(finalChapterUrl)
+    } else {
+      await handleScrapeWithUrl()
+    }
   }
 
   const handleStop = () => {
@@ -270,28 +281,28 @@ const ImageScraper: React.FC = () => {
   const handleStartNavigation = () => {
     setIsNavigating(true)
     
-    // Clear navigation lock after 2 seconds
+    // Clear navigation lock after 3 seconds
     setTimeout(() => {
       setIsNavigating(false)
-    }, 2000)
+    }, 3000)
   }
 
   const handleChapterNavigation = async (direction: 'prev' | 'next') => {
     // Start universal navigation lock
     setIsNavigating(true)
     
-    // Clear navigation lock after 2 seconds
+    // Clear navigation lock after 3 seconds
     setTimeout(() => {
       setIsNavigating(false)
-    }, 2000)
+    }, 3000)
     // Generate URL for the target chapter (single chapter navigation)
     let targetUrl = url
     const chapterInfo = parseChapterFromUrl(url)
     
     if (!chapterInfo.hasChapter) return
     
-    // Calculate the target chapter number (single increment/decrement)
-    const increment = direction === 'next' ? 1 : -1
+    // Calculate the target chapter number (increment/decrement by chapter count)
+    const increment = direction === 'next' ? chapterCount : -chapterCount
     const targetChapterNumber = chapterInfo.chapterNumber + increment
     
     // Don't allow negative chapter numbers
@@ -353,8 +364,9 @@ const ImageScraper: React.FC = () => {
           
           setImages(allImages)
           setStats({ total: allImages.length, duplicates: 0, filtered: allImages.length })
-          // Update URL to reflect the current chapter position - sync with chapterCount
-          const finalChapterUrl = generateChapterUrl(targetUrl, targetChapterNumber + chapterCount - 1)
+          // Update URL to reflect the final chapter position after all chapters are loaded
+          const finalChapterNumber = targetChapterNumber + chapterCount - 1
+          const finalChapterUrl = generateChapterUrl(targetUrl, finalChapterNumber)
           setUrl(finalChapterUrl)
           setLastPageUrl(finalChapterUrl)
           setSequentialPattern({ basePath: newBase.replace(oldSeg + '/', newSeg + '/'), extension: sequentialPattern.extension, pad: sequentialPattern.pad })
@@ -364,13 +376,13 @@ const ImageScraper: React.FC = () => {
     }
 
     // Fallback: perform a normal scrape on the new URL
-    // Ensure URL reflects the final chapter position for proper synchronization
-    const finalChapterUrl = generateChapterUrl(targetUrl, targetChapterNumber + chapterCount - 1)
-    setUrl(finalChapterUrl)
+    // Calculate final chapter position for proper synchronization
+    const finalChapterNumber = targetChapterNumber + chapterCount - 1
+    const finalChapterUrl = generateChapterUrl(targetUrl, finalChapterNumber)
 
-    // Start the scrape for the target URL but update URL to final position
+    // Start the scrape for the target URL
     handleScrapeWithUrl(targetUrl).then(() => {
-      // After scraping, ensure URL is synced to final chapter position
+      // After scraping, update URL to final chapter position
       setUrl(finalChapterUrl)
     })
   }
@@ -427,10 +439,10 @@ const ImageScraper: React.FC = () => {
     // Start universal navigation lock for scraping
     setIsNavigating(true)
     
-    // Clear navigation lock after 2 seconds
+    // Clear navigation lock after 3 seconds
     setTimeout(() => {
       setIsNavigating(false)
-    }, 2000)
+    }, 3000)
 
     setIsLoading(true)
     setError(null)
@@ -858,7 +870,7 @@ const ImageScraper: React.FC = () => {
                       >
                         {/* Generate interval options based on chapter count */}
                         {chapterCount >= 15 
-                          ? [60, 75, 90, 120, 150, 180, 200].map(seconds => (
+                          ? [30, 45, 60, 75, 90, 120, 150, 180, 200].map(seconds => (
                               <option key={seconds} value={seconds}>{seconds}s</option>
                             ))
                           : [15, 20, 25, 30, 45, 60, 75, 90, 120, 150, 180, 200].map(seconds => (
@@ -874,7 +886,7 @@ const ImageScraper: React.FC = () => {
                         </TooltipTrigger>
                         <TooltipContent side="top">
                           {chapterCount >= 15 
-                            ? "Minimum 60 seconds required for 15+ chapters to avoid overwhelming servers."
+                            ? "Minimum 30 seconds required for 15+ chapters to avoid overwhelming servers."
                             : "Time between image fetch requests. Minimum 15 seconds, can be reduced for smaller chapter counts."
                           }
                         </TooltipContent>
@@ -1103,7 +1115,13 @@ config=/comics/title/ch-{chapter:03d}`}
             showScrollButtons={showScrollButtons} 
             initialPreviewMode={previewActive}
             autoNextChapter={autoNextChapter}
-            onNextChapter={() => handleChapterNavigation('next')}
+            onNextChapter={() => {
+              const now = Date.now()
+              if (now - lastAutoScrollTime >= 20000) { // 20 second cooldown
+                setLastAutoScrollTime(now)
+                handleChapterNavigation('next')
+              }
+            }}
             onStartNavigation={handleStartNavigation}
             isNavigating={isNavigating}
           />
