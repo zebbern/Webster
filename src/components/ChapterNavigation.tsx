@@ -11,7 +11,6 @@ interface ChapterInfo {
 interface ChapterNavigationProps {
   chapterInfo: ChapterInfo
   chapterCount: number
-  targetChapterRange: { start: number; end: number } | null
   tooltipOpen: boolean
   onTooltipOpenChange: (open: boolean) => void
 }
@@ -19,7 +18,6 @@ interface ChapterNavigationProps {
 const ChapterNavigation: React.FC<ChapterNavigationProps> = ({
   chapterInfo,
   chapterCount,
-  targetChapterRange,
   tooltipOpen,
   onTooltipOpenChange
 }) => {
@@ -31,12 +29,7 @@ const ChapterNavigation: React.FC<ChapterNavigationProps> = ({
         <div className="flex items-center space-x-2 text-sm text-foreground">
           <div className="text-center">
             <span className="block">Chapter {chapterInfo.chapterNumber}</span>
-            {targetChapterRange && (
-              <span className="text-xs text-muted-foreground">
-                Loading {targetChapterRange.start}-{targetChapterRange.end}
-              </span>
-            )}
-            {!targetChapterRange && chapterCount > 1 && (
+            {chapterCount > 1 && (
               <span className="text-xs text-muted-foreground">
                 Will load {chapterCount} chapters
               </span>

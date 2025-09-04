@@ -110,8 +110,6 @@ const ImageScraper: React.FC = () => {
   const [newFilter, setNewFilter] = useState<string>('')
   const [showImageFilters, setShowImageFilters] = useState<boolean>(false)
   
-  // Chapter navigation state
-  const [targetChapterRange, setTargetChapterRange] = useState<{start: number, end: number} | null>(null)
 
   const availableFileTypes = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'tiff', 'ico']
 
@@ -361,89 +359,6 @@ const ImageScraper: React.FC = () => {
     }, 3000)
   }
 
-  const handleChapterNavigation = async (direction: 'prev' | 'next') => {
-    const chapterInfo = parseChapterFromUrl(url)
-    if (!chapterInfo.hasChapter) return
-    
-    // Prevent navigation if already navigating or loading
-    if (isNavigating || isLoading) {
-      console.log('Navigation blocked: already navigating or loading')
-      return
-    }
-    
-    // Calculate the target chapter range
-    const increment = direction === 'next' ? chapterCount : -chapterCount
-    const startChapter = chapterInfo.chapterNumber + increment
-    const endChapter = startChapter + chapterCount - 1
-    
-    // Don't allow negative chapter numbers
-    if (startChapter < 1) return
-    
-    // Set target range for visual feedback
-    setTargetChapterRange({ start: startChapter, end: endChapter })
-    
-    // Start universal navigation lock
-    setIsNavigating(true)
-    
-    // Update URL immediately to final position
-    const finalChapterUrl = updateChapterUrl(endChapter, true)
-    
-    // Clear navigation lock after 2 seconds (reduced from 3)
-    setTimeout(() => {
-      setIsNavigating(false)
-      setTargetChapterRange(null)
-    }, 2000)
-    
-    // Clear existing images and reset state for new chapter
-    setImages([])
-    setStats({ total: 0, duplicates: 0, filtered: 0 })
-    setError(null)
-    setProgress(null)
-    
-    // Generate starting URL for potential scraping
-    const startingUrl = updateChapterUrl(startChapter, false)
-
-    // If we have a sequential pattern detected from previous scrape, generate images instantly
-    if (sequentialPattern && lastPageUrl) {
-      const oldChapterInfo = parseChapterFromUrl(lastPageUrl)
-      const newChapterInfo = parseChapterFromUrl(startingUrl)
-      if (oldChapterInfo.hasChapter && newChapterInfo.hasChapter) {
-        const oldSeg = oldChapterInfo.chapterSegment
-        const newSeg = newChapterInfo.chapterSegment
-        let newBase = sequentialPattern.basePath
-        if (!newBase.endsWith('/')) newBase = newBase + '/'
-        if (oldSeg && newSeg && newBase.includes(oldSeg)) {
-          // Generate images for multiple chapters instantly (no scraping)
-          const allImages: ScrapedImage[] = []
-          for (let i = 0; i < chapterCount; i++) {
-            const chapterNum = startChapter + i
-            const chapterSegment = newSeg.replace(startChapter.toString(), chapterNum.toString())
-            const chapterBase = newBase.replace(oldSeg + '/', chapterSegment + '/')
-            const chapterImages = generateSequentialScrapedImages(chapterBase, sequentialPattern.extension, sequentialPattern.pad, 500)
-            // Add chapter info to alt text
-            chapterImages.forEach(img => {
-              img.alt = `Image from ${new URL(startingUrl).hostname} - Chapter ${chapterNum}`
-            })
-            allImages.push(...chapterImages)
-          }
-          
-          setImages(allImages)
-          setStats({ total: allImages.length, duplicates: 0, filtered: allImages.filter(img => shouldFilterImage(img.url)).length })
-          // URL already updated to final position above
-          setLastPageUrl(finalChapterUrl)
-          setSequentialPattern({ basePath: newBase.replace(oldSeg + '/', newSeg + '/'), extension: sequentialPattern.extension, pad: sequentialPattern.pad })
-          
-          // Show success message
-          toast.success(`Loaded ${allImages.length} images from chapter ${startChapter}${chapterCount > 1 ? `-${endChapter}` : ''}`)
-          return
-        }
-      }
-    }
-
-    // If no sequential pattern, just update URL and clear state
-    // User needs to manually click "Start Scraping" to begin scraping the new chapter
-    toast.info(`Navigated to chapter ${startChapter}${chapterCount > 1 ? `-${endChapter}` : ''}. Click "Start Scraping" to load images.`)
-  }
 
   // Progress handler that supports live insertion of images reported by the scraper
   const handleProgress = useCallback((p: ScrapeProgress) => {
@@ -670,7 +585,6 @@ const ImageScraper: React.FC = () => {
               <ChapterNavigation
                 chapterInfo={parseChapterFromUrl(url)}
                 chapterCount={chapterCount}
-                targetChapterRange={targetChapterRange}
                 tooltipOpen={tooltipStates.navInfo}
                 onTooltipOpenChange={(open) => handleTooltipToggle('navInfo')}
               />
@@ -868,14 +782,24 @@ config=/comics/title/ch-{chapter:03d}`}
             autoNextChapter={autoNextChapter}
             onNextChapter={() => {
               const now = Date.now()
-              // Increased cooldown to 30 seconds and check for navigation/loading state
-              if (now - lastAutoScrollTime >= 30000 && !isNavigating && !isLoading) { 
-                console.log('Auto next chapter triggered')
+              // Increased cooldown to 30 seconds and check for loading state
+              if (now - lastAutoScrollTime >= 30000 && !isLoading) { 
+                console.log('Auto next chapter triggered - starting scraping')
                 setLastAutoScrollTime(now)
-                handleChapterNavigation('next')
+                
+                // Update URL to next chapter and trigger scraping
+                const chapterInfo = parseChapterFromUrl(url)
+                if (chapterInfo.hasChapter) {
+                  const nextChapterNumber = chapterInfo.chapterNumber + chapterCount
+                  const nextChapterUrl = updateChapterUrl(nextChapterNumber, true)
+                  console.log(`Auto navigating to chapter ${nextChapterNumber}`)
+                  
+                  // Trigger the main scraping functionality
+                  handleScrape()
+                }
               } else {
                 const remainingTime = Math.max(0, 30000 - (now - lastAutoScrollTime)) / 1000
-                console.log(`Auto next chapter blocked: ${remainingTime.toFixed(1)}s cooldown remaining, navigating: ${isNavigating}, loading: ${isLoading}`)
+                console.log(`Auto next chapter blocked: ${remainingTime.toFixed(1)}s cooldown remaining, loading: ${isLoading}`)
               }
             }}
             onStartNavigation={handleStartNavigation}
