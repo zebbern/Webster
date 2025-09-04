@@ -121,6 +121,9 @@ const ImageScraper: React.FC = () => {
   const [showUrlPatterns, setShowUrlPatterns] = useState<boolean>(false)
   const [customUrlPatterns, setCustomUrlPatterns] = useState<string>('')
   const [urlPatternsOpen, setUrlPatternsOpen] = useState<boolean>(false)
+  
+  // Chapter navigation state
+  const [targetChapterRange, setTargetChapterRange] = useState<{start: number, end: number} | null>(null)
 
   const availableFileTypes = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'tiff', 'ico']
 
@@ -181,6 +184,40 @@ const ImageScraper: React.FC = () => {
     }
   }
 
+  // Unified chapter URL update function that works with custom patterns
+  const updateChapterUrl = (targetChapterNumber: number, immediate: boolean = true) => {
+    const chapterInfo = parseChapterFromUrl(url)
+    if (!chapterInfo.hasChapter) return url
+    
+    // Validate chapter number
+    if (targetChapterNumber < 1) {
+      console.warn('Invalid chapter number:', targetChapterNumber)
+      return url
+    }
+    
+    try {
+      let newUrl: string | null = null
+      
+      // First try using URL pattern manager for custom patterns
+      newUrl = urlPatternManager.generateChapterUrl(url, targetChapterNumber)
+      
+      // If pattern manager didn't generate a URL, fall back to default method
+      if (!newUrl) {
+        newUrl = generateChapterUrl(url, targetChapterNumber)
+      }
+      
+      if (immediate && newUrl) {
+        setUrl(newUrl)
+        console.log(`Updated URL to chapter ${targetChapterNumber}:`, newUrl)
+      }
+      
+      return newUrl || url
+    } catch (error) {
+      console.error('Error updating chapter URL:', error)
+      return url
+    }
+  }
+
   const handleUrlPatternsApply = () => {
     try {
       if (customUrlPatterns.trim()) {
@@ -212,15 +249,22 @@ const ImageScraper: React.FC = () => {
   const handleScrape = async () => {
     const chapterInfo = parseChapterFromUrl(url)
     if (chapterInfo.hasChapter && chapterCount > 1) {
-      // Calculate final chapter position after scraping
-      const finalChapterNumber = chapterInfo.chapterNumber + chapterCount - 1
-      const finalChapterUrl = generateChapterUrl(url, finalChapterNumber)
-      await handleScrapeWithUrl(url)
-      // Update URL to final chapter position after scraping
-      setUrl(finalChapterUrl)
+      // Calculate and display target chapter range
+      const startChapter = chapterInfo.chapterNumber
+      const endChapter = startChapter + chapterCount - 1
+      setTargetChapterRange({ start: startChapter, end: endChapter })
+      
+      // Update URL immediately to final position for better UX
+      updateChapterUrl(endChapter, true)
+      
+      // Start scraping from original URL
+      await handleScrapeWithUrl(chapterInfo.chapterNumber === startChapter ? url : generateChapterUrl(url, startChapter))
     } else {
       await handleScrapeWithUrl()
     }
+    
+    // Clear target range after scraping
+    setTargetChapterRange(null)
   }
 
   const handleStop = () => {
@@ -288,60 +332,39 @@ const ImageScraper: React.FC = () => {
   }
 
   const handleChapterNavigation = async (direction: 'prev' | 'next') => {
+    const chapterInfo = parseChapterFromUrl(url)
+    if (!chapterInfo.hasChapter) return
+    
+    // Calculate the target chapter range
+    const increment = direction === 'next' ? chapterCount : -chapterCount
+    const startChapter = chapterInfo.chapterNumber + increment
+    const endChapter = startChapter + chapterCount - 1
+    
+    // Don't allow negative chapter numbers
+    if (startChapter < 1) return
+    
+    // Set target range for visual feedback
+    setTargetChapterRange({ start: startChapter, end: endChapter })
+    
     // Start universal navigation lock
     setIsNavigating(true)
+    
+    // Update URL immediately to final position
+    const finalChapterUrl = updateChapterUrl(endChapter, true)
     
     // Clear navigation lock after 3 seconds
     setTimeout(() => {
       setIsNavigating(false)
+      setTargetChapterRange(null)
     }, 3000)
-    // Generate URL for the target chapter (single chapter navigation)
-    let targetUrl = url
-    const chapterInfo = parseChapterFromUrl(url)
     
-    if (!chapterInfo.hasChapter) return
-    
-    // Calculate the target chapter number (increment/decrement by chapter count)
-    const increment = direction === 'next' ? chapterCount : -chapterCount
-    const targetChapterNumber = chapterInfo.chapterNumber + increment
-    
-    // Don't allow negative chapter numbers
-    if (targetChapterNumber < 0) return
-    
-    // Generate URL for the target chapter
-    try {
-      const urlObj = new URL(url)
-      const pathSegments = urlObj.pathname.split('/').filter(segment => segment.length > 0)
-      
-      // Find and replace the chapter segment
-      for (let i = pathSegments.length - 1; i >= 0; i--) {
-        const segment = pathSegments[i]
-        
-        if (segment === chapterInfo.chapterSegment) {
-          // Determine the new segment format based on the original
-          const chapterMatch = segment.match(/^(chapter|ch|episode|ep|part|p)[-_]?(\d+)$/i)
-          if (chapterMatch) {
-            const prefix = chapterMatch[1]
-            const separator = segment.includes('-') ? '-' : (segment.includes('_') ? '_' : '')
-            pathSegments[i] = `${prefix}${separator}${targetChapterNumber}`
-          } else if (segment.match(/^\d+$/)) {
-            pathSegments[i] = targetChapterNumber.toString()
-          }
-          break
-        }
-      }
-      
-      // Reconstruct the URL
-      urlObj.pathname = '/' + pathSegments.join('/') + (url.endsWith('/') ? '/' : '')
-      targetUrl = urlObj.toString()
-    } catch (error) {
-      return
-    }
+    // Generate starting URL for scraping
+    const startingUrl = updateChapterUrl(startChapter, false)
 
     // If we have a sequential pattern detected from previous scrape, assume same structure in next chapters
     if (sequentialPattern && lastPageUrl) {
       const oldChapterInfo = parseChapterFromUrl(lastPageUrl)
-      const newChapterInfo = parseChapterFromUrl(targetUrl)
+      const newChapterInfo = parseChapterFromUrl(startingUrl)
       if (oldChapterInfo.hasChapter && newChapterInfo.hasChapter) {
         const oldSeg = oldChapterInfo.chapterSegment
         const newSeg = newChapterInfo.chapterSegment
@@ -351,23 +374,20 @@ const ImageScraper: React.FC = () => {
           // Generate images for multiple chapters
           const allImages: ScrapedImage[] = []
           for (let i = 0; i < chapterCount; i++) {
-            const chapterNum = targetChapterNumber + i
-            const chapterSegment = newSeg.replace(targetChapterNumber.toString(), chapterNum.toString())
+            const chapterNum = startChapter + i
+            const chapterSegment = newSeg.replace(startChapter.toString(), chapterNum.toString())
             const chapterBase = newBase.replace(oldSeg + '/', chapterSegment + '/')
             const chapterImages = generateSequentialScrapedImages(chapterBase, sequentialPattern.extension, sequentialPattern.pad, 500)
             // Add chapter info to alt text
             chapterImages.forEach(img => {
-              img.alt = `Image from ${new URL(targetUrl).hostname} - Chapter ${chapterNum}`
+              img.alt = `Image from ${new URL(startingUrl).hostname} - Chapter ${chapterNum}`
             })
             allImages.push(...chapterImages)
           }
           
           setImages(allImages)
           setStats({ total: allImages.length, duplicates: 0, filtered: allImages.length })
-          // Update URL to reflect the final chapter position after all chapters are loaded
-          const finalChapterNumber = targetChapterNumber + chapterCount - 1
-          const finalChapterUrl = generateChapterUrl(targetUrl, finalChapterNumber)
-          setUrl(finalChapterUrl)
+          // URL already updated to final position above
           setLastPageUrl(finalChapterUrl)
           setSequentialPattern({ basePath: newBase.replace(oldSeg + '/', newSeg + '/'), extension: sequentialPattern.extension, pad: sequentialPattern.pad })
           return
@@ -375,16 +395,9 @@ const ImageScraper: React.FC = () => {
       }
     }
 
-    // Fallback: perform a normal scrape on the new URL
-    // Calculate final chapter position for proper synchronization
-    const finalChapterNumber = targetChapterNumber + chapterCount - 1
-    const finalChapterUrl = generateChapterUrl(targetUrl, finalChapterNumber)
-
-    // Start the scrape for the target URL
-    handleScrapeWithUrl(targetUrl).then(() => {
-      // After scraping, update URL to final chapter position
-      setUrl(finalChapterUrl)
-    })
+    // Fallback: perform a normal scrape on the starting URL
+    // URL already updated to final position above
+    handleScrapeWithUrl(startingUrl)
   }
 
   // Progress handler that supports live insertion of images reported by the scraper
@@ -436,13 +449,16 @@ const ImageScraper: React.FC = () => {
       return
     }
 
-    // Start universal navigation lock for scraping
-    setIsNavigating(true)
-    
-    // Clear navigation lock after 3 seconds
-    setTimeout(() => {
-      setIsNavigating(false)
-    }, 3000)
+    // Only set navigation lock if not already set by navigation
+    if (!isNavigating) {
+      setIsNavigating(true)
+      
+      // Clear navigation lock after 3 seconds
+      setTimeout(() => {
+        setIsNavigating(false)
+        setTargetChapterRange(null)
+      }, 3000)
+    }
 
     setIsLoading(true)
     setError(null)
@@ -609,46 +625,60 @@ const ImageScraper: React.FC = () => {
                 const navState = getNavigationState(url)
                 const chapterInfo = parseChapterFromUrl(url)
                 return chapterInfo.hasChapter ? (
-                  <div className="flex items-center justify-center space-x-3 p-3 bg-accent/10 border border-accent/20 rounded-lg">
-                    <button
-                      onClick={() => handleChapterNavigation('prev')}
-                      disabled={!navState.canGoPrev || isLoading}
-                      className={`p-2 rounded-lg border transition-colors flex items-center justify-center ${
-                        navState.canGoPrev && !isLoading
-                          ? 'bg-card border-border hover:bg-accent text-foreground'
-                          : 'bg-muted border-muted text-muted-foreground cursor-not-allowed'
-                      }`}
-                      title={`Previous chapter (${chapterInfo.chapterNumber - 1})`}
-                    >
-                      <ChevronLeft className="h-5 w-5" />
-                    </button>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-center space-x-3 p-3 bg-accent/10 border border-accent/20 rounded-lg">
+                      <button
+                        onClick={() => handleChapterNavigation('prev')}
+                        disabled={!navState.canGoPrev || isLoading || chapterInfo.chapterNumber <= chapterCount}
+                        className={`p-2 rounded-lg border transition-colors flex items-center justify-center ${
+                          navState.canGoPrev && !isLoading && chapterInfo.chapterNumber > chapterCount
+                            ? 'bg-card border-border hover:bg-accent text-foreground'
+                            : 'bg-muted border-muted text-muted-foreground cursor-not-allowed'
+                        }`}
+                        title={`Previous ${chapterCount} chapter(s)`}
+                      >
+                        <ChevronLeft className="h-5 w-5" />
+                      </button>
 
-                    <div className="flex items-center space-x-2 text-sm text-foreground">
-                      <span>Chapter {chapterInfo.chapterNumber}</span>
-                      <Tooltip open={navInfoOpen} onOpenChange={setNavInfoOpen}>
-                        <TooltipTrigger asChild>
-                          <button onClick={() => setNavInfoOpen(prev => !prev)} className="w-5 h-5 rounded-full bg-muted/60 hover:bg-muted flex items-center justify-center text-muted-foreground" aria-label="Navigation info">
-                            <Info className="h-3 w-3" />
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent side="top">
-                          Use the chapter navigation buttons to jump between detected chapters. The scraper will fetch the specified number of chapters per click.
-                        </TooltipContent>
-                      </Tooltip>
+                      <div className="flex items-center space-x-2 text-sm text-foreground">
+                        <div className="text-center">
+                          <span className="block">Chapter {chapterInfo.chapterNumber}</span>
+                          {targetChapterRange && (
+                            <span className="text-xs text-muted-foreground">
+                              Loading {targetChapterRange.start}-{targetChapterRange.end}
+                            </span>
+                          )}
+                          {!targetChapterRange && chapterCount > 1 && (
+                            <span className="text-xs text-muted-foreground">
+                              Will load {chapterCount} chapters
+                            </span>
+                          )}
+                        </div>
+                        <Tooltip open={navInfoOpen} onOpenChange={setNavInfoOpen}>
+                          <TooltipTrigger asChild>
+                            <button onClick={() => setNavInfoOpen(prev => !prev)} className="w-5 h-5 rounded-full bg-muted/60 hover:bg-muted flex items-center justify-center text-muted-foreground" aria-label="Navigation info">
+                              <Info className="h-3 w-3" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top">
+                            Use the chapter navigation buttons to jump by {chapterCount} chapter(s). The URL will update to the final chapter position.
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+
+                      <button
+                        onClick={() => handleChapterNavigation('next')}
+                        disabled={!navState.canGoNext || isLoading}
+                        className={`p-2 rounded-lg border transition-colors flex items-center justify-center ${
+                          navState.canGoNext && !isLoading
+                            ? 'bg-card border-border hover:bg-accent text-foreground'
+                            : 'bg-muted border-muted text-muted-foreground cursor-not-allowed'
+                        }`}
+                        title={`Next ${chapterCount} chapter(s)`}
+                      >
+                        <ChevronRight className="h-5 w-5" />
+                      </button>
                     </div>
-
-                    <button
-                      onClick={() => handleChapterNavigation('next')}
-                      disabled={!navState.canGoNext || isLoading}
-                      className={`p-2 rounded-lg border transition-colors flex items-center justify-center ${
-                        navState.canGoNext && !isLoading
-                          ? 'bg-card border-border hover:bg-accent text-foreground'
-                          : 'bg-muted border-muted text-muted-foreground cursor-not-allowed'
-                      }`}
-                      title={`Next chapter (${chapterInfo.chapterNumber + 1})`}
-                    >
-                      <ChevronRight className="h-5 w-5" />
-                    </button>
                   </div>
                 ) : null
               })()}
@@ -687,7 +717,11 @@ const ImageScraper: React.FC = () => {
                 <div className="mb-6 p-3 bg-accent/10 border border-accent/20 rounded-lg text-center">
                   <div className="flex items-center justify-center space-x-2 text-sm text-foreground">
                     <span>📖</span>
-                    <span>Chapter {chapterInfo.chapterNumber} detected - Will fetch {chapterCount} chapter(s) per navigation</span>
+                    {targetChapterRange ? (
+                      <span>Loading chapters {targetChapterRange.start}-{targetChapterRange.end}...</span>
+                    ) : (
+                      <span>Chapter {chapterInfo.chapterNumber} detected - Will fetch {chapterCount} chapter(s) per action</span>
+                    )}
                   </div>
                 </div>
               ) : null
