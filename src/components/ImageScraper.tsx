@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react'
-import { Search, AlertCircle, CheckCircle, Loader2, ChevronLeft, ChevronRight, Filter, Info } from 'lucide-react'
+import { Search, AlertCircle, CheckCircle, Loader2, ChevronLeft, ChevronRight, Filter, Info, Settings } from 'lucide-react'
 import { toast } from 'sonner'
 import ImageGallery from './ImageGallery'
 import ProgressIndicator from './ProgressIndicator'
@@ -109,6 +109,7 @@ const ImageScraper: React.FC = () => {
   const [imageFilters, setImageFilters] = useState<string[]>([])
   const [newFilter, setNewFilter] = useState<string>('')
   const [showImageFilters, setShowImageFilters] = useState<boolean>(false)
+  const [showConfiguration, setShowConfiguration] = useState<boolean>(false)
   
 
   const availableFileTypes = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'tiff', 'ico']
@@ -584,8 +585,8 @@ const ImageScraper: React.FC = () => {
                 onTooltipOpenChange={(open) => handleTooltipToggle('navInfo')}
               />
 
-              {/* Start/Stop Button */}
-              <div className="flex justify-center">
+              {/* Start/Stop Button with Configuration Toggle */}
+              <div className="flex justify-center items-center gap-3">
                 {!isLoading ? (
                   <button
                     onClick={handleScrape}
@@ -603,12 +604,34 @@ const ImageScraper: React.FC = () => {
                     <span>Stop Scraping</span>
                   </button>
                 )}
+                
+                {/* Configuration Toggle Button */}
+                <button
+                  onClick={() => setShowConfiguration(prev => !prev)}
+                  className={`p-3 rounded-lg transition-colors font-medium flex items-center justify-center ${
+                    showConfiguration 
+                      ? 'bg-blue-500 text-white hover:bg-blue-600' 
+                      : 'bg-blue-100 text-blue-600 hover:bg-blue-200'
+                  }`}
+                  title={showConfiguration ? 'Hide Configuration' : 'Show Configuration'}
+                  aria-label="Toggle Configuration"
+                >
+                  <Settings className="h-5 w-5" />
+                </button>
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Configuration Options */}
-          <div className="mb-6">
+        {/* Configuration Options */}
+          {showConfiguration && (
+          <div className="mb-6 bg-accent/5 border border-accent/20 rounded-xl p-6 space-y-6">
+            {/* Configuration Header */}
+            <div className="flex items-center gap-2 pb-2 border-b border-accent/20">
+              <Settings className="h-5 w-5 text-blue-500" />
+              <h3 className="text-lg font-semibold text-foreground">Configuration</h3>
+            </div>
+            
             {/* Current Settings Display */}
             {(() => {
               const chapterInfo = parseChapterFromUrl(url)
@@ -713,53 +736,55 @@ config=/comics/title/ch-{chapter:03d}`}
                 </div>
               )}
             </div>
+            
+            {/* Image Filtering Section */}
+            <ImageFiltering
+              imageFilters={imageFilters}
+              newFilter={newFilter}
+              showImageFilters={showImageFilters}
+              isLoading={isLoading}
+              tooltipOpen={tooltipStates.imageFiltering}
+              onTooltipOpenChange={(open) => handleTooltipToggle('imageFiltering')}
+              onNewFilterChange={setNewFilter}
+              onShowFiltersToggle={() => setShowImageFilters(prev => !prev)}
+              onAddFilter={handleAddFilter}
+              onRemoveFilter={handleRemoveFilter}
+              onClearAllFilters={handleClearAllFilters}
+            />
           </div>
+        )}
 
-          {/* Progress */}
-          {progress && (
+        {/* Progress */}
+        {progress && (
+          <div className="mb-6">
             <ProgressIndicator progress={progress} />
-          )}
+          </div>
+        )}
 
-          {/* Error */}
-          {error && (
-            <div className="flex items-center space-x-2 p-4 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive">
-              <AlertCircle className="h-5 w-5 flex-shrink-0" />
-              <span>{error}</span>
-            </div>
-          )}
+        {/* Error */}
+        {error && (
+          <div className="flex items-center space-x-2 p-4 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive mb-6">
+            <AlertCircle className="h-5 w-5 flex-shrink-0" />
+            <span className="text-sm">{error}</span>
+          </div>
+        )}
 
-          {/* Stats */}
-          {images.length > 0 && (
-            <div className="flex items-center space-x-6 p-4 bg-accent/10 border border-accent/20 rounded-lg">
-              <div className="flex items-center space-x-2 text-accent">
-                <CheckCircle className="h-5 w-5" />
-                <span className="font-medium">{stats.total} images found</span>
-              </div>
-              <div className="text-sm text-accent/80">
-                {(() => {
-                  const filteredCount = images.filter(img => shouldFilterImage(img.url)).length
-                  const displayedCount = images.length - filteredCount
-                  return `${displayedCount} displayed • ${filteredCount} filtered out • ${stats.duplicates} duplicates removed`
-                })()}
-              </div>
+        {/* Stats */}
+        {images.length > 0 && (
+          <div className="flex items-center space-x-6 p-4 bg-accent/10 border border-accent/20 rounded-lg mb-6">
+            <div className="flex items-center space-x-2 text-accent">
+              <CheckCircle className="h-5 w-5" />
+              <span className="font-medium">{stats.total} images found</span>
             </div>
-          )}
-          
-          {/* Image Filtering Section */}
-          <ImageFiltering
-            imageFilters={imageFilters}
-            newFilter={newFilter}
-            showImageFilters={showImageFilters}
-            isLoading={isLoading}
-            tooltipOpen={tooltipStates.imageFiltering}
-            onTooltipOpenChange={(open) => handleTooltipToggle('imageFiltering')}
-            onNewFilterChange={setNewFilter}
-            onShowFiltersToggle={() => setShowImageFilters(prev => !prev)}
-            onAddFilter={handleAddFilter}
-            onRemoveFilter={handleRemoveFilter}
-            onClearAllFilters={handleClearAllFilters}
-          />
-        </div>
+            <div className="text-sm text-accent/80">
+              {(() => {
+                const filteredCount = images.filter(img => shouldFilterImage(img.url)).length
+                const displayedCount = images.length - filteredCount
+                return `${displayedCount} displayed • ${filteredCount} filtered out • ${stats.duplicates} duplicates removed`
+              })()}
+            </div>
+          </div>
+        )}
 
         {/* Image Gallery */}
         {images.length > 0 && (
