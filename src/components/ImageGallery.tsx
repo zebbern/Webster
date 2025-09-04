@@ -243,10 +243,11 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
           id="preview-overlay-scroll" 
           className="h-full overflow-y-auto"
           style={{
-            willChange: 'scroll-position',
-            transform: 'translateZ(0)', // Force hardware acceleration
-            backfaceVisibility: 'hidden', // Improve rendering performance
-            WebkitOverflowScrolling: 'touch' // Smooth scrolling on mobile
+            // Removed problematic properties that interfere with mobile browser scroll detection
+            // willChange: 'scroll-position', - interferes with browser UI detection
+            // transform: 'translateZ(0)', - creates new layer, breaks scroll detection  
+            // backfaceVisibility: 'hidden', - rendering optimization that conflicts with scroll
+            // WebkitOverflowScrolling: 'touch' - legacy iOS property, causes conflicts on modern browsers
           }}
         >
           {images.length === 0 && initialPreviewMode ? (
@@ -269,10 +270,11 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
                 style={{ 
                   display: 'block', 
                   margin: 0, 
-                  padding: 0,
-                  willChange: 'auto', // Optimize for potential transforms
-                  backfaceVisibility: 'hidden', // Improve rendering performance
-                  transform: 'translateZ(0)' // Force hardware acceleration
+                  padding: 0
+                  // Removed problematic properties:
+                  // willChange: 'auto', - can interfere with scroll performance
+                  // backfaceVisibility: 'hidden', - conflicts with mobile scroll detection
+                  // transform: 'translateZ(0)' - creates stacking context issues
                 }}
                 loading="lazy"
                 decoding="async"
