@@ -1,71 +1,101 @@
 import corsClient from '../cors/client'
 import { urlPatternManager, extractChapterNumber } from './urlPatterns'
 
-// Simple fetch wrapper using CORS client API with rate limiting
+// Request deduplication cache to prevent conflicting simultaneous requests
+const requestCache = new Map<string, Promise<{ body: string; status: number; headers: Headers }>>()
+
+// Simple fetch wrapper using CORS client API with rate limiting and deduplication
 const fetchData = async (url: string, method: 'GET' | 'HEAD' = 'GET', signal?: AbortSignal, retries = 3) => {
+  // Create cache key based on URL and method
+  const cacheKey = `${method}:${url}`
+  
+  // Check if there's already a pending request for this URL+method
+  if (requestCache.has(cacheKey)) {
+    console.log(`Request deduplication: reusing existing request for ${method} ${url}`)
+    try {
+      return await requestCache.get(cacheKey)!
+    } catch (error) {
+      // If cached request failed, remove it from cache and continue with new request
+      requestCache.delete(cacheKey)
+    }
+  }
+  
   // Temporarily silence console during fetch to reduce noise
   const originalLog = console.log
   const originalWarn = console.warn
   console.log = () => {}
   console.warn = () => {}
   
-  try {
-    const fetched = await corsClient.data.fetch({ url, method, signal })
-    if (signal?.aborted) throw new Error('Aborted')
-    
-    // Handle rate limiting (429), SSL handshake failures (525), and timeout (408) with exponential backoff
-    if ((fetched.status === 429 || fetched.status === 525 || fetched.status === 408) && retries > 0) {
-      // Longer delays for SSL issues and timeouts, shorter for rate limiting
-      let baseDelay: number
-      let errorType: string
+  // Create the request promise and cache it
+  const requestPromise = (async () => {
+    try {
+      const fetched = await corsClient.data.fetch({ url, method, signal })
+      if (signal?.aborted) throw new Error('Aborted')
       
-      if (fetched.status === 525) {
-        baseDelay = 2000 // 2s for SSL
-        errorType = 'SSL Handshake Failed'
-      } else if (fetched.status === 408) {
-        baseDelay = 1500 // 1.5s for timeouts
-        errorType = 'Request Timeout'
-      } else {
-        baseDelay = 1000 // 1s for rate limit
-        errorType = 'Rate Limited'
+      // Handle rate limiting (429), SSL handshake failures (525), and timeout (408) with exponential backoff
+      if ((fetched.status === 429 || fetched.status === 525 || fetched.status === 408) && retries > 0) {
+        // Longer delays for SSL issues and timeouts, shorter for rate limiting
+        let baseDelay: number
+        let errorType: string
+        
+        if (fetched.status === 525) {
+          baseDelay = 2000 // 2s for SSL
+          errorType = 'SSL Handshake Failed'
+        } else if (fetched.status === 408) {
+          baseDelay = 1500 // 1.5s for timeouts
+          errorType = 'Request Timeout'
+        } else {
+          baseDelay = 1000 // 1s for rate limit
+          errorType = 'Rate Limited'
+        }
+        
+        const delay = baseDelay * Math.pow(2, 3 - retries) // Exponential backoff
+        
+        console.log = originalLog // Temporarily restore for this message
+        console.warn(`${errorType} (${fetched.status}) for ${url}, retrying in ${delay}ms... (${retries} retries left)`)
+        console.log = () => {}
+        
+        // Remove from cache before retry to prevent caching failed attempts
+        requestCache.delete(cacheKey)
+        await new Promise(resolve => setTimeout(resolve, delay))
+        return fetchData(url, method, signal, retries - 1)
       }
       
-      const delay = baseDelay * Math.pow(2, 3 - retries) // Exponential backoff
+      // Log 525 errors that exceed retry limit
+      if (fetched.status === 525) {
+        console.log = originalLog
+        console.error(`SSL handshake failed permanently for ${url} after all retries`)
+        console.log = () => {}
+      }
       
-      console.log = originalLog // Temporarily restore for this message
-      console.warn(`${errorType} (${fetched.status}) for ${url}, retrying in ${delay}ms... (${retries} retries left)`)
-      console.log = () => {}
-      
-      await new Promise(resolve => setTimeout(resolve, delay))
-      return fetchData(url, method, signal, retries - 1)
-    }
-    
-    // Log 525 errors that exceed retry limit
-    if (fetched.status === 525) {
+      const body = typeof fetched.body === 'string' ? fetched.body : JSON.stringify(fetched.body)
+      return { body, status: fetched.status || 200, headers: new Headers() }
+    } catch (error: any) {
+      // Handle fetch errors (including NS_BINDING_ABORTED)
       console.log = originalLog
-      console.error(`SSL handshake failed permanently for ${url} after all retries`)
-      console.log = () => {}
+      console.warn = originalWarn
+      
+      // Log the actual error for debugging
+      if (!error.message?.includes('Aborted')) {
+        console.error(`Fetch error for ${url}:`, error.message)
+      }
+      
+      // Return a failed status for any fetch error
+      return { body: '', status: 500, headers: new Headers() }
+    } finally {
+      // Restore console
+      console.log = originalLog
+      console.warn = originalWarn
+      // Always remove from cache when request completes (success or failure)
+      requestCache.delete(cacheKey)
     }
-    
-    const body = typeof fetched.body === 'string' ? fetched.body : JSON.stringify(fetched.body)
-    return { body, status: fetched.status || 200, headers: new Headers() }
-  } catch (error: any) {
-    // Handle fetch errors (including NS_BINDING_ABORTED)
-    console.log = originalLog
-    console.warn = originalWarn
-    
-    // Log the actual error for debugging
-    if (!error.message?.includes('Aborted')) {
-      console.error(`Fetch error for ${url}:`, error.message)
-    }
-    
-    // Return a failed status for any fetch error
-    return { body: '', status: 500, headers: new Headers() }
-  } finally {
-    // Restore console
-    console.log = originalLog
-    console.warn = originalWarn
-  }
+  })()
+  
+  // Cache the promise
+  requestCache.set(cacheKey, requestPromise)
+  
+  // Return the promise result
+  return await requestPromise
 }
 
 export interface ScrapedImage {
@@ -318,23 +348,42 @@ export const scrapeImages = async (
                   imageExists = false
                 }
               } else {
-                // Use Image element testing for no-validation mode
+                // Use Image element testing for no-validation mode with proper cleanup
                 imageExists = await new Promise<boolean>((resolve) => {
                   const img = new Image()
-                  const timeout = setTimeout(() => {
+                  let resolved = false
+                  
+                  const cleanup = () => {
+                    if (resolved) return
+                    resolved = true
                     img.onload = null
                     img.onerror = null
+                    img.onabort = null
+                    // Clear src to prevent any potential memory leaks
+                    img.src = ''
+                  }
+                  
+                  const timeout = setTimeout(() => {
+                    cleanup()
                     resolve(false) // Timeout = failure
                   }, 5000) // 5 second timeout
                   
                   img.onload = () => {
                     clearTimeout(timeout)
+                    cleanup()
                     resolve(true) // Successfully loaded
                   }
                   
                   img.onerror = () => {
                     clearTimeout(timeout)
+                    cleanup()
                     resolve(false) // Failed to load
+                  }
+                  
+                  img.onabort = () => {
+                    clearTimeout(timeout)
+                    cleanup()
+                    resolve(false) // Request was aborted
                   }
                   
                   img.src = candidate

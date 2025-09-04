@@ -1,13 +1,15 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react'
-import { Search, Filter, AlertCircle, CheckCircle, ChevronLeft, ChevronRight, Info, Loader2 } from 'lucide-react'
+import { Search, AlertCircle, CheckCircle, Loader2, ChevronLeft, ChevronRight, Filter, Info } from 'lucide-react'
 import { toast } from 'sonner'
 import ImageGallery from './ImageGallery'
 import ProgressIndicator from './ProgressIndicator'
 import ThemeToggle from './ThemeToggle'
+import ChapterNavigation from './ChapterNavigation'
+import ScrapingConfiguration from './ScrapingConfiguration'
+import ImageFiltering from './ImageFiltering'
 import { scrapeImages, ScrapedImage, ScrapeProgress } from '../utils/advancedImageScraper'
 import { getNavigationState, parseChapterFromUrl } from '../utils/urlNavigation'
 import { urlPatternManager } from '../utils/urlPatterns'
-
 import { Tooltip, TooltipTrigger, TooltipContent } from './ui/tooltip'
 
 const ImageScraper: React.FC = () => {
@@ -122,31 +124,38 @@ const ImageScraper: React.FC = () => {
   const [fetchInterval, setFetchInterval] = useState<number>(15) // seconds
   const [autoNextChapter, setAutoNextChapter] = useState<boolean>(true)
   const [lastAutoScrollTime, setLastAutoScrollTime] = useState<number>(0)
-  // Tooltip open states for info buttons
-  const [smartInfoOpen, setSmartInfoOpen] = useState<boolean>(false)
-  const [fastInfoOpen, setFastInfoOpen] = useState<boolean>(false)
-  const [navInfoOpen, setNavInfoOpen] = useState<boolean>(false)
-  const [missInfoOpen, setMissInfoOpen] = useState<boolean>(false)
-  const [chapterInfoOpen, setChapterInfoOpen] = useState<boolean>(false)
-  const [validateInfoOpen, setValidateInfoOpen] = useState<boolean>(false)
-  const [fetchIntervalInfoOpen, setFetchIntervalInfoOpen] = useState<boolean>(false)
-  const [autoNextChapterInfoOpen, setAutoNextChapterInfoOpen] = useState<boolean>(false)
+  // Consolidated tooltip states
+  const [tooltipStates, setTooltipStates] = useState({
+    smartInfo: false,
+    fastInfo: false,
+    navInfo: false,
+    missInfo: false,
+    chapterInfo: false,
+    validateInfo: false,
+    fetchIntervalInfo: false,
+    autoNextChapterInfo: false,
+    urlPatterns: false,
+    imageFiltering: false
+  })
   
   // URL Pattern Configuration
   const [showUrlPatterns, setShowUrlPatterns] = useState<boolean>(false)
   const [customUrlPatterns, setCustomUrlPatterns] = useState<string>('')
-  const [urlPatternsOpen, setUrlPatternsOpen] = useState<boolean>(false)
   
   // URL/Image Filtering
   const [imageFilters, setImageFilters] = useState<string[]>([])
   const [newFilter, setNewFilter] = useState<string>('')
   const [showImageFilters, setShowImageFilters] = useState<boolean>(false)
-  const [filterInfoOpen, setFilterInfoOpen] = useState<boolean>(false)
   
   // Chapter navigation state
   const [targetChapterRange, setTargetChapterRange] = useState<{start: number, end: number} | null>(null)
 
   const availableFileTypes = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'tiff', 'ico']
+
+  // Consolidated tooltip toggle handler
+  const handleTooltipToggle = useCallback((key: string) => {
+    setTooltipStates(prev => ({...prev, [key]: !prev[key as keyof typeof prev]}))
+  }, [])
 
   const handleFileTypeToggle = (type: string) => {
     setFileTypes(prev => 
@@ -680,67 +689,17 @@ const ImageScraper: React.FC = () => {
               </div>
 
               {/* Chapter Navigation */}
-              {(() => {
-                const navState = getNavigationState(url)
-                const chapterInfo = parseChapterFromUrl(url)
-                return chapterInfo.hasChapter ? (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-center space-x-3 p-3 bg-accent/10 border border-accent/20 rounded-lg">
-                      <button
-                        onClick={() => handleChapterNavigation('prev')}
-                        disabled={!navState.canGoPrev || isLoading || chapterInfo.chapterNumber <= chapterCount}
-                        className={`p-2 rounded-lg border transition-colors flex items-center justify-center ${
-                          navState.canGoPrev && !isLoading && chapterInfo.chapterNumber > chapterCount
-                            ? 'bg-card border-border hover:bg-accent text-foreground'
-                            : 'bg-muted border-muted text-muted-foreground cursor-not-allowed'
-                        }`}
-                        title={`Previous ${chapterCount} chapter(s)`}
-                      >
-                        <ChevronLeft className="h-5 w-5" />
-                      </button>
-
-                      <div className="flex items-center space-x-2 text-sm text-foreground">
-                        <div className="text-center">
-                          <span className="block">Chapter {chapterInfo.chapterNumber}</span>
-                          {targetChapterRange && (
-                            <span className="text-xs text-muted-foreground">
-                              Loading {targetChapterRange.start}-{targetChapterRange.end}
-                            </span>
-                          )}
-                          {!targetChapterRange && chapterCount > 1 && (
-                            <span className="text-xs text-muted-foreground">
-                              Will load {chapterCount} chapters
-                            </span>
-                          )}
-                        </div>
-                        <Tooltip open={navInfoOpen} onOpenChange={setNavInfoOpen}>
-                          <TooltipTrigger asChild>
-                            <button onClick={() => setNavInfoOpen(prev => !prev)} className="w-5 h-5 rounded-full bg-muted/60 hover:bg-muted flex items-center justify-center text-muted-foreground" aria-label="Navigation info">
-                              <Info className="h-3 w-3" />
-                            </button>
-                          </TooltipTrigger>
-                          <TooltipContent side="top">
-                            Use the chapter navigation buttons to jump by {chapterCount} chapter(s). The URL will update to the final chapter position.
-                          </TooltipContent>
-                        </Tooltip>
-                      </div>
-
-                      <button
-                        onClick={() => handleChapterNavigation('next')}
-                        disabled={!navState.canGoNext || isLoading}
-                        className={`p-2 rounded-lg border transition-colors flex items-center justify-center ${
-                          navState.canGoNext && !isLoading
-                            ? 'bg-card border-border hover:bg-accent text-foreground'
-                            : 'bg-muted border-muted text-muted-foreground cursor-not-allowed'
-                        }`}
-                        title={`Next ${chapterCount} chapter(s)`}
-                      >
-                        <ChevronRight className="h-5 w-5" />
-                      </button>
-                    </div>
-                  </div>
-                ) : null
-              })()}
+              <ChapterNavigation
+                url={url}
+                chapterInfo={parseChapterFromUrl(url)}
+                navState={getNavigationState(url)}
+                chapterCount={chapterCount}
+                targetChapterRange={targetChapterRange}
+                isLoading={isLoading}
+                tooltipOpen={tooltipStates.navInfo}
+                onTooltipOpenChange={(open) => handleTooltipToggle('navInfo')}
+                onNavigate={handleChapterNavigation}
+              />
 
               {/* Start/Stop Button */}
               <div className="flex justify-center">
@@ -767,8 +726,6 @@ const ImageScraper: React.FC = () => {
 
           {/* Configuration Options */}
           <div className="mb-6">
-            <h3 className="text-lg font-semibold text-foreground mb-4">Configuration</h3>
-            
             {/* Current Settings Display */}
             {(() => {
               const chapterInfo = parseChapterFromUrl(url)
@@ -786,320 +743,31 @@ const ImageScraper: React.FC = () => {
               ) : null
             })()}
             
-            {/* Main Settings Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-              {/* Left Column - Core Settings */}
-              <div className="space-y-4">
-                {/* Scraping Method */}
-                <div className="p-4 bg-accent/5 border border-accent/20 rounded-lg">
-                  <label className="text-sm font-medium text-foreground mb-4 block text-center">Scraping Method</label>
-                  <div className="flex justify-center gap-3">
-                    <div className={`relative flex-1 max-w-24 rounded-lg border-2 transition-all duration-200 ${
-                      scrapingMethod === 'smart' 
-                        ? 'bg-primary text-primary-foreground border-primary shadow-md' 
-                        : 'bg-card text-foreground border-border hover:border-primary/50 hover:bg-accent/20'
-                    }`}>
-                      <button
-                        onClick={() => setScrapingMethod('smart')}
-                        className="w-full px-3 py-2.5 rounded-lg"
-                        disabled={isLoading}
-                        aria-label="Smart scraping method"
-                      >
-                        <div className="text-center">
-                          <div className="font-semibold text-sm">Smart</div>
-                          <div className="text-xs mt-0.5 opacity-80">Thorough</div>
-                        </div>
-                      </button>
-                      <Tooltip open={smartInfoOpen} onOpenChange={setSmartInfoOpen}>
-                        <TooltipTrigger asChild>
-                          <button 
-                            onClick={() => setSmartInfoOpen(prev => !prev)} 
-                            className={`absolute top-1 right-1 w-4 h-4 rounded-full flex items-center justify-center text-xs ${
-                              scrapingMethod === 'smart' ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-muted/60 text-muted-foreground hover:bg-muted'
-                            }`}
-                            aria-label="Smart method info"
-                          >
-                            <Info className="h-3 w-3" />
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent side="top">Runs thorough DOM + JS detection to find all images on the page.</TooltipContent>
-                      </Tooltip>
-                    </div>
-
-                    <div className={`relative flex-1 max-w-24 rounded-lg border-2 transition-all duration-200 ${
-                      scrapingMethod === 'fast' 
-                        ? 'bg-primary text-primary-foreground border-primary shadow-md' 
-                        : 'bg-card text-foreground border-border hover:border-primary/50 hover:bg-accent/20'
-                    }`}>
-                      <button
-                        onClick={() => setScrapingMethod('fast')}
-                        className="w-full px-3 py-2.5 rounded-lg"
-                        disabled={isLoading}
-                        aria-label="Fast scraping method"
-                      >
-                        <div className="text-center">
-                          <div className="font-semibold text-sm">Fast</div>
-                          <div className="text-xs mt-0.5 opacity-80">Sequential</div>
-                        </div>
-                      </button>
-                      <Tooltip open={fastInfoOpen} onOpenChange={setFastInfoOpen}>
-                        <TooltipTrigger asChild>
-                          <button 
-                            onClick={() => setFastInfoOpen(prev => !prev)} 
-                            className={`absolute top-1 right-1 w-4 h-4 rounded-full flex items-center justify-center text-xs ${
-                              scrapingMethod === 'fast' ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-muted/60 text-muted-foreground hover:bg-muted'
-                            }`}
-                            aria-label="Fast method info"
-                          >
-                            <Info className="h-3 w-3" />
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent side="top">Assumes sequential filenames and generates image URLs quickly without page analysis.</TooltipContent>
-                      </Tooltip>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Chapter Settings */}
-                <div className="p-4 bg-accent/5 border border-accent/20 rounded-lg">
-                  <h4 className="text-sm font-medium text-foreground mb-3">Chapter Settings</h4>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-xs text-muted-foreground mb-1 block">Miss Threshold</label>
-                      <div className="relative">
-                        <select
-                          value={consecutiveMissThreshold}
-                          onChange={(e) => setConsecutiveMissThreshold(Number(e.target.value))}
-                          className="w-full pl-3 pr-8 py-2 text-sm bg-input border border-border rounded-md text-foreground appearance-none"
-                          disabled={isLoading}
-                        >
-                          <option value={1}>1</option>
-                          <option value={2}>2</option>
-                          <option value={3}>3</option>
-                        </select>
-                        <Tooltip open={missInfoOpen} onOpenChange={setMissInfoOpen}>
-                          <TooltipTrigger asChild>
-                            <button onClick={() => setMissInfoOpen(prev => !prev)} className="absolute right-1 top-1/2 transform -translate-y-1/2 w-5 h-5 rounded-full bg-muted/60 hover:bg-muted flex items-center justify-center text-muted-foreground" aria-label="Miss info">
-                              <Info className="h-3 w-3" />
-                            </button>
-                          </TooltipTrigger>
-                          <TooltipContent side="top">Number of consecutive missed requests before the scraper stops trying sequential generation.</TooltipContent>
-                        </Tooltip>
-                      </div>
-                    </div>
-                    <div>
-                      <label className="text-xs text-muted-foreground mb-1 block">Chapter Count</label>
-                      <div className="relative">
-                        <select
-                          value={chapterCount}
-                          onChange={(e) => handleChapterCountChange(Number(e.target.value))}
-                          className="w-full pl-3 pr-8 py-2 text-sm bg-input border border-border rounded-md text-foreground appearance-none"
-                          disabled={isLoading}
-                        >
-                          {/* Generate options 1-20 individually */}
-                          {Array.from({length: 20}, (_, i) => i + 1).map(num => (
-                            <option key={num} value={num}>{num}</option>
-                          ))}
-                          {/* Generate options 25, 30, 35... up to 200 in increments of 5 */}
-                          {Array.from({length: 36}, (_, i) => (i + 5) * 5).map(num => (
-                            <option key={num} value={num}>{num}</option>
-                          ))}
-                        </select>
-                        <Tooltip open={chapterInfoOpen} onOpenChange={setChapterInfoOpen}>
-                          <TooltipTrigger asChild>
-                            <button onClick={() => setChapterInfoOpen(prev => !prev)} className="absolute right-1 top-1/2 transform -translate-y-1/2 w-5 h-5 rounded-full bg-muted/60 hover:bg-muted flex items-center justify-center text-muted-foreground" aria-label="Chapters info">
-                              <Info className="h-3 w-3" />
-                            </button>
-                          </TooltipTrigger>
-                          <TooltipContent side="top">Number of chapters to fetch in a single action when navigating.</TooltipContent>
-                        </Tooltip>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Auto Next Chapter Toggle */}
-                  <div className="mt-3 pt-3 border-t border-accent/20">
-                    <div className="flex items-center justify-between">
-                      <label className="text-xs text-muted-foreground">Auto Next Chapter (Preview Mode)</label>
-                      <div className="flex items-center space-x-2">
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={autoNextChapter}
-                            onChange={(e) => setAutoNextChapter(e.target.checked)}
-                            className="sr-only peer"
-                            disabled={isLoading}
-                          />
-                          <div className="w-9 h-5 bg-muted peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-background after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
-                        </label>
-                        <Tooltip open={autoNextChapterInfoOpen} onOpenChange={setAutoNextChapterInfoOpen}>
-                          <TooltipTrigger asChild>
-                            <button 
-                              onClick={() => setAutoNextChapterInfoOpen(prev => !prev)} 
-                              className="w-5 h-5 rounded-full bg-muted/60 hover:bg-muted flex items-center justify-center text-muted-foreground" 
-                              aria-label="Auto next chapter info"
-                            >
-                              <Info className="h-3 w-3" />
-                            </button>
-                          </TooltipTrigger>
-                          <TooltipContent side="top">Automatically loads the next chapter when scrolling to the bottom in preview mode</TooltipContent>
-                        </Tooltip>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Fetch Interval Settings */}
-                <div className="p-4 bg-accent/5 border border-accent/20 rounded-lg">
-                  <h4 className="text-sm font-medium text-foreground mb-3">Request Timing</h4>
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Fetch Interval (seconds)</label>
-                    <div className="relative">
-                      <select
-                        value={fetchInterval}
-                        onChange={(e) => handleFetchIntervalChange(Number(e.target.value))}
-                        className="w-full pl-3 pr-8 py-2 text-sm bg-input border border-border rounded-md text-foreground appearance-none"
-                        disabled={isLoading}
-                      >
-                        {/* Generate interval options based on chapter count */}
-                        {chapterCount >= 15 
-                          ? [30, 45, 60, 75, 90, 120, 150, 180, 200].map(seconds => (
-                              <option key={seconds} value={seconds}>{seconds}s</option>
-                            ))
-                          : [15, 20, 25, 30, 45, 60, 75, 90, 120, 150, 180, 200].map(seconds => (
-                              <option key={seconds} value={seconds}>{seconds}s</option>
-                            ))
-                        }
-                      </select>
-                      <Tooltip open={fetchIntervalInfoOpen} onOpenChange={setFetchIntervalInfoOpen}>
-                        <TooltipTrigger asChild>
-                          <button onClick={() => setFetchIntervalInfoOpen(prev => !prev)} className="absolute right-1 top-1/2 transform -translate-y-1/2 w-5 h-5 rounded-full bg-muted/60 hover:bg-muted flex items-center justify-center text-muted-foreground" aria-label="Fetch interval info">
-                            <Info className="h-3 w-3" />
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent side="top">
-                          {chapterCount >= 15 
-                            ? "Minimum 30 seconds required for 15+ chapters to avoid overwhelming servers."
-                            : "Time between image fetch requests. Minimum 15 seconds, can be reduced for smaller chapter counts."
-                          }
-                        </TooltipContent>
-                      </Tooltip>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Right Column - Interface & Validation */}
-              <div className="space-y-4">
-                {/* Interface Options */}
-                <div className="p-4 bg-accent/5 border border-accent/20 rounded-lg">
-                  <h4 className="text-sm font-medium text-foreground mb-3">Interface Options</h4>
-                  <div className="space-y-3">
-                    <label className="flex items-center space-x-3 text-sm cursor-pointer">
-                      <div className="relative">
-                        <input 
-                          type="checkbox" 
-                          checked={stickyArrowsEnabled} 
-                          onChange={(e) => setStickyArrowsEnabled(e.target.checked)}
-                          className="sr-only"
-                        />
-                        <div className={`w-4 h-4 rounded border-2 transition-all duration-200 ${
-                          stickyArrowsEnabled 
-                            ? 'bg-primary border-primary' 
-                            : 'bg-background border-border hover:border-primary/50'
-                        }`}>
-                          {stickyArrowsEnabled && (
-                            <svg className="w-3 h-3 text-primary-foreground absolute top-0.5 left-0.5" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                            </svg>
-                          )}
-                        </div>
-                      </div>
-                      <span className="text-foreground">Show sticky navigation arrows</span>
-                    </label>
-
-                    <label className="flex items-center space-x-3 text-sm cursor-pointer">
-                      <div className="relative">
-                        <input 
-                          type="checkbox" 
-                          checked={showScrollButtons} 
-                          onChange={(e) => setShowScrollButtons(e.target.checked)}
-                          className="sr-only"
-                        />
-                        <div className={`w-4 h-4 rounded border-2 transition-all duration-200 ${
-                          showScrollButtons 
-                            ? 'bg-primary border-primary' 
-                            : 'bg-background border-border hover:border-primary/50'
-                        }`}>
-                          {showScrollButtons && (
-                            <svg className="w-3 h-3 text-primary-foreground absolute top-0.5 left-0.5" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                            </svg>
-                          )}
-                        </div>
-                      </div>
-                      <span className="text-foreground">Show preview scroll buttons</span>
-                    </label>
-                  </div>
-                </div>
-
-                {/* Validation Options */}
-                <div className="p-4 bg-accent/5 border border-accent/20 rounded-lg">
-                  <h4 className="text-sm font-medium text-foreground mb-3">Validation Settings</h4>
-                  <div className="flex items-center space-x-3">
-                    <input
-                      type="checkbox"
-                      id="validateImages"
-                      checked={validateImages}
-                      onChange={(e) => setValidateImages(e.target.checked)}
-                      className="w-4 h-4 text-primary bg-input border-border rounded focus:ring-primary focus:ring-2"
-                      disabled={isLoading}
-                    />
-                    <label htmlFor="validateImages" className="text-sm text-foreground cursor-pointer flex-1">
-                      Validate images before adding
-                    </label>
-                    
-                    <Tooltip open={validateInfoOpen} onOpenChange={setValidateInfoOpen}>
-                      <TooltipTrigger asChild>
-                        <button onClick={() => setValidateInfoOpen(prev => !prev)} className="w-5 h-5 rounded-full bg-muted/60 hover:bg-muted flex items-center justify-center text-muted-foreground" aria-label="Validation info">
-                          <Info className="h-3 w-3" />
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent side="top">
-                        <div className="text-xs max-w-48">
-                          <div className="font-medium mb-1">Image Validation</div>
-                          <div>When enabled, checks if each image exists before adding (more requests). When disabled, adds all discovered images directly (faster, fewer requests).</div>
-                        </div>
-                      </TooltipContent>
-                    </Tooltip>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* File Types Section */}
-            <div className="p-4 bg-accent/5 border border-accent/20 rounded-lg">
-              <div className="flex items-center space-x-2 mb-4">
-                <Filter className="h-5 w-5 text-muted-foreground" />
-                <label className="text-sm font-medium text-foreground">File Types ({fileTypes.length} selected)</label>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {availableFileTypes.map(type => (
-                  <button
-                    key={type}
-                    onClick={() => handleFileTypeToggle(type)}
-                    className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                      fileTypes.includes(type)
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                    }`}
-                    disabled={isLoading}
-                  >
-                    .{type}
-                  </button>
-                ))}
-              </div>
-            </div>
+            {/* Scraping Configuration Component */}
+            <ScrapingConfiguration
+              scrapingMethod={scrapingMethod}
+              onScrapingMethodChange={setScrapingMethod}
+              consecutiveMissThreshold={consecutiveMissThreshold}
+              onConsecutiveMissThresholdChange={setConsecutiveMissThreshold}
+              chapterCount={chapterCount}
+              onChapterCountChange={handleChapterCountChange}
+              autoNextChapter={autoNextChapter}
+              onAutoNextChapterChange={setAutoNextChapter}
+              fetchInterval={fetchInterval}
+              onFetchIntervalChange={handleFetchIntervalChange}
+              stickyArrowsEnabled={stickyArrowsEnabled}
+              onStickyArrowsEnabledChange={setStickyArrowsEnabled}
+              showScrollButtons={showScrollButtons}
+              onShowScrollButtonsChange={setShowScrollButtons}
+              validateImages={validateImages}
+              onValidateImagesChange={setValidateImages}
+              fileTypes={fileTypes}
+              availableFileTypes={availableFileTypes}
+              onFileTypeToggle={handleFileTypeToggle}
+              isLoading={isLoading}
+              tooltipStates={tooltipStates}
+              onTooltipToggle={handleTooltipToggle}
+            />
             
             {/* URL Pattern Configuration */}
             <div className="p-4 bg-accent/5 border border-accent/20 rounded-lg">
@@ -1107,9 +775,9 @@ const ImageScraper: React.FC = () => {
                 <div className="flex items-center space-x-2">
                   <Filter className="h-5 w-5 text-muted-foreground" />
                   <label className="text-sm font-medium text-foreground">URL Patterns</label>
-                  <Tooltip open={urlPatternsOpen} onOpenChange={setUrlPatternsOpen}>
+                  <Tooltip open={tooltipStates.urlPatterns} onOpenChange={(open) => handleTooltipToggle('urlPatterns')}>
                     <TooltipTrigger asChild>
-                      <button onClick={() => setUrlPatternsOpen(prev => !prev)} className="w-5 h-5 rounded-full bg-muted/60 hover:bg-muted flex items-center justify-center text-muted-foreground" aria-label="URL patterns info">
+                      <button onClick={() => handleTooltipToggle('urlPatterns')} className="w-5 h-5 rounded-full bg-muted/60 hover:bg-muted flex items-center justify-center text-muted-foreground" aria-label="URL patterns info">
                         <Info className="h-3 w-3" />
                       </button>
                     </TooltipTrigger>
@@ -1201,102 +869,19 @@ config=/comics/title/ch-{chapter:03d}`}
           )}
           
           {/* Image Filtering Section */}
-          <div className="p-4 bg-accent/5 border border-accent/20 rounded-lg">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center space-x-2">
-                <Filter className="h-5 w-5 text-muted-foreground" />
-                <label className="text-sm font-medium text-foreground">Image Filtering</label>
-                <Tooltip open={filterInfoOpen} onOpenChange={setFilterInfoOpen}>
-                  <TooltipTrigger asChild>
-                    <button onClick={() => setFilterInfoOpen(prev => !prev)} className="w-5 h-5 rounded-full bg-muted/60 hover:bg-muted flex items-center justify-center text-muted-foreground" aria-label="Image filtering info">
-                      <Info className="h-3 w-3" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="top">
-                    <div className="text-xs max-w-64">
-                      <div className="font-medium mb-1">URL/Image Filtering</div>
-                      <div>Filter out unwanted images by adding text patterns. Images containing these patterns in their URLs will be excluded from results.</div>
-                    </div>
-                  </TooltipContent>
-                </Tooltip>
-              </div>
-              <div className="flex items-center space-x-2">
-                {imageFilters.length > 0 && (
-                  <span className="text-xs text-muted-foreground bg-muted/30 px-2 py-1 rounded">
-                    {imageFilters.length} filter{imageFilters.length !== 1 ? 's' : ''}
-                  </span>
-                )}
-                <button
-                  onClick={() => setShowImageFilters(prev => !prev)}
-                  className="px-3 py-1 text-xs bg-secondary text-secondary-foreground rounded hover:bg-secondary/90 transition-colors"
-                >
-                  {showImageFilters ? 'Hide' : 'Configure'}
-                </button>
-              </div>
-            </div>
-            
-            {showImageFilters && (
-              <div className="space-y-3">
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="text"
-                    value={newFilter}
-                    onChange={(e) => setNewFilter(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleAddFilter()}
-                    placeholder="Enter text to filter (e.g., 'logo', 'ad', 'banner')"
-                    className="flex-1 px-3 py-2 text-xs bg-input border border-border rounded-md text-foreground placeholder:text-muted-foreground"
-                    disabled={isLoading}
-                  />
-                  <button
-                    onClick={handleAddFilter}
-                    disabled={isLoading || !newFilter.trim() || imageFilters.includes(newFilter.trim().toLowerCase())}
-                    className="px-3 py-2 text-xs bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Add Filter
-                  </button>
-                </div>
-                
-                {imageFilters.length > 0 && (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground">Active Filters:</span>
-                      <button
-                        onClick={handleClearAllFilters}
-                        className="text-xs text-destructive hover:text-destructive/80 transition-colors"
-                      >
-                        Clear All
-                      </button>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {imageFilters.map(filter => (
-                        <span
-                          key={filter}
-                          className="inline-flex items-center space-x-1 px-2 py-1 bg-muted/60 text-foreground rounded text-xs"
-                        >
-                          <span>{filter}</span>
-                          <button
-                            onClick={() => handleRemoveFilter(filter)}
-                            className="text-muted-foreground hover:text-destructive transition-colors ml-1"
-                            aria-label={`Remove filter: ${filter}`}
-                          >
-                            ×
-                          </button>
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                
-                <div className="text-xs text-muted-foreground">
-                  <div className="font-medium mb-1">Example filters:</div>
-                  <div>• "logo" - filters out company logos</div>
-                  <div>• "ad" or "banner" - removes advertisements</div>
-                  <div>• "watermark" - excludes watermarked images</div>
-                  <div>• "thumb" or "preview" - skips thumbnails</div>
-                </div>
-              </div>
-            )}
-          </div>
+          <ImageFiltering
+            imageFilters={imageFilters}
+            newFilter={newFilter}
+            showImageFilters={showImageFilters}
+            isLoading={isLoading}
+            tooltipOpen={tooltipStates.imageFiltering}
+            onTooltipOpenChange={(open) => handleTooltipToggle('imageFiltering')}
+            onNewFilterChange={setNewFilter}
+            onShowFiltersToggle={() => setShowImageFilters(prev => !prev)}
+            onAddFilter={handleAddFilter}
+            onRemoveFilter={handleRemoveFilter}
+            onClearAllFilters={handleClearAllFilters}
+          />
         </div>
 
         {/* Image Gallery */}
