@@ -852,6 +852,13 @@ function detectStrongSequentialPattern(urls: string[]): { basePath: string, exte
   for (const [key, set] of map.entries()) {
     const nums = Array.from(set).sort((a, b) => a - b)
     console.log(`Pattern candidate: key="${key}", numbers=[${nums.join(', ')}]`)
+    
+    // Skip if we found too many existing images (likely excessive content)
+    if (nums.length > DEFAULTS.SEQUENTIAL_MAX_IMAGES) {
+      console.log(`Skipping pattern - too many existing images (${nums.length} > ${DEFAULTS.SEQUENTIAL_MAX_IMAGES})`)
+      continue
+    }
+    
     for (let i = 0; i < nums.length - 1; i++) {
       if (nums[i + 1] === nums[i] + 1) {
         const [base, ext] = key.split('||')
