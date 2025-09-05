@@ -311,6 +311,7 @@ const ImageScraper: React.FC = () => {
 
   // Progress handler that supports live insertion of images reported by the scraper with race condition protection
   const handleProgress = useCallback((p: ScrapeProgress) => {
+    console.log('Progress update:', p.stage, `${p.processed}/${p.total}`)
     scrapingActions.handleProgress(p)
     
     // Handle chapter results and show failure notifications
@@ -448,7 +449,7 @@ const ImageScraper: React.FC = () => {
     }
     } finally {
     scrapingActions.setIsLoading(false)
-    scrapingActions.handleProgress({ phase: 'completed', total: 0, processed: 0 })
+    scrapingActions.handleProgress(null)
     // Clear navigation lock when scraping completes (success or failure)
     navigationActions.setNavigating(false)
     }

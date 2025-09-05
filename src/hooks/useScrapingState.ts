@@ -16,7 +16,7 @@ export const useScrapingState = () => {
   const [sequentialPattern, setSequentialPattern] = useState<SequentialPattern | null>(null)
   const [isImageStateResetting, setIsImageStateResetting] = useState(false)
 
-  const handleProgress = useCallback((newProgress: ScrapeProgress) => {
+  const handleProgress = useCallback((newProgress: ScrapeProgress | null) => {
     setProgress(newProgress)
   }, [])
 
