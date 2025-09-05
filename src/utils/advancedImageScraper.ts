@@ -1,5 +1,5 @@
 import corsClient from '../cors/client'
-import { urlPatternManager, extractChapterNumber } from './urlPatterns'
+import { urlPatternManager } from './urlPatterns'
 import {
   TIMING,
   DEFAULTS,
@@ -151,14 +151,6 @@ export interface ScrapeProgress {
 export interface ScrapeOptions {
   onProgress?: (progress: ScrapeProgress) => void
   signal?: AbortSignal
-  // keepAlive behaviour: total time to keep re-scanning (ms)
-  keepAliveMs?: number
-  // time between re-scan attempts (ms)
-  pollIntervalMs?: number
-  // how many consecutive empty scans allowed before stopping early
-  maxIdleScans?: number
-  // If true, prefer sequence-only fast generation and avoid long keep-alive
-  preferSequenceOnly?: boolean
   // How many consecutive misses to tolerate when generating sequences (default 3)
   consecutiveMissThreshold?: number
   // How many chapters to fetch (default 1)
@@ -173,10 +165,6 @@ export interface ScrapeOptions {
   imageFilter?: (url: string) => boolean
 }
 
-// Legacy constants - now using values from constants file
-// const DEFAULT_KEEP_ALIVE_MS = 8000
-// const DEFAULT_POLL_INTERVAL_MS = 1500
-// const DEFAULT_MAX_IDLE_SCANS = 3
 
 // Real web scraping using only direct HTML fetch
 export const scrapeImages = async (
@@ -185,11 +173,6 @@ export const scrapeImages = async (
   options: ScrapeOptions = {}
 ): Promise<ScrapedImage[]> => {
   const { onProgress, signal, onNewImage } = options
-  // Options for scraping behavior (extracted but some unused in current implementation)
-  // const keepAliveMs = options.keepAliveMs ?? DEFAULT_KEEP_ALIVE_MS
-  // const pollIntervalMs = options.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS
-  // const maxIdleScans = options.maxIdleScans ?? DEFAULT_MAX_IDLE_SCANS
-  // const preferSequenceOnly = !!options.preferSequenceOnly
   const consecutiveMissThreshold = options.consecutiveMissThreshold ?? DEFAULTS.CONSECUTIVE_MISS_THRESHOLD
   const chapterCount = options.chapterCount ?? DEFAULTS.CHAPTER_COUNT
   const validateImages = options.validateImages ?? DEFAULTS.VALIDATE_IMAGES
@@ -821,7 +804,7 @@ function generateSequentialImages(patterns: Set<string>): string[] {
 }
 
 // Strong sequential pattern detection from a list of URLs
-function detectStrongSequentialPattern(urls: string[]): { basePath: string, extension: string, pad: number } | null {
+export function detectStrongSequentialPattern(urls: string[]): { basePath: string, extension: string, pad: number } | null {
   const map = new Map<string, Set<number>>()
   const padMap = new Map<string, number>()
   const regex = REGEX_PATTERNS.SEQUENTIAL_IMAGE

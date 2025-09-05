@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react'
-import { Search, AlertCircle, CheckCircle, Loader2, ChevronLeft, ChevronRight, Filter, Info, Settings } from 'lucide-react'
+import { Search, AlertCircle, CheckCircle, Loader2, Filter, Info } from 'lucide-react'
 import { toast } from 'sonner'
 import ImageGallery from './ImageGallery'
 import ProgressIndicator from './ProgressIndicator'
@@ -7,12 +7,12 @@ import ThemeToggle from './ThemeToggle'
 import ChapterNavigation from './ChapterNavigation'
 import ScrapingConfiguration from './ScrapingConfiguration'
 import ImageFiltering from './ImageFiltering'
-import { scrapeImages, ScrapedImage, ScrapeProgress, clearRequestCache } from '../utils/advancedImageScraper'
+import { scrapeImages, ScrapedImage, ScrapeProgress, clearRequestCache, detectStrongSequentialPattern } from '../utils/advancedImageScraper'
 import { parseChapterFromUrl } from '../utils/urlNavigation'
 import { urlPatternManager } from '../utils/urlPatterns'
 import { Tooltip, TooltipTrigger, TooltipContent } from './ui/tooltip'
 import { useImageScrapingState } from '../hooks/useImageScrapingState'
-import { TIMING, DEFAULTS, REGEX_PATTERNS, ERROR_MESSAGES, FILE_EXTENSIONS } from '../constants'
+import { TIMING, DEFAULTS, ERROR_MESSAGES } from '../constants'
 
 const ImageScraper: React.FC = () => {
   const [url, setUrl] = useState('')
@@ -265,38 +265,6 @@ const ImageScraper: React.FC = () => {
     return out
   }
 
-  const detectSequentialPatternFromUrls = (urls: string[]) => {
-    const regex = /^(.*\/)([0-9]{2,4})\.(jpg|jpeg|png|gif|webp)$/i
-    const map = new Map<string, Set<number>>()
-    const padMap = new Map<string, number>()
-
-    for (const u of urls) {
-      const m = u.match(regex)
-      if (m) {
-        const base = m[1]
-        const numStr = m[2]
-        const ext = m[3]
-        const key = base + '||' + ext
-        const set = map.get(key) || new Set<number>()
-        set.add(parseInt(numStr, 10))
-        map.set(key, set)
-        padMap.set(key, Math.max(padMap.get(key) || 0, numStr.length))
-      }
-    }
-
-    for (const [key, set] of map.entries()) {
-      const nums = Array.from(set).sort((a, b) => a - b)
-      for (let i = 0; i < nums.length - 1; i++) {
-        if (nums[i + 1] === nums[i] + 1) {
-          const [base, ext] = key.split('||')
-          const pad = padMap.get(key) || 3
-          return { basePath: base, extension: ext, pad }
-        }
-      }
-    }
-
-    return null
-  }
 
 
   // Function to immediately start navigation lock (for auto navigation)
@@ -383,12 +351,6 @@ const ImageScraper: React.FC = () => {
         imageFilter: filterActions.shouldFilterImage // Pass filter function to scraper
       }
 
-      if (configuration.scrapingMethod === 'fast') {
-        // prefer sequence-only fast generation
-        options.preferSequenceOnly = true
-        options.keepAliveMs = 0
-        options.consecutiveMissThreshold = configuration.consecutiveMissThreshold
-      }
 
       console.log('Scraping with file types:', configuration.fileTypes)
       const scrapedImages = await scrapeImages(scrapeUrl, configuration.fileTypes, options)
@@ -400,7 +362,7 @@ const ImageScraper: React.FC = () => {
       navigationActions.setLastPageUrl(scrapeUrl)
 
       // Detect sequential pattern from returned images and save for quick generation
-      const seq = detectSequentialPatternFromUrls(scrapedImages.map(s => s.url))
+      const seq = detectStrongSequentialPattern(scrapedImages.map(s => s.url))
       if (seq) {
         console.log('Sequential pattern detected:', seq)
         let normalized = seq.basePath

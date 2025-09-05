@@ -26,12 +26,14 @@ export interface ScrapingState {
 }
 
 export interface ScrapingActions {
-  startScraping: (url?: string) => Promise<void>
-  stopScraping: () => void
-  handleProgress: (progress: ScrapeProgress) => void
+  handleProgress: (progress: ScrapeProgress | null) => void
   handleNewImage: (image: ScrapedImage) => void
   removeImageOnError: (url: string) => void
   resetState: () => Promise<void>
+  setIsLoading: (loading: boolean) => void
+  setError: (error: string | null) => void
+  setSequentialPattern: (pattern: SequentialPattern | null) => void
+  setStats: (stats: ScrapingStats) => void
 }
 
 export interface NavigationState {
