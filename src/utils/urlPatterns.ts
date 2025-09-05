@@ -369,3 +369,33 @@ class UrlPatternManager {
 // Singleton instance
 export const urlPatternManager = new UrlPatternManager()
 
+/**
+ * Extract chapter number from URL
+ */
+export function extractChapterNumber(url: string): number | null {
+  try {
+    const urlObj = new URL(url)
+    const pathSegments = urlObj.pathname.split('/').filter(segment => segment.length > 0)
+    
+    for (let i = pathSegments.length - 1; i >= 0; i--) {
+      const segment = pathSegments[i]
+      
+      // Look for chapter patterns
+      const chapterMatch = segment.match(/(chapter|ch|episode|ep|part|p)[-_]?(\d+)/i)
+      if (chapterMatch) {
+        return parseInt(chapterMatch[2], 10)
+      }
+      
+      // Look for pure numbers
+      const numberMatch = segment.match(/^(\d+)$/)
+      if (numberMatch) {
+        return parseInt(numberMatch[1], 10)
+      }
+    }
+    
+    return null
+  } catch {
+    return null
+  }
+}
+

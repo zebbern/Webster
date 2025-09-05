@@ -1,5 +1,5 @@
 import corsClient from '../cors/client'
-import { urlPatternManager } from './urlPatterns'
+import { urlPatternManager, extractChapterNumber } from './urlPatterns'
 import {
   TIMING,
   DEFAULTS,
