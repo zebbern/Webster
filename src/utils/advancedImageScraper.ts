@@ -1,5 +1,13 @@
 import corsClient from '../cors/client'
 import { urlPatternManager, extractChapterNumber } from './urlPatterns'
+import {
+  TIMING,
+  DEFAULTS,
+  THRESHOLDS,
+  REGEX_PATTERNS,
+  ERROR_MESSAGES,
+  shouldRetryHttpStatus
+} from '../constants'
 
 // Request deduplication cache to prevent conflicting simultaneous requests
 const requestCache = new Map<string, Promise<{ body: string; status: number; headers: Headers }>>()
@@ -11,7 +19,7 @@ export const clearRequestCache = () => {
 }
 
 // Simple fetch wrapper using CORS client API with rate limiting and deduplication
-const fetchData = async (url: string, method: 'GET' | 'HEAD' = 'GET', signal?: AbortSignal, retries = 3) => {
+const fetchData = async (url: string, method: 'GET' | 'HEAD' = 'GET', signal?: AbortSignal, retries = DEFAULTS.RETRY_COUNT) => {
   // Create cache key based on URL and method
   const cacheKey = `${method}:${url}`
   
@@ -38,24 +46,24 @@ const fetchData = async (url: string, method: 'GET' | 'HEAD' = 'GET', signal?: A
       const fetched = await corsClient.data.fetch({ url, method, signal })
       if (signal?.aborted) throw new Error('Aborted')
       
-      // Handle rate limiting (429), SSL handshake failures (525), and timeout (408) with exponential backoff
-      if ((fetched.status === 429 || fetched.status === 525 || fetched.status === 408) && retries > 0) {
+      // Handle rate limiting, SSL handshake failures, and timeouts with exponential backoff
+      if (shouldRetryHttpStatus(fetched.status) && retries > 0) {
         // Longer delays for SSL issues and timeouts, shorter for rate limiting
         let baseDelay: number
         let errorType: string
         
         if (fetched.status === 525) {
-          baseDelay = 2000 // 2s for SSL
+          baseDelay = TIMING.RETRY_DELAY.SSL
           errorType = 'SSL Handshake Failed'
         } else if (fetched.status === 408) {
-          baseDelay = 1500 // 1.5s for timeouts
+          baseDelay = TIMING.RETRY_DELAY.TIMEOUT
           errorType = 'Request Timeout'
         } else {
-          baseDelay = 1000 // 1s for rate limit
+          baseDelay = TIMING.RETRY_DELAY.RATE_LIMIT
           errorType = 'Rate Limited'
         }
         
-        const delay = baseDelay * Math.pow(2, 3 - retries) // Exponential backoff
+        const delay = baseDelay * Math.pow(2, DEFAULTS.RETRY_COUNT - retries) // Exponential backoff
         
         console.log = originalLog // Temporarily restore for this message
         console.warn(`${errorType} (${fetched.status}) for ${url}, retrying in ${delay}ms... (${retries} retries left)`)
@@ -165,11 +173,10 @@ export interface ScrapeOptions {
   imageFilter?: (url: string) => boolean
 }
 
+// Legacy constants - now using values from constants file
 // const DEFAULT_KEEP_ALIVE_MS = 8000
 // const DEFAULT_POLL_INTERVAL_MS = 1500
 // const DEFAULT_MAX_IDLE_SCANS = 3
-const DEFAULT_SEQ_MAX = 500
-const DEFAULT_CONSECUTIVE_MISS_THRESHOLD = 3
 
 // Real web scraping using only direct HTML fetch
 export const scrapeImages = async (
@@ -183,17 +190,17 @@ export const scrapeImages = async (
   // const pollIntervalMs = options.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS
   // const maxIdleScans = options.maxIdleScans ?? DEFAULT_MAX_IDLE_SCANS
   // const preferSequenceOnly = !!options.preferSequenceOnly
-  const consecutiveMissThreshold = options.consecutiveMissThreshold ?? DEFAULT_CONSECUTIVE_MISS_THRESHOLD
-  const chapterCount = options.chapterCount ?? 1
-  const validateImages = options.validateImages ?? false
-  const fetchInterval = options.fetchInterval ?? 15000 // Default 15 seconds
+  const consecutiveMissThreshold = options.consecutiveMissThreshold ?? DEFAULTS.CONSECUTIVE_MISS_THRESHOLD
+  const chapterCount = options.chapterCount ?? DEFAULTS.CHAPTER_COUNT
+  const validateImages = options.validateImages ?? DEFAULTS.VALIDATE_IMAGES
+  const fetchInterval = options.fetchInterval ?? DEFAULTS.FETCH_INTERVAL_MS
   const imageFilter = options.imageFilter // Optional image filtering function
 
   // Validate URL
   try {
     new URL(url)
   } catch {
-    throw new Error('Invalid URL format')
+    throw new Error(ERROR_MESSAGES.INVALID_URL)
   }
 
   if (!url.startsWith('http://') && !url.startsWith('https://')) {
@@ -220,7 +227,7 @@ export const scrapeImages = async (
         onProgress?.({ 
           stage: 'loading', 
           processed: images.length, 
-          total: DEFAULT_SEQ_MAX * chapterCount, 
+          total: DEFAULTS.SEQUENTIAL_MAX_IMAGES * chapterCount, 
           found: images.length, 
           currentUrl: `Waiting ${fetchInterval/1000} seconds before chapter ${currentChapter}...` 
         })
@@ -250,7 +257,7 @@ export const scrapeImages = async (
             
             for (let i = pathSegments.length - 1; i >= 0; i--) {
               const segment = pathSegments[i]
-              const chapterMatch = segment.match(/^(.*?)(\d+)(.*)$/)
+              const chapterMatch = segment.match(REGEX_PATTERNS.NUMBER_EXTRACTION)
               if (chapterMatch) {
                 const [, prefix, numberStr, suffix] = chapterMatch
                 const currentNum = parseInt(numberStr, 10)
@@ -272,7 +279,7 @@ export const scrapeImages = async (
       onProgress?.({ 
         stage: 'loading', 
         processed: images.length, 
-        total: DEFAULT_SEQ_MAX * chapterCount, 
+        total: DEFAULTS.SEQUENTIAL_MAX_IMAGES * chapterCount, 
         found: images.length, 
         currentUrl: `Fetching chapter ${currentChapter}: ${chapterUrl}` 
       })
@@ -287,10 +294,10 @@ export const scrapeImages = async (
         if (signal?.aborted) throw new Error('Aborted')
         
         // Check for failed fetch (timeout, network error, etc.)
-        if (fetched.status >= 400) {
+        if (fetched.status >= THRESHOLDS.HTTP_SUCCESS_THRESHOLD) {
           const errorMsg = fetched.status === 408 ? 'Request timeout (5 seconds)' : 
-                          fetched.status === 404 ? 'Chapter not found' :
-                          fetched.status === 403 ? 'Access forbidden' :
+                          fetched.status === 404 ? ERROR_MESSAGES.CHAPTER_NOT_FOUND :
+                          fetched.status === 403 ? ERROR_MESSAGES.ACCESS_FORBIDDEN :
                           `HTTP ${fetched.status}`
           throw new Error(errorMsg)
         }
@@ -302,7 +309,7 @@ export const scrapeImages = async (
           throw new Error('Empty response from server')
         }
 
-        onProgress?.({ stage: 'scanning', processed: images.length, total: DEFAULT_SEQ_MAX * chapterCount, found: images.length, currentUrl: chapterUrl })
+        onProgress?.({ stage: 'scanning', processed: images.length, total: DEFAULTS.SEQUENTIAL_MAX_IMAGES * chapterCount, found: images.length, currentUrl: chapterUrl })
 
         // Extract initial candidates for this chapter
         let imageUrls = extractImageUrls(body, [], chapterUrl, body)
@@ -314,17 +321,17 @@ export const scrapeImages = async (
           const { basePath, extension, pad } = seqInfo
           
           // Process images in smaller batches for server-friendly validation
-          const BATCH_SIZE = 3
+          const BATCH_SIZE = DEFAULTS.BATCH_SIZE
           let consecutiveMisses = 0
           let chapterImageCount = 0
           let currentIndex = 1
 
-          while (currentIndex <= DEFAULT_SEQ_MAX && consecutiveMisses < consecutiveMissThreshold) {
+          while (currentIndex <= DEFAULTS.SEQUENTIAL_MAX_IMAGES && consecutiveMisses < consecutiveMissThreshold) {
             if (signal?.aborted) throw new Error('Aborted')
             
             // Create batch of candidates
             const batch: string[] = []
-            for (let j = 0; j < BATCH_SIZE && (currentIndex + j) <= DEFAULT_SEQ_MAX; j++) {
+            for (let j = 0; j < BATCH_SIZE && (currentIndex + j) <= DEFAULTS.SEQUENTIAL_MAX_IMAGES; j++) {
               const padded = (currentIndex + j).toString().padStart(pad, '0')
               const candidate = `${basePath}${padded}.${extension}`
               if (!seenUrls.has(candidate)) {
@@ -345,7 +352,7 @@ export const scrapeImages = async (
                 try {
                   const res = await fetchData(candidate, 'HEAD', signal)
                   const status = res?.status ?? 200
-                  imageExists = status < 400
+                  imageExists = status < THRESHOLDS.HTTP_SUCCESS_THRESHOLD
                   if (!imageExists) {
                     console.log(`Image validation failed: ${candidate} (${status})`)
                   }
@@ -372,7 +379,7 @@ export const scrapeImages = async (
                   const timeout = setTimeout(() => {
                     cleanup()
                     resolve(false) // Timeout = failure
-                  }, 5000) // 5 second timeout
+                  }, TIMING.IMAGE_VALIDATION_TIMEOUT) // 5 second timeout
                   
                   img.onload = () => {
                     clearTimeout(timeout)
@@ -427,7 +434,7 @@ export const scrapeImages = async (
                   onProgress?.({ 
                   stage: 'scanning', 
                   processed: images.length, 
-                  total: DEFAULT_SEQ_MAX * chapterCount, 
+                  total: DEFAULTS.SEQUENTIAL_MAX_IMAGES * chapterCount, 
                   found: images.length, 
                   currentUrl: candidate, 
                   image: newImage 
@@ -483,7 +490,7 @@ export const scrapeImages = async (
               onNewImage?.(newImage)
               onProgress?.({ stage: 'scanning', processed: processedCount, total: imageUrls.length, found: images.length, currentUrl: imageUrl, image: newImage })
 
-              await new Promise(res => setTimeout(res, 10))
+              await new Promise(res => setTimeout(res, TIMING.PROCESSING_DELAY))
             }
           }
         } else {
@@ -517,7 +524,7 @@ export const scrapeImages = async (
             onNewImage?.(newImage)
             onProgress?.({ stage: 'scanning', processed: processedCount, total: imageUrls.length, found: images.length, currentUrl: imageUrl, image: newImage })
 
-            await new Promise(res => setTimeout(res, 10))
+            await new Promise(res => setTimeout(res, TIMING.PROCESSING_DELAY))
           }
         }
         
@@ -557,7 +564,7 @@ export const scrapeImages = async (
           onProgress?.({ 
             stage: 'analyzing', 
             processed: images.length, 
-            total: DEFAULT_SEQ_MAX * chapterCount, 
+            total: DEFAULTS.SEQUENTIAL_MAX_IMAGES * chapterCount, 
             found: images.length, 
             currentUrl: `Stopped at failed chapter ${currentChapter}`,
             chapterResults: [...chapterResults],
@@ -601,7 +608,7 @@ export const scrapeImages = async (
     
     // Handle specific error types with better messages
     if (error.message?.includes('Request timeout')) {
-      throw new Error('Request timed out after 5 seconds. Server may be slow or unreachable.')
+      throw new Error(ERROR_MESSAGES.TIMEOUT_ERROR)
     }
     
     if (error.message?.includes('Empty response')) {
@@ -609,7 +616,7 @@ export const scrapeImages = async (
     }
     
     console.warn('Direct fetch failed in advancedImageScraper:', error)
-    throw new Error(error.message || 'Failed to scrape images')
+    throw new Error(error.message || ERROR_MESSAGES.SCRAPING_FAILED)
   }
 }
 
@@ -631,7 +638,7 @@ function extractImageUrls(markdown: string, links: any[], baseUrl: string, extra
 
   // 1) Markdown image syntax
   if (typeof markdown === 'string' && markdown.length) {
-    const markdownImageRegex = /!\[.*?\]\((.*?)\)/g
+    const markdownImageRegex = REGEX_PATTERNS.MARKDOWN_IMAGE
     let m
     while ((m = markdownImageRegex.exec(markdown)) !== null) {
       tryAdd(m[1])
@@ -667,7 +674,7 @@ function extractImageUrls(markdown: string, links: any[], baseUrl: string, extra
   }
 
   if (htmlString) {
-    const imgTagRegex = /<img[^>]+>/gi
+    const imgTagRegex = REGEX_PATTERNS.IMG_TAG
     let tagMatch
     while ((tagMatch = imgTagRegex.exec(htmlString)) !== null) {
       const tag = tagMatch[0]
@@ -728,7 +735,7 @@ function extractImageUrls(markdown: string, links: any[], baseUrl: string, extra
 
   // 4) Plain text URLs in markdown
   if (typeof markdown === 'string') {
-    const plainUrlRegex = /https?:\/\/[^\s]+\.(jpg|jpeg|png|gif|webp|svg|bmp|tiff|ico)/gi
+    const plainUrlRegex = REGEX_PATTERNS.IMAGE_URL
     let pu
     while ((pu = plainUrlRegex.exec(markdown)) !== null) tryAdd(pu[0])
   }
@@ -794,7 +801,7 @@ function resolveUrl(url: string, baseUrl: string): string | null {
 // Detect sequential patterns in image URLs (for manga sites)
 function detectSequentialPattern(url: string, patterns: Set<string>) {
   // Look for numbered patterns like: /001.jpg, /002.jpg, etc.
-  const sequentialRegex = /^(.*\/)([0-9]{2,4})\.(jpg|jpeg|png|gif|webp)$/i
+  const sequentialRegex = REGEX_PATTERNS.SEQUENTIAL_IMAGE
   const match = url.match(sequentialRegex)
   if (match) {
     const [, basePath, , extension] = match
@@ -809,7 +816,7 @@ function generateSequentialImages(patterns: Set<string>): string[] {
   
   patterns.forEach(pattern => {
     const [basePath, extension] = pattern.split('###.')
-    for (let i = 1; i <= DEFAULT_SEQ_MAX; i++) {
+    for (let i = 1; i <= DEFAULTS.SEQUENTIAL_MAX_IMAGES; i++) {
       const paddedNumber = i.toString().padStart(3, '0')
       const url = `${basePath}${paddedNumber}.${extension}`
       additionalUrls.push(url)
@@ -823,7 +830,7 @@ function generateSequentialImages(patterns: Set<string>): string[] {
 function detectStrongSequentialPattern(urls: string[]): { basePath: string, extension: string, pad: number } | null {
   const map = new Map<string, Set<number>>()
   const padMap = new Map<string, number>()
-  const regex = /^(.*\/)([0-9]{2,4})\.(jpg|jpeg|png|gif|webp)$/i
+  const regex = REGEX_PATTERNS.SEQUENTIAL_IMAGE
 
   for (const url of urls) {
     const m = url.match(regex)

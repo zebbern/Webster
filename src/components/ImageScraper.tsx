@@ -7,28 +7,35 @@ import ThemeToggle from './ThemeToggle'
 import ChapterNavigation from './ChapterNavigation'
 import ScrapingConfiguration from './ScrapingConfiguration'
 import ImageFiltering from './ImageFiltering'
-import { scrapeImages, ScrapedImage, ScrapeProgress, clearRequestCache } from '../utils/advancedImageScraper'
+import { ScrapedImage, ScrapeProgress, clearRequestCache } from '../utils/advancedImageScraper'
 import { parseChapterFromUrl } from '../utils/urlNavigation'
 import { urlPatternManager } from '../utils/urlPatterns'
 import { Tooltip, TooltipTrigger, TooltipContent } from './ui/tooltip'
+import { useImageScrapingState } from '../hooks/useImageScrapingState'
+import { TIMING, DEFAULTS, REGEX_PATTERNS, ERROR_MESSAGES, FILE_EXTENSIONS } from '../constants'
 
 const ImageScraper: React.FC = () => {
   const [url, setUrl] = useState('')
-  const [fileTypes, setFileTypes] = useState<string[]>(['png', 'jpg', 'jpeg', 'webp'])
-  const [isLoading, setIsLoading] = useState(false)
-  const [images, setImages] = useState<ScrapedImage[]>([])
-  const [progress, setProgress] = useState<ScrapeProgress | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [stats, setStats] = useState({ total: 0, duplicates: 0, filtered: 0 })
-  const [isImageStateResetting, setIsImageStateResetting] = useState(false)
-  const [previewActive, setPreviewActive] = useState<boolean>(false)
-  const [isNavigating, setIsNavigating] = useState<boolean>(false)
   const abortControllerRef = useRef<AbortController | null>(null)
   const upArrowClickTimeoutRef = useRef<number | null>(null)
+  
+  // Use the consolidated state management hook
+  const {
+    scraping,
+    navigation,
+    configuration,
+    ui,
+    filters,
+    scrapingActions,
+    navigationActions,
+    configurationActions,
+    uiActions,
+    filterActions
+  } = useImageScrapingState()
 
   // Navigation lock with minimal fullscreen interference
   useEffect(() => {
-    if (isNavigating) {
+    if (navigation.isNavigating) {
       // Only modify body, not html element to avoid fullscreen conflicts
       document.body.style.overflow = 'hidden'
       document.body.style.touchAction = 'none'
@@ -45,40 +52,26 @@ const ImageScraper: React.FC = () => {
       document.body.style.overflow = ''
       document.body.style.touchAction = ''
     }
-  }, [isNavigating])
+  }, [navigation.isNavigating])
 
   // Safety mechanism: reset stuck states after component mount
   useEffect(() => {
     const resetStuckStates = () => {
-      if (!isLoading && isNavigating) {
+      if (!scraping.isLoading && navigation.isNavigating) {
         console.warn('Detected stuck navigation state, resetting...')
-        setIsNavigating(false)
+        navigationActions.setNavigating(false)
       }
-      if (isImageStateResetting) {
+      if (scraping.isImageStateResetting) {
         console.warn('Detected stuck image reset state, resetting...')
-        setIsImageStateResetting(false)
+        // This will be handled internally by the hook
       }
     }
     
     // Check for stuck states every 30 seconds
-    const interval = setInterval(resetStuckStates, 30000)
+    const interval = setInterval(resetStuckStates, TIMING.SAFETY_CHECK_INTERVAL)
     return () => clearInterval(interval)
-  }, [isLoading, isNavigating, isImageStateResetting])
+  }, [scraping.isLoading, navigation.isNavigating, scraping.isImageStateResetting, navigationActions])
 
-  // Load filters from localStorage on mount
-  useEffect(() => {
-    try {
-      const savedFilters = localStorage.getItem('webster-image-filters')
-      if (savedFilters) {
-        const filters = JSON.parse(savedFilters)
-        if (Array.isArray(filters)) {
-          setImageFilters(filters)
-        }
-      }
-    } catch (error) {
-      console.warn('Failed to load image filters from localStorage:', error)
-    }
-  }, [])
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -93,72 +86,27 @@ const ImageScraper: React.FC = () => {
   }, [])
 
 
-  // Sequential pattern state for instant generation when detected
-  const [sequentialPattern, setSequentialPattern] = useState<{ basePath: string; extension: string; pad: number } | null>(null)
-  const [lastPageUrl, setLastPageUrl] = useState<string | null>(null)
 
-  // New: scraping method and sticky arrows toggle
-  const [scrapingMethod, setScrapingMethod] = useState<'smart' | 'fast'>('fast')
-  const [showScrollButtons, setShowScrollButtons] = useState<boolean>(true)
-  const [consecutiveMissThreshold, setConsecutiveMissThreshold] = useState<number>(2)
-  const [chapterCount, setChapterCount] = useState<number>(1)
-  const [validateImages, setValidateImages] = useState<boolean>(false)
-  const [fetchInterval, setFetchInterval] = useState<number>(15) // seconds
-  const [autoNextChapter, setAutoNextChapter] = useState<boolean>(true)
-  const [lastAutoScrollTime, setLastAutoScrollTime] = useState<number>(0)
-  // Consolidated tooltip states
-  const [tooltipStates, setTooltipStates] = useState({
-    smartInfo: false,
-    fastInfo: false,
-    navInfo: false,
-    missInfo: false,
-    chapterInfo: false,
-    validateInfo: false,
-    fetchIntervalInfo: false,
-    autoNextChapterInfo: false,
-    urlPatterns: false,
-    imageFiltering: false
-  })
   
-  // URL Pattern Configuration
-  const [showUrlPatterns, setShowUrlPatterns] = useState<boolean>(false)
-  const [customUrlPatterns, setCustomUrlPatterns] = useState<string>('')
   
-  // URL/Image Filtering
-  const [imageFilters, setImageFilters] = useState<string[]>([])
-  const [newFilter, setNewFilter] = useState<string>('')
-  const [showImageFilters, setShowImageFilters] = useState<boolean>(false)
-  const [showConfiguration, setShowConfiguration] = useState<boolean>(false)
   
 
-  const availableFileTypes = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'tiff', 'ico']
 
   // Consolidated tooltip toggle handler
   const handleTooltipToggle = useCallback((key: string) => {
-    setTooltipStates(prev => ({...prev, [key]: !prev[key as keyof typeof prev]}))
-  }, [])
+    uiActions.toggleTooltip(key)
+  }, [uiActions])
 
   const handleFileTypeToggle = (type: string) => {
-    setFileTypes(prev => 
-      prev.includes(type) 
-        ? prev.filter(t => t !== type)
-        : [...prev, type]
-    )
+    configurationActions.toggleFileType(type)
   }
 
   const handleChapterCountChange = (newChapterCount: number) => {
-    setChapterCount(newChapterCount)
-    // Enforce minimum 30 seconds for 15+ chapters
-    if (newChapterCount >= 15 && fetchInterval < 30) {
-      setFetchInterval(30)
-    }
+    configurationActions.updateChapterCount(newChapterCount)
   }
 
   const handleFetchIntervalChange = (newInterval: number) => {
-    // Enforce minimum intervals based on chapter count
-    const minInterval = chapterCount >= 15 ? 30 : 15
-    const finalInterval = Math.max(newInterval, minInterval)
-    setFetchInterval(finalInterval)
+    configurationActions.updateFetchInterval(newInterval)
   }
 
   const generateChapterUrl = (baseUrl: string, chapterNumber: number) => {
@@ -231,9 +179,9 @@ const ImageScraper: React.FC = () => {
 
   const handleUrlPatternsApply = () => {
     try {
-      if (customUrlPatterns.trim()) {
+      if (filters.customUrlPatterns.trim()) {
         // Import custom patterns into the URL pattern manager
-        urlPatternManager.importFromEnvFormat(customUrlPatterns)
+        urlPatternManager.importFromEnvFormat(filters.customUrlPatterns)
         toast.success('URL patterns imported successfully')
       } else {
         toast.info('No patterns to import')
@@ -246,7 +194,7 @@ const ImageScraper: React.FC = () => {
   const handleUrlPatternsExport = () => {
     try {
       const exported = urlPatternManager.exportToEnvFormat()
-      setCustomUrlPatterns(exported)
+      filterActions.setCustomUrlPatterns(exported)
       if (exported) {
         toast.success('Current patterns exported to editor')
       } else {
@@ -259,47 +207,31 @@ const ImageScraper: React.FC = () => {
 
   // Image filter management functions
   const handleAddFilter = () => {
-    if (newFilter.trim() && !imageFilters.includes(newFilter.trim().toLowerCase())) {
-      const filter = newFilter.trim().toLowerCase()
-      setImageFilters(prev => [...prev, filter])
-      setNewFilter('')
+    if (filters.newFilter.trim() && !filters.imageFilters.includes(filters.newFilter.trim().toLowerCase())) {
+      const filter = filters.newFilter.trim().toLowerCase()
+      filterActions.addFilter(filter)
+      filterActions.setNewFilter('')
       toast.success(`Added filter: "${filter}"`)
-      
-      // Save to localStorage
-      const updatedFilters = [...imageFilters, filter]
-      localStorage.setItem('webster-image-filters', JSON.stringify(updatedFilters))
     }
   }
 
   const handleRemoveFilter = (filterToRemove: string) => {
-    setImageFilters(prev => prev.filter(f => f !== filterToRemove))
+    filterActions.removeFilter(filterToRemove)
     toast.info(`Removed filter: "${filterToRemove}"`)
-    
-    // Update localStorage
-    const updatedFilters = imageFilters.filter(f => f !== filterToRemove)
-    localStorage.setItem('webster-image-filters', JSON.stringify(updatedFilters))
   }
 
   const handleClearAllFilters = () => {
-    setImageFilters([])
+    filterActions.clearAllFilters()
     toast.info('Cleared all image filters')
-    localStorage.removeItem('webster-image-filters')
   }
 
-  // Check if an image URL should be filtered out
-  const shouldFilterImage = (url: string): boolean => {
-    if (imageFilters.length === 0) return false
-    
-    const urlLower = url.toLowerCase()
-    return imageFilters.some(filter => urlLower.includes(filter))
-  }
 
   const handleScrape = async () => {
     const chapterInfo = parseChapterFromUrl(url)
-    if (chapterInfo.hasChapter && chapterCount > 1) {
+    if (chapterInfo.hasChapter && configuration.chapterCount > 1) {
       // Calculate target chapter range for URL update
       const startChapter = chapterInfo.chapterNumber
-      const endChapter = startChapter + chapterCount - 1
+      const endChapter = startChapter + configuration.chapterCount - 1
       
       // Update URL immediately to final position for better UX
       updateChapterUrl(endChapter, true)
@@ -321,7 +253,7 @@ const ImageScraper: React.FC = () => {
     }
   }
 
-  const generateSequentialScrapedImages = (basePath: string, extension: string, pad: number, count = 500) => {
+  const generateSequentialScrapedImages = (basePath: string, extension: string, pad: number, count = DEFAULTS.SEQUENTIAL_MAX_IMAGES) => {
     const out: ScrapedImage[] = []
     for (let i = 1; i <= count; i++) {
       const padded = i.toString().padStart(pad, '0')
@@ -367,104 +299,70 @@ const ImageScraper: React.FC = () => {
 
   // Function to immediately start navigation lock (for auto navigation)
   const handleStartNavigation = useCallback(() => {
-    setIsNavigating(true)
+    navigationActions.setNavigating(true)
     
     // Extended lock for auto navigation to allow for proper chapter processing
     // Will be cleared either by timeout or when scraping completes
     setTimeout(() => {
-      setIsNavigating(false)
-    }, 10000) // 10 seconds for multi-chapter processing
-  }, [])
+      navigationActions.setNavigating(false)
+    }, TIMING.EXTENDED_NAVIGATION_LOCK)
+  }, [navigationActions])
 
 
   // Progress handler that supports live insertion of images reported by the scraper with race condition protection
   const handleProgress = useCallback((p: ScrapeProgress) => {
-    setProgress(p)
+    scrapingActions.handleProgress(p)
     
     // Handle chapter results and show failure notifications
-    if (p.chapterResults && chapterCount > 1) {
+    if (p.chapterResults && configuration.chapterCount > 1) {
       const latestResult = p.chapterResults[p.chapterResults.length - 1]
       if (latestResult && !latestResult.success) {
         toast.error(`Chapter ${latestResult.chapterNumber} failed: ${latestResult.error}`)
       }
     }
     
-    if (p.image && !isImageStateResetting) {
+    if (p.image && !scraping.isImageStateResetting) {
       console.log(`Adding image: ${p.image.url}`)
-      setImages(prev => {
-        // Prevent updates during reset to avoid race conditions
-        if (isImageStateResetting) {
-          console.log('Blocked image update during reset')
-          return prev
-        }
-        // avoid duplicates
-        if (prev.find(i => i.url === p.image!.url)) {
-          console.log('Duplicate image skipped')
-          return prev
-        }
-        const next = [...prev, p.image!]
-        setStats({ total: next.length, duplicates: 0, filtered: next.length })
-        return next
-      })
-    } else if (p.image && isImageStateResetting) {
+      scrapingActions.handleNewImage(p.image)
+    } else if (p.image && scraping.isImageStateResetting) {
       console.log('Image blocked by reset state:', p.image.url)
     }
-  }, [chapterCount, isImageStateResetting])
+  }, [configuration.chapterCount, scraping.isImageStateResetting, scrapingActions])
 
-  // Live image insertion handler with race condition protection
-  const handleNewImage = useCallback((image: ScrapedImage) => {
-    if (isImageStateResetting) return // Prevent updates during reset
-    
-    setImages(prev => {
-      // Double-check to prevent race conditions
-      if (isImageStateResetting) return prev
-      // avoid duplicates
-      if (prev.find(i => i.url === image.url)) return prev
-      const next = [...prev, image]
-      setStats({ total: next.length, duplicates: 0, filtered: next.length })
-      return next
-    })
-  }, [isImageStateResetting])
 
   const handleScrapeWithUrl = async (targetUrl?: string) => {
     const scrapeUrl = targetUrl || url
     
     if (!scrapeUrl.trim()) {
-      setError('Please enter a valid URL')
-      toast.error('Please enter a valid URL')
+      scrapingActions.setError(ERROR_MESSAGES.INVALID_URL)
+      toast.error(ERROR_MESSAGES.INVALID_URL)
       return
     }
 
-    if (fileTypes.length === 0) {
-      setError('Please select at least one file type')
-      toast.error('Please select at least one file type')
+    if (configuration.fileTypes.length === 0) {
+      scrapingActions.setError(ERROR_MESSAGES.NO_FILE_TYPES)
+      toast.error(ERROR_MESSAGES.NO_FILE_TYPES)
       return
     }
 
     // Only set navigation lock if not already set by navigation (e.g., auto next chapter)
-    if (!isNavigating) {
-      setIsNavigating(true)
+    if (!navigation.isNavigating) {
+      navigationActions.setNavigating(true)
       
-      // Clear navigation lock after 5 seconds to allow for multi-chapter processing
+      // Clear navigation lock after timeout to allow for multi-chapter processing
       setTimeout(() => {
-        setIsNavigating(false)
-      }, 5000)
+        navigationActions.setNavigating(false)
+      }, TIMING.NAVIGATION_LOCK_TIMEOUT)
     }
 
-    setIsLoading(true)
-    setError(null)
+    scrapingActions.setIsLoading(true)
+    scrapingActions.setError(null)
     
-    // Safely reset image state with race condition protection
-    setIsImageStateResetting(true)
-    setImages([])
-    setStats({ total: 0, duplicates: 0, filtered: 0 })
-    setSequentialPattern(null)
+    // Reset state using the hook's resetState method
+    await scrapingActions.resetState()
+    
     // Clear request cache to prevent stale requests from affecting new scraping session
     clearRequestCache()
-    // Allow a very small delay to ensure state updates are flushed
-    await new Promise(resolve => setTimeout(resolve, 10))
-    // Reset the flag before starting the scraper so images can be added
-    setIsImageStateResetting(false)
 
     abortControllerRef.current = new AbortController()
 
@@ -473,59 +371,52 @@ const ImageScraper: React.FC = () => {
 
       const options: any = {
         onProgress: handleProgress,
-        onNewImage: handleNewImage,
+        onNewImage: scrapingActions.handleNewImage,
         signal: abortControllerRef.current.signal,
-        consecutiveMissThreshold,
-        chapterCount,
-        validateImages,
-        fetchInterval: fetchInterval * 1000, // Convert seconds to milliseconds
-        imageFilter: shouldFilterImage // Pass filter function to scraper
+        consecutiveMissThreshold: configuration.consecutiveMissThreshold,
+        chapterCount: configuration.chapterCount,
+        validateImages: configuration.validateImages,
+        fetchInterval: configuration.fetchInterval * 1000, // Convert seconds to milliseconds
+        imageFilter: filterActions.shouldFilterImage // Pass filter function to scraper
       }
 
-      if (scrapingMethod === 'fast') {
+      if (configuration.scrapingMethod === 'fast') {
         // prefer sequence-only fast generation
         options.preferSequenceOnly = true
         options.keepAliveMs = 0
-        options.consecutiveMissThreshold = consecutiveMissThreshold
+        options.consecutiveMissThreshold = configuration.consecutiveMissThreshold
       }
 
-      const scrapedImages = await scrapeImages(scrapeUrl, fileTypes, options)
+      const scrapedImages = await scrapeImages(scrapeUrl, configuration.fileTypes, options)
 
       // Merge returned images with any live-inserted images ensuring uniqueness
-      setImages(prev => {
-        const map = new Map<string, ScrapedImage>()
-        prev.forEach(i => map.set(i.url, i))
-        scrapedImages.forEach(i => map.set(i.url, i))
-        const merged = Array.from(map.values())
-        setStats({ total: merged.length, duplicates: 0, filtered: merged.length })
-        return merged
-      })
+      scrapedImages.forEach(image => scrapingActions.handleNewImage(image))
 
       // Save last page URL for chapter navigation
-      setLastPageUrl(scrapeUrl)
+      navigationActions.setLastPageUrl(scrapeUrl)
 
       // Detect sequential pattern from returned images and save for quick generation
       const seq = detectSequentialPatternFromUrls(scrapedImages.map(s => s.url))
       if (seq) {
         let normalized = seq.basePath
         if (!normalized.endsWith('/')) normalized = normalized + '/'
-        setSequentialPattern({ basePath: normalized, extension: seq.extension, pad: seq.pad })
+        scrapingActions.setSequentialPattern({ basePath: normalized, extension: seq.extension, pad: seq.pad })
       }
       
-      if ((scrapedImages && scrapedImages.length) || images.length > 0) {
+      if ((scrapedImages && scrapedImages.length) || scraping.images.length > 0) {
         // Show chapter results summary for multi-chapter scraping
-        if (chapterCount > 1 && progress?.chapterResults) {
-          const successful = progress.chapterResults.filter(r => r.success)
-          const failed = progress.chapterResults.filter(r => !r.success)
+        if (configuration.chapterCount > 1 && scraping.progress?.chapterResults) {
+          const successful = scraping.progress.chapterResults.filter(r => r.success)
+          const failed = scraping.progress.chapterResults.filter(r => !r.success)
           const totalImages = successful.reduce((sum, r) => sum + r.imageCount, 0)
           
           if (failed.length > 0) {
             toast.warning(`Multi-chapter scraping completed with issues`, {
-              description: `Found ${totalImages} images across ${successful.length}/${chapterCount} chapters. Failed chapters: ${failed.map(r => r.chapterNumber).join(', ')}`
+              description: `Found ${totalImages} images across ${successful.length}/${configuration.chapterCount} chapters. Failed chapters: ${failed.map(r => r.chapterNumber).join(', ')}`
             })
           } else {
             toast.success(`Multi-chapter scraping completed successfully`, {
-              description: `Found ${totalImages} images across all ${chapterCount} chapters`
+              description: `Found ${totalImages} images across all ${configuration.chapterCount} chapters`
             })
           }
         }
@@ -538,38 +429,34 @@ const ImageScraper: React.FC = () => {
     if (err.message === 'Aborted') {
       // do not show toast on abort
     } else {
-      let errorMessage = err.message || 'Failed to scrape images'
+      let errorMessage = err.message || ERROR_MESSAGES.SCRAPING_FAILED
       let toastDescription = errorMessage
       
       // Handle CORS-specific errors with helpful messages
       if (errorMessage.includes('proxy services failed') || errorMessage.includes('CORS')) {
-        errorMessage = 'Unable to access website due to security restrictions'
+        errorMessage = ERROR_MESSAGES.CORS_ERROR
         toastDescription = 'The website blocks direct access. Try a different site or check if the URL is correct.'
       } else if (errorMessage.includes('Failed to fetch') || errorMessage.includes('Network')) {
-        errorMessage = 'Network error or website is unreachable'
+        errorMessage = ERROR_MESSAGES.NETWORK_ERROR
         toastDescription = 'Check your internet connection and verify the URL is correct.'
       }
       
-      setError(errorMessage)
+      scrapingActions.setError(errorMessage)
       toast.error('Scraping failed', {
         description: toastDescription
       })
     }
     } finally {
-    setIsLoading(false)
-    setProgress(null)
+    scrapingActions.setIsLoading(false)
+    scrapingActions.handleProgress({ phase: 'completed', total: 0, processed: 0 })
     // Clear navigation lock when scraping completes (success or failure)
-    setIsNavigating(false)
+    navigationActions.setNavigating(false)
     }
   }
 
   // Remove an image URL from the list (called when browser reports 1st-load 404)
   const handleRemoveImageOnError = (urlToRemove: string) => {
-    setImages(prev => {
-      const filtered = prev.filter(i => i.url !== urlToRemove)
-      setStats({ total: filtered.length, duplicates: 0, filtered: filtered.length })
-      return filtered
-    })
+    scrapingActions.removeImageOnError(urlToRemove)
   }
 
   return (
@@ -619,21 +506,21 @@ const ImageScraper: React.FC = () => {
                   onChange={(e) => setUrl(e.target.value)}
                   placeholder="https://example.com/chapter-0"
                   className="w-full pl-10 pr-4 py-3 bg-input border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-foreground placeholder:text-muted-foreground"
-                  disabled={isLoading}
+                  disabled={scraping.isLoading}
                 />
               </div>
 
               {/* Chapter Navigation */}
               <ChapterNavigation
                 chapterInfo={parseChapterFromUrl(url)}
-                chapterCount={chapterCount}
-                tooltipOpen={tooltipStates.navInfo}
+                chapterCount={configuration.chapterCount}
+                tooltipOpen={ui.tooltipStates.navInfo}
                 onTooltipOpenChange={(open) => handleTooltipToggle('navInfo')}
               />
 
               {/* Start/Stop Button with Configuration Toggle */}
               <div className="flex justify-center items-center gap-3">
-                {!isLoading ? (
+                {!scraping.isLoading ? (
                   <button
                     onClick={handleScrape}
                     className="px-8 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-medium flex items-center space-x-2 text-base"
@@ -655,11 +542,11 @@ const ImageScraper: React.FC = () => {
                 <button
                   onClick={() => setShowConfiguration(prev => !prev)}
                   className={`p-3 rounded-lg transition-colors font-medium flex items-center justify-center ${
-                    showConfiguration 
+                    ui.showConfiguration 
                       ? 'bg-primary/80 text-primary-foreground hover:bg-primary' 
                       : 'bg-primary text-primary-foreground hover:bg-primary/90'
                   }`}
-                  title={showConfiguration ? 'Hide Configuration' : 'Show Configuration'}
+                  title={ui.showConfiguration ? 'Hide Configuration' : 'Show Configuration'}
                   aria-label="Toggle Configuration"
                 >
                   <Settings className="h-5 w-5" />
@@ -670,7 +557,7 @@ const ImageScraper: React.FC = () => {
         </div>
 
         {/* Configuration Options */}
-          {showConfiguration && (
+          {ui.showConfiguration && (
           <div className="mb-6 bg-accent/5 border border-accent/20 rounded-xl p-6 space-y-6">
             {/* Configuration Header */}
             <div className="flex items-center gap-2 pb-2 border-b border-accent/20">
@@ -685,7 +572,7 @@ const ImageScraper: React.FC = () => {
                 <div className="mb-6 p-3 bg-accent/10 border border-accent/20 rounded-lg text-center">
                   <div className="flex items-center justify-center space-x-2 text-sm text-foreground">
                     <span>📖</span>
-                    <span>Chapter {chapterInfo.chapterNumber} detected - Will fetch {chapterCount} chapter(s) per action</span>
+                    <span>Chapter {chapterInfo.chapterNumber} detected - Will fetch {configuration.chapterCount} chapter(s) per action</span>
                   </div>
                 </div>
               ) : null
@@ -693,25 +580,25 @@ const ImageScraper: React.FC = () => {
             
             {/* Scraping Configuration Component */}
             <ScrapingConfiguration
-              scrapingMethod={scrapingMethod}
-              onScrapingMethodChange={setScrapingMethod}
-              consecutiveMissThreshold={consecutiveMissThreshold}
-              onConsecutiveMissThresholdChange={setConsecutiveMissThreshold}
-              chapterCount={chapterCount}
+              scrapingMethod={configuration.scrapingMethod}
+              onScrapingMethodChange={configurationActions.updateScrapingMethod}
+              consecutiveMissThreshold={configuration.consecutiveMissThreshold}
+              onConsecutiveMissThresholdChange={configurationActions.updateConsecutiveMissThreshold}
+              chapterCount={configuration.chapterCount}
               onChapterCountChange={handleChapterCountChange}
-              autoNextChapter={autoNextChapter}
-              onAutoNextChapterChange={setAutoNextChapter}
-              fetchInterval={fetchInterval}
+              autoNextChapter={configuration.autoNextChapter}
+              onAutoNextChapterChange={configurationActions.updateAutoNextChapter}
+              fetchInterval={configuration.fetchInterval}
               onFetchIntervalChange={handleFetchIntervalChange}
-              showScrollButtons={showScrollButtons}
-              onShowScrollButtonsChange={setShowScrollButtons}
-              validateImages={validateImages}
-              onValidateImagesChange={setValidateImages}
-              fileTypes={fileTypes}
-              availableFileTypes={availableFileTypes}
+              showScrollButtons={configuration.showScrollButtons}
+              onShowScrollButtonsChange={configurationActions.updateShowScrollButtons}
+              validateImages={configuration.validateImages}
+              onValidateImagesChange={configurationActions.updateValidateImages}
+              fileTypes={configuration.fileTypes}
+              availableFileTypes={FILE_EXTENSIONS.AVAILABLE}
               onFileTypeToggle={handleFileTypeToggle}
-              isLoading={isLoading}
-              tooltipStates={tooltipStates}
+              isLoading={scraping.isLoading}
+              tooltipStates={ui.tooltipStates}
               onTooltipToggle={handleTooltipToggle}
             />
             
@@ -721,7 +608,7 @@ const ImageScraper: React.FC = () => {
                 <div className="flex items-center space-x-2">
                   <Filter className="h-5 w-5 text-muted-foreground" />
                   <label className="text-sm font-medium text-foreground">URL Patterns</label>
-                  <Tooltip open={tooltipStates.urlPatterns} onOpenChange={(open) => handleTooltipToggle('urlPatterns')}>
+                  <Tooltip open={ui.tooltipStates.urlPatterns} onOpenChange={(open) => handleTooltipToggle('urlPatterns')}>
                     <TooltipTrigger asChild>
                       <button onClick={() => handleTooltipToggle('urlPatterns')} className="w-5 h-5 rounded-full bg-muted/60 hover:bg-muted flex items-center justify-center text-muted-foreground" aria-label="URL patterns info">
                         <Info className="h-3 w-3" />
@@ -736,20 +623,20 @@ const ImageScraper: React.FC = () => {
                   </Tooltip>
                 </div>
                 <button
-                  onClick={() => setShowUrlPatterns(prev => !prev)}
+                  onClick={uiActions.toggleUrlPatterns}
                   className="px-3 py-1 text-xs bg-secondary text-secondary-foreground rounded hover:bg-secondary/90 transition-colors"
                 >
-                  {showUrlPatterns ? 'Hide' : 'Configure'}
+                  {ui.showUrlPatterns ? 'Hide' : 'Configure'}
                 </button>
               </div>
               
-              {showUrlPatterns && (
+              {ui.showUrlPatterns && (
                 <div className="space-y-3">
                   <div>
                     <label className="text-xs text-muted-foreground mb-2 block">Pattern Configuration (.env format)</label>
                     <textarea
-                      value={customUrlPatterns}
-                      onChange={(e) => setCustomUrlPatterns(e.target.value)}
+                      value={filters.customUrlPatterns}
+                      onChange={(e) => filterActions.setCustomUrlPatterns(e.target.value)}
                       placeholder={`# Example URL patterns:
 # manga-site.com
 url=https://manga-site.com/manga/title/chapter-1
@@ -759,21 +646,21 @@ config=/manga/title/chapter-{chapter}
 url=https://comic-reader.net/comics/title/ch-001
 config=/comics/title/ch-{chapter:03d}`}
                       className="w-full h-24 px-3 py-2 text-xs bg-input border border-border rounded-md text-foreground font-mono resize-none"
-                      disabled={isLoading}
+                      disabled={scraping.isLoading}
                     />
                   </div>
                   
                   <div className="flex items-center space-x-2">
                     <button
                       onClick={handleUrlPatternsApply}
-                      disabled={isLoading || !customUrlPatterns.trim()}
+                      disabled={scraping.isLoading || !filters.customUrlPatterns.trim()}
                       className="px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors disabled:opacity-50"
                     >
                       Apply Patterns
                     </button>
                     <button
                       onClick={handleUrlPatternsExport}
-                      disabled={isLoading}
+                      disabled={scraping.isLoading}
                       className="px-3 py-1.5 text-sm bg-secondary text-secondary-foreground rounded hover:bg-secondary/90 transition-colors"
                     >
                       Export Current
@@ -785,14 +672,14 @@ config=/comics/title/ch-{chapter:03d}`}
             
             {/* Image Filtering Section */}
             <ImageFiltering
-              imageFilters={imageFilters}
-              newFilter={newFilter}
-              showImageFilters={showImageFilters}
-              isLoading={isLoading}
-              tooltipOpen={tooltipStates.imageFiltering}
+              imageFilters={filters.imageFilters}
+              newFilter={filters.newFilter}
+              showImageFilters={ui.showImageFilters}
+              isLoading={scraping.isLoading}
+              tooltipOpen={ui.tooltipStates.imageFiltering}
               onTooltipOpenChange={(open) => handleTooltipToggle('imageFiltering')}
-              onNewFilterChange={setNewFilter}
-              onShowFiltersToggle={() => setShowImageFilters(prev => !prev)}
+              onNewFilterChange={filterActions.setNewFilter}
+              onShowFiltersToggle={uiActions.toggleImageFilters}
               onAddFilter={handleAddFilter}
               onRemoveFilter={handleRemoveFilter}
               onClearAllFilters={handleClearAllFilters}
@@ -801,22 +688,22 @@ config=/comics/title/ch-{chapter:03d}`}
         )}
 
         {/* Progress */}
-        {progress && (
+        {scraping.progress && (
           <div className="mb-6">
-            <ProgressIndicator progress={progress} />
+            <ProgressIndicator progress={scraping.progress} />
           </div>
         )}
 
         {/* Error */}
-        {error && (
+        {scraping.error && (
           <div className="flex items-center space-x-2 p-4 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive mb-6">
             <AlertCircle className="h-5 w-5 flex-shrink-0" />
-            <span className="text-sm">{error}</span>
+            <span className="text-sm">{scraping.error}</span>
           </div>
         )}
 
         {/* Stats */}
-        {images.length > 0 && (
+        {scraping.images.length > 0 && (
           <div className="flex items-center space-x-6 p-4 bg-accent/10 border border-accent/20 rounded-lg mb-6">
             <div className="flex items-center space-x-2 text-accent">
               <CheckCircle className="h-5 w-5" />
@@ -833,26 +720,26 @@ config=/comics/title/ch-{chapter:03d}`}
         )}
 
         {/* Image Gallery */}
-        {images.length > 0 && (
+        {scraping.images.length > 0 && (
           <ImageGallery 
-            images={images.filter(img => !shouldFilterImage(img.url))} 
+            images={scraping.images.filter(img => !filterActions.shouldFilterImage(img.url))} 
             websiteUrl={url} 
             onImageError={handleRemoveImageOnError} 
-            onPreviewChange={setPreviewActive} 
-            showScrollButtons={showScrollButtons} 
-            initialPreviewMode={previewActive}
-            autoNextChapter={autoNextChapter}
+            onPreviewChange={uiActions.setPreviewActive} 
+            showScrollButtons={configuration.showScrollButtons} 
+            initialPreviewMode={ui.previewActive}
+            autoNextChapter={configuration.autoNextChapter}
             onNextChapter={() => {
               const now = Date.now()
               // Increased cooldown to 30 seconds and check for loading state
-              if (now - lastAutoScrollTime >= 30000 && !isLoading && !isNavigating) { 
+              if (now - navigation.lastAutoScrollTime >= TIMING.AUTO_CHAPTER_COOLDOWN && !scraping.isLoading && !navigation.isNavigating) { 
                 console.log('Auto next chapter triggered - starting scraping')
-                setLastAutoScrollTime(now)
+                navigationActions.updateLastScrollTime(now)
                 
                 // Update URL to next chapter and trigger scraping with the new URL
                 const chapterInfo = parseChapterFromUrl(url)
                 if (chapterInfo.hasChapter) {
-                  const nextChapterNumber = chapterInfo.chapterNumber + chapterCount
+                  const nextChapterNumber = chapterInfo.chapterNumber + configuration.chapterCount
                   const nextChapterUrl = updateChapterUrl(nextChapterNumber, true)
                   console.log(`Auto navigating to chapter ${nextChapterNumber}`)
                   
@@ -865,12 +752,12 @@ config=/comics/title/ch-{chapter:03d}`}
                   }
                 }
               } else {
-                const remainingTime = Math.max(0, 30000 - (now - lastAutoScrollTime)) / 1000
-                console.log(`Auto next chapter blocked: ${remainingTime.toFixed(1)}s cooldown remaining, loading: ${isLoading}, navigating: ${isNavigating}`)
+                const remainingTime = Math.max(0, TIMING.AUTO_CHAPTER_COOLDOWN - (now - navigation.lastAutoScrollTime)) / 1000
+                console.log(`Auto next chapter blocked: ${remainingTime.toFixed(1)}s cooldown remaining, loading: ${scraping.isLoading}, navigating: ${navigation.isNavigating}`)
               }
             }}
             onStartNavigation={handleStartNavigation}
-            isNavigating={isNavigating}
+            isNavigating={navigation.isNavigating}
           />
         )}
       </div>
