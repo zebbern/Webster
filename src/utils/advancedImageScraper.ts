@@ -318,6 +318,7 @@ export const scrapeImages = async (
         // Check for strong sequential patterns 
         const seqInfo = detectStrongSequentialPattern(imageUrls)
         if (seqInfo) {
+          console.log('Strong sequential pattern detected:', seqInfo, 'from URLs:', imageUrls.slice(0, 5))
           const { basePath, extension, pad } = seqInfo
           
           // Process images in smaller batches for server-friendly validation

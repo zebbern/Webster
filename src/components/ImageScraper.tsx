@@ -400,6 +400,7 @@ const ImageScraper: React.FC = () => {
       // Detect sequential pattern from returned images and save for quick generation
       const seq = detectSequentialPatternFromUrls(scrapedImages.map(s => s.url))
       if (seq) {
+        console.log('Sequential pattern detected:', seq)
         let normalized = seq.basePath
         if (!normalized.endsWith('/')) normalized = normalized + '/'
         scrapingActions.setSequentialPattern({ basePath: normalized, extension: seq.extension, pad: seq.pad })
