@@ -1,4 +1,4 @@
-import ImageScraper from './components/ImageScraper'
+import ImageScrapperContainer from './components/ImageScrapperContainer'
 import { ThemeProvider } from './providers/ThemeProvider'
 import { TooltipProvider } from './components/ui/tooltip'
 import './index.css'
@@ -9,7 +9,7 @@ function App() {
     <ThemeProvider defaultTheme="dark" storageKey="image-scraper-theme">
       <TooltipProvider>
         <div className="min-h-screen bg-background transition-colors">
-          <ImageScraper />
+          <ImageScrapperContainer />
           <Toaster richColors position="top-right" />
         </div>
       </TooltipProvider>
