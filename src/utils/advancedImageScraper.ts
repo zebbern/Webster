@@ -482,136 +482,115 @@ export const scrapeImages = async (
           
           let processedCount = 0
           let consecutiveMisses = 0
-          const FALLBACK_BATCH_SIZE = DEFAULTS.BATCH_SIZE
           
-          for (let batchStart = 0; batchStart < discoveredOnlyUrls.length; batchStart += FALLBACK_BATCH_SIZE) {
+          // Process discovered URLs one by one with immediate validation (like main method)
+          for (const imageUrl of discoveredOnlyUrls) {
             if (signal?.aborted) throw new Error('Aborted')
+            if (!imageUrl) continue
+            if (seenUrls.has(imageUrl)) continue
             
-            // Check consecutive miss threshold (same as sequential)
+            // Check consecutive miss threshold before processing each URL
             if (consecutiveMisses >= consecutiveMissThreshold) {
-              // Stop processing if too many consecutive batch failures
               break
             }
             
-            // Create batch from discovered URLs (no generation)
-            const batchEnd = Math.min(batchStart + FALLBACK_BATCH_SIZE, discoveredOnlyUrls.length)
-            const batch = discoveredOnlyUrls.slice(batchStart, batchEnd)
-            let validImagesInBatch = 0
+            const type = getFileTypeFromUrl(imageUrl)
+            processedCount++
             
-            // Validate each URL in the batch (same validation logic as sequential)
-            let batchResults: { url: string; valid: boolean; filtered?: boolean; type?: string }[] = []
-            
-            // First pass: validate all images in batch
-            for (const imageUrl of batch) {
-              if (signal?.aborted) throw new Error('Aborted')
-              if (!imageUrl) continue
-              if (seenUrls.has(imageUrl)) continue
-              
-              const type = getFileTypeFromUrl(imageUrl)
-              processedCount++
-              
-              // Skip if wrong file type
-              if (!type || !fileTypes.includes(type)) {
-                onProgress?.({ stage: 'scanning', processed: processedCount, total: discoveredOnlyUrls.length, found: images.length, currentUrl: imageUrl })
-                continue
-              }
-              
-              // Skip if filtered
-              const isFiltered = imageFilter && imageFilter(imageUrl)
-              if (isFiltered) {
-                onProgress?.({ stage: 'scanning', processed: processedCount, total: discoveredOnlyUrls.length, found: images.length, currentUrl: imageUrl })
-                continue
-              }
-              
-              let imageExists = false
-              
-              if (validateImages) {
-                // Use HEAD request for validation (same as sequential)
-                try {
-                  const res = await fetchData(imageUrl, 'HEAD', signal)
-                  const status = res?.status ?? 200
-                  imageExists = status < THRESHOLDS.HTTP_SUCCESS_THRESHOLD
-                } catch (err) {
-                  imageExists = false
-                }
-              } else {
-                // Use Image element testing for no-validation mode (same as sequential)
-                imageExists = await new Promise<boolean>((resolve) => {
-                  const img = new Image()
-                  let resolved = false
-                  
-                  const cleanup = () => {
-                    if (resolved) return
-                    resolved = true
-                    img.onload = null
-                    img.onerror = null
-                    img.onabort = null
-                    img.src = ''
-                  }
-                  
-                  const timeout = setTimeout(() => {
-                    cleanup()
-                    resolve(false) // Timeout = failure
-                  }, TIMING.IMAGE_VALIDATION_TIMEOUT)
-                  
-                  img.onload = () => {
-                    clearTimeout(timeout)
-                    cleanup()
-                    resolve(true) // Successfully loaded
-                  }
-                  
-                  img.onerror = () => {
-                    clearTimeout(timeout)
-                    cleanup()
-                    resolve(false) // Failed to load
-                  }
-                  
-                  img.onabort = () => {
-                    clearTimeout(timeout)
-                    cleanup()
-                    resolve(false) // Request was aborted
-                  }
-                  
-                  img.src = imageUrl
-                })
-              }
-              
-              batchResults.push({ url: imageUrl, valid: imageExists, filtered: isFiltered, type })
-              seenUrls.add(imageUrl)
+            // Skip if wrong file type
+            if (!type || !fileTypes.includes(type)) {
+              onProgress?.({ stage: 'scanning', processed: processedCount, total: discoveredOnlyUrls.length, found: images.length, currentUrl: imageUrl })
+              continue
             }
             
-            // Second pass: only add valid images (same as sequential)
-            for (const result of batchResults) {
-              if (result.valid && !result.filtered) {
-                const newImage: ScrapedImage = { 
-                  url: result.url, 
-                  type: result.type!, 
-                  source: 'dynamic', 
-                  alt: `Image from ${new URL(chapterUrl).hostname} - Chapter ${currentChapter}` 
-                }
-                images.push(newImage)
-                validImagesInBatch++
-
-                // Live insertion
-                onNewImage?.(newImage)
-                onProgress?.({ 
-                  stage: 'scanning', 
-                  processed: processedCount, 
-                  total: discoveredOnlyUrls.length, 
-                  found: images.length, 
-                  currentUrl: result.url, 
-                  image: newImage 
-                })
-
-                await new Promise(res => setTimeout(res, TIMING.PROCESSING_DELAY))
-              }
+            // Skip if filtered
+            const isFiltered = imageFilter && imageFilter(imageUrl)
+            if (isFiltered) {
+              onProgress?.({ stage: 'scanning', processed: processedCount, total: discoveredOnlyUrls.length, found: images.length, currentUrl: imageUrl })
+              continue
             }
             
-            // Update consecutive misses based on batch result (same logic as sequential)
-            if (validImagesInBatch === 0) {
-              consecutiveMisses += 1 // Increment when batch has no valid images
+            let imageExists = false
+            
+            if (validateImages) {
+              // Use HEAD request for validation (same as sequential)
+              try {
+                const res = await fetchData(imageUrl, 'HEAD', signal)
+                const status = res?.status ?? 200
+                imageExists = status < THRESHOLDS.HTTP_SUCCESS_THRESHOLD
+              } catch (err) {
+                imageExists = false
+              }
             } else {
-              consecutiveMisses = 0 // Reset if batch found valid images
+              // Use Image element testing for no-validation mode (same as sequential)
+              imageExists = await new Promise<boolean>((resolve) => {
+                const img = new Image()
+                let resolved = false
+                
+                const cleanup = () => {
+                  if (resolved) return
+                  resolved = true
+                  img.onload = null
+                  img.onerror = null
+                  img.onabort = null
+                  img.src = ''
+                }
+                
+                const timeout = setTimeout(() => {
+                  cleanup()
+                  resolve(false) // Timeout = failure
+                }, TIMING.IMAGE_VALIDATION_TIMEOUT)
+                
+                img.onload = () => {
+                  clearTimeout(timeout)
+                  cleanup()
+                  resolve(true) // Successfully loaded
+                }
+                
+                img.onerror = () => {
+                  clearTimeout(timeout)
+                  cleanup()
+                  resolve(false) // Failed to load
+                }
+                
+                img.onabort = () => {
+                  clearTimeout(timeout)
+                  cleanup()
+                  resolve(false) // Request was aborted
+                }
+                
+                img.src = imageUrl
+              })
+            }
+            
+            seenUrls.add(imageUrl)
+            
+            // Update consecutive misses immediately (same logic as sequential)
+            if (!imageExists) {
+              consecutiveMisses += 1
+            } else {
+              consecutiveMisses = 0 // Reset on success
+              
+              const newImage: ScrapedImage = { 
+                url: imageUrl, 
+                type: type!, 
+                source: 'dynamic', 
+                alt: `Image from ${new URL(chapterUrl).hostname} - Chapter ${currentChapter}` 
+              }
+              images.push(newImage)
+
+              // Live insertion
+              onNewImage?.(newImage)
+              onProgress?.({ 
+                stage: 'scanning', 
+                processed: processedCount, 
+                total: discoveredOnlyUrls.length, 
+                found: images.length, 
+                currentUrl: imageUrl, 
+                image: newImage 
+              })
+
+              await new Promise(res => setTimeout(res, TIMING.PROCESSING_DELAY))
             }
           }
         }
