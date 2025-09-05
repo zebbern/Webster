@@ -7,7 +7,7 @@ import ThemeToggle from './ThemeToggle'
 import ChapterNavigation from './ChapterNavigation'
 import ScrapingConfiguration from './ScrapingConfiguration'
 import ImageFiltering from './ImageFiltering'
-import { ScrapedImage, ScrapeProgress, clearRequestCache } from '../utils/advancedImageScraper'
+import { scrapeImages, ScrapedImage, ScrapeProgress, clearRequestCache } from '../utils/advancedImageScraper'
 import { parseChapterFromUrl } from '../utils/urlNavigation'
 import { urlPatternManager } from '../utils/urlPatterns'
 import { Tooltip, TooltipTrigger, TooltipContent } from './ui/tooltip'
@@ -540,7 +540,7 @@ const ImageScraper: React.FC = () => {
                 
                 {/* Configuration Toggle Button */}
                 <button
-                  onClick={() => setShowConfiguration(prev => !prev)}
+                  onClick={uiActions.toggleConfiguration}
                   className={`p-3 rounded-lg transition-colors font-medium flex items-center justify-center ${
                     ui.showConfiguration 
                       ? 'bg-primary/80 text-primary-foreground hover:bg-primary' 
