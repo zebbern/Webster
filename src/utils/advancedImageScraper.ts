@@ -477,12 +477,23 @@ export const scrapeImages = async (
           }
           } // End of file type check for sequential processing
         } else {
-          // No sequential pattern found, process discovered URLs normally
+          // No sequential pattern found, process discovered URLs normally with consecutive miss logic
           let processedCount = 0
-          for (const imageUrl of imageUrls) {
+          let consecutiveMisses = 0
+          let lastSuccessIndex = -1
+          
+          for (let i = 0; i < imageUrls.length; i++) {
+            const imageUrl = imageUrls[i]
             if (signal?.aborted) throw new Error('Aborted')
             if (!imageUrl) continue
             if (seenUrls.has(imageUrl)) continue
+            
+            // Check consecutive miss threshold
+            if (consecutiveMisses >= consecutiveMissThreshold) {
+              // Stop processing if too many consecutive failures
+              break
+            }
+            
             seenUrls.add(imageUrl)
 
             const type = getFileTypeFromUrl(imageUrl)
@@ -490,17 +501,23 @@ export const scrapeImages = async (
 
             if (!type || !fileTypes.includes(type)) {
               onProgress?.({ stage: 'scanning', processed: processedCount, total: imageUrls.length, found: images.length, currentUrl: imageUrl })
+              consecutiveMisses++
               continue
             }
 
             // Check if image should be filtered out
             if (imageFilter && imageFilter(imageUrl)) {
               onProgress?.({ stage: 'scanning', processed: processedCount, total: imageUrls.length, found: images.length, currentUrl: imageUrl })
+              consecutiveMisses++
               continue
             }
 
             const newImage: ScrapedImage = { url: imageUrl, type, source: 'dynamic', alt: `Image from ${new URL(chapterUrl).hostname} - Chapter ${currentChapter}` }
             images.push(newImage)
+            
+            // Reset consecutive misses on success
+            consecutiveMisses = 0
+            lastSuccessIndex = i
 
             // Live insertion
             onNewImage?.(newImage)
