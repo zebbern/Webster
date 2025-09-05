@@ -764,7 +764,7 @@ config=/comics/title/ch-{chapter:03d}`}
 
 
       {/* Universal Navigation Lock Overlay */}
-      {isNavigating && (
+      {navigation.isNavigating && (
         <div 
           className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm"
           onTouchMove={(e) => e.preventDefault()}
