@@ -436,40 +436,6 @@ export const scrapeImages = async (
           }
 
 
-          // If first chapter found no sequential images, try non-sequential approach for this chapter
-          if (chapterImageCount === 0 && currentChapter === 1) {
-            // Process discovered URLs (dedupe and filter by type)
-            let processedCount = 0
-            for (const imageUrl of imageUrls) {
-              if (signal?.aborted) throw new Error('Aborted')
-              if (!imageUrl) continue
-              if (seenUrls.has(imageUrl)) continue
-              seenUrls.add(imageUrl)
-
-              const type = getFileTypeFromUrl(imageUrl)
-              processedCount++
-
-              if (!type || !fileTypes.includes(type)) {
-                onProgress?.({ stage: 'scanning', processed: processedCount, total: imageUrls.length, found: images.length, currentUrl: imageUrl })
-                continue
-              }
-
-              // Check if image should be filtered out
-              if (imageFilter && imageFilter(imageUrl)) {
-                onProgress?.({ stage: 'scanning', processed: processedCount, total: imageUrls.length, found: images.length, currentUrl: imageUrl })
-                continue
-              }
-
-              const newImage: ScrapedImage = { url: imageUrl, type, source: 'dynamic', alt: `Image from ${new URL(chapterUrl).hostname} - Chapter ${currentChapter}` }
-              images.push(newImage)
-
-              // Live insertion
-              onNewImage?.(newImage)
-              onProgress?.({ stage: 'scanning', processed: processedCount, total: imageUrls.length, found: images.length, currentUrl: imageUrl, image: newImage })
-
-              await new Promise(res => setTimeout(res, TIMING.PROCESSING_DELAY))
-            }
-          }
         } else {
           // No sequential pattern found OR pattern extension doesn't match selected file types
           // Extract ONLY discovered URLs without generation
