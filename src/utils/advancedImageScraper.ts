@@ -813,14 +813,12 @@ export function detectStrongSequentialPattern(urls: string[]): { basePath: strin
   const padMap = new Map<string, number>()
   const regex = REGEX_PATTERNS.SEQUENTIAL_IMAGE
 
-  console.log('Analyzing URLs for sequential patterns:', urls.length, 'URLs')
   for (const url of urls) {
     const m = url.match(regex)
     if (m) {
       const base = m[1]
       const numStr = m[2]
       const ext = m[3]
-      console.log(`Regex match: "${url}" -> base: "${base}", number: "${numStr}", ext: "${ext}"`)
       const key = base + '||' + ext
       const set = map.get(key) || new Set<number>()
       set.add(parseInt(numStr, 10))
@@ -831,12 +829,10 @@ export function detectStrongSequentialPattern(urls: string[]): { basePath: strin
 
   for (const [key, set] of map.entries()) {
     const nums = Array.from(set).sort((a, b) => a - b)
-    console.log(`Pattern candidate: key="${key}", numbers=[${nums.join(', ')}]`)
     for (let i = 0; i < nums.length - 1; i++) {
       if (nums[i + 1] === nums[i] + 1) {
         const [base, ext] = key.split('||')
         const pad = padMap.get(key) || 3
-        console.log(`Sequential pattern found! Base: "${base}", Extension: "${ext}", Padding: ${pad}`)
         return { basePath: base, extension: ext, pad }
       }
     }
