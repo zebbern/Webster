@@ -55,26 +55,26 @@ export const ScrapingResultsSection = React.memo(({
     
     // Cooldown check
     if (now - lastAutoScrollTime >= TIMING.AUTO_CHAPTER_COOLDOWN && !isLoading && !isNavigating) { 
-      console.log('Auto next chapter triggered - starting scraping')
+      // Auto next chapter triggered
       
       // Update URL to next chapter and trigger scraping with the new URL
       const chapterInfo = parseChapterFromUrl(url)
       if (chapterInfo.hasChapter) {
         const nextChapterNumber = chapterInfo.chapterNumber + chapterCount
         const nextChapterUrl = updateChapterUrl(nextChapterNumber, true)
-        console.log(`Auto navigating to chapter ${nextChapterNumber}`)
+        // Auto navigating to next chapter
         
         // Use the new URL directly
         if (nextChapterUrl && nextChapterUrl !== url) {
           onNextChapter(nextChapterUrl)
         } else {
-          console.warn('Failed to generate next chapter URL, falling back to current URL')
+          // Failed to generate next chapter URL, falling back
           onNextChapter(url)
         }
       }
     } else {
       const remainingTime = Math.max(0, TIMING.AUTO_CHAPTER_COOLDOWN - (now - lastAutoScrollTime)) / 1000
-      console.log(`Auto next chapter blocked: ${remainingTime.toFixed(1)}s cooldown remaining, loading: ${isLoading}, navigating: ${isNavigating}`)
+      // Auto next chapter blocked by cooldown
     }
   }
 

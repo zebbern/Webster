@@ -14,7 +14,6 @@ const requestCache = new Map<string, Promise<{ body: string; status: number; hea
 
 // Function to clear the request cache (useful between chapter navigations)
 export const clearRequestCache = () => {
-  console.log(`Clearing request cache (${requestCache.size} entries)`)
   requestCache.clear()
 }
 
@@ -25,7 +24,6 @@ const fetchData = async (url: string, method: 'GET' | 'HEAD' = 'GET', signal?: A
   
   // Check if there's already a pending request for this URL+method
   if (requestCache.has(cacheKey)) {
-    console.log(`Request deduplication: reusing existing request for ${method} ${url}`)
     try {
       return await requestCache.get(cacheKey)!
     } catch (error) {
@@ -254,7 +252,7 @@ export const scrapeImages = async (
             urlObj.pathname = '/' + pathSegments.join('/') + (url.endsWith('/') ? '/' : '')
             chapterUrl = urlObj.toString()
           } catch (error) {
-            console.warn(`Failed to generate URL for chapter ${currentChapter}:`, error)
+            // Failed to generate URL for next chapter
           }
         }
       }
@@ -301,7 +299,7 @@ export const scrapeImages = async (
         // Check for strong sequential patterns 
         const seqInfo = detectStrongSequentialPattern(imageUrls)
         if (seqInfo) {
-          console.log('Strong sequential pattern detected:', seqInfo, 'from URLs:', imageUrls.slice(0, 5))
+          // Sequential pattern detected for batch processing
           const { basePath, extension, pad } = seqInfo
           
           // Process images in smaller batches for server-friendly validation
@@ -325,9 +323,9 @@ export const scrapeImages = async (
               }
             }
 
-            // Check all images in batch first, only add if entire batch succeeds
+            // Check all images in batch, include successful ones before first failure
             let batchResults: { url: string; valid: boolean; filtered?: boolean }[] = []
-            let batchFailed = false
+            let firstFailureIndex = -1
             
             // First pass: validate all images in batch
             for (let i = 0; i < batch.length; i++) {
@@ -388,47 +386,50 @@ export const scrapeImages = async (
               const isFiltered = imageFilter && imageFilter(candidate)
               batchResults.push({ url: candidate, valid: imageExists, filtered: isFiltered })
               
-              // If any image fails, mark batch as failed and break
-              if (!imageExists) {
-                batchFailed = true
-                break
+              // Track first failure for partial inclusion logic
+              if (!imageExists && firstFailureIndex === -1) {
+                firstFailureIndex = i
+                break // Stop checking after first failure
               }
             }
 
-            // Second pass: only add images if entire batch succeeded
-            if (!batchFailed && batchResults.length > 0) {
-              for (const result of batchResults) {
-                if (result.valid) {
-                  chapterImageCount++
-                  seenUrls.add(result.url)
-                  
-                  if (!result.filtered) {
-                    const newImage: ScrapedImage = { 
-                      url: result.url, 
-                      type: extension, 
-                      source: 'static', 
-                      alt: `Image from ${new URL(chapterUrl).hostname} - Chapter ${currentChapter}` 
-                    }
-                    images.push(newImage)
-                    onNewImage?.(newImage)
-                    onProgress?.({ 
-                      stage: 'scanning', 
-                      processed: images.length, 
-                      total: DEFAULTS.SEQUENTIAL_MAX_IMAGES * chapterCount, 
-                      found: images.length, 
-                      currentUrl: result.url, 
-                      image: newImage 
-                    })
+            // Second pass: include all valid images up to (but not including) first failure
+            const includeUpTo = firstFailureIndex === -1 ? batchResults.length : firstFailureIndex
+            let validImagesInBatch = 0
+            
+            for (let i = 0; i < includeUpTo; i++) {
+              const result = batchResults[i]
+              if (result.valid) {
+                validImagesInBatch++
+                chapterImageCount++
+                seenUrls.add(result.url)
+                
+                if (!result.filtered) {
+                  const newImage: ScrapedImage = { 
+                    url: result.url, 
+                    type: extension, 
+                    source: 'static', 
+                    alt: `Image from ${new URL(chapterUrl).hostname} - Chapter ${currentChapter}` 
                   }
+                  images.push(newImage)
+                  onNewImage?.(newImage)
+                  onProgress?.({ 
+                    stage: 'scanning', 
+                    processed: images.length, 
+                    total: DEFAULTS.SEQUENTIAL_MAX_IMAGES * chapterCount, 
+                    found: images.length, 
+                    currentUrl: result.url, 
+                    image: newImage 
+                  })
                 }
               }
             }
 
             // Update consecutive misses based on batch result
-            if (batchFailed || batch.length === 0) {
-              consecutiveMisses += 1 // Increment by 1 for each failed batch
-            } else {
-              consecutiveMisses = 0 // Reset only if entire batch succeeds without any failures
+            if (firstFailureIndex !== -1 || batch.length === 0) {
+              consecutiveMisses += 1 // Increment when we hit a failure
+            } else if (validImagesInBatch > 0) {
+              consecutiveMisses = 0 // Reset if we found valid images
             }
 
             currentIndex += BATCH_SIZE
@@ -455,7 +456,6 @@ export const scrapeImages = async (
 
               // Check if image should be filtered out
               if (imageFilter && imageFilter(imageUrl)) {
-                console.log(`Image filtered out: ${imageUrl}`)
                 onProgress?.({ stage: 'scanning', processed: processedCount, total: imageUrls.length, found: images.length, currentUrl: imageUrl })
                 continue
               }
@@ -489,7 +489,6 @@ export const scrapeImages = async (
 
             // Check if image should be filtered out
             if (imageFilter && imageFilter(imageUrl)) {
-              console.log(`Image filtered out: ${imageUrl}`)
               onProgress?.({ stage: 'scanning', processed: processedCount, total: imageUrls.length, found: images.length, currentUrl: imageUrl })
               continue
             }
@@ -592,7 +591,6 @@ export const scrapeImages = async (
       throw new Error('Server returned empty response. Chapter may not exist or be accessible.')
     }
     
-    console.warn('Direct fetch failed in advancedImageScraper:', error)
     throw new Error(error.message || ERROR_MESSAGES.SCRAPING_FAILED)
   }
 }

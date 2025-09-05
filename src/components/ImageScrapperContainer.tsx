@@ -46,11 +46,11 @@ const ImageScrapperContainer: React.FC = () => {
     if (navigation.isNavigating) {
       document.body.style.overflow = 'hidden'
       document.body.style.touchAction = 'none'
-      console.log('Navigation lock: Body scroll blocked, overlay active')
+      // Navigation lock active
     } else {
       document.body.style.overflow = ''
       document.body.style.touchAction = ''
-      console.log('Navigation lock: Body scroll restored, overlay removed')
+      // Navigation lock restored
     }
 
     return () => {
@@ -63,7 +63,7 @@ const ImageScrapperContainer: React.FC = () => {
   useEffect(() => {
     const resetStuckStates = () => {
       if (!scraping.isLoading && navigation.isNavigating) {
-        console.warn('Detected stuck navigation state, resetting...')
+        // Detected stuck navigation state, resetting
         navigationActions.setNavigating(false)
       }
     }
@@ -134,7 +134,7 @@ const ImageScrapperContainer: React.FC = () => {
 
   // Progress handler with live insertion support
   const handleProgress = useCallback((p: ScrapeProgress) => {
-    console.log('Progress update:', p.stage, `${p.processed}/${p.total}`)
+    // Progress update received
     scrapingActions.handleProgress(p)
     
     // Handle chapter results and show failure notifications
@@ -148,10 +148,10 @@ const ImageScrapperContainer: React.FC = () => {
     }
     
     if (p.image && !scraping.isImageStateResetting) {
-      console.log(`Adding image: ${p.image.url}`)
+      // Adding new image
       scrapingActions.handleNewImage(p.image)
     } else if (p.image && scraping.isImageStateResetting) {
-      console.log('Image blocked by reset state:', p.image.url)
+      // Image blocked by reset state
     }
   }, [configuration.chapterCount, scraping.isImageStateResetting, scrapingActions])
 
@@ -200,7 +200,7 @@ const ImageScrapperContainer: React.FC = () => {
         imageFilter: filterActions.shouldFilterImage
       }
 
-      console.log('Scraping with file types:', configuration.fileTypes)
+      // Starting scrape operation
       const scrapedImages = await scrapeImages(scrapeUrl, configuration.fileTypes, options)
 
       scrapedImages.forEach(image => scrapingActions.handleNewImage(image))
@@ -209,7 +209,7 @@ const ImageScrapperContainer: React.FC = () => {
       // Detect sequential pattern from returned images
       const seq = detectStrongSequentialPattern(scrapedImages.map(s => s.url))
       if (seq) {
-        console.log('Sequential pattern detected:', seq)
+        // Sequential pattern detected
         let normalized = seq.basePath
         if (!normalized.endsWith('/')) normalized = normalized + '/'
         scrapingActions.setSequentialPattern({ basePath: normalized, extension: seq.extension, pad: seq.pad })
