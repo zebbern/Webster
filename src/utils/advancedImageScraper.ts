@@ -302,6 +302,11 @@ export const scrapeImages = async (
           // Sequential pattern detected for batch processing
           const { basePath, extension, pad } = seqInfo
           
+          // Skip sequential processing if extension is not in selected file types
+          if (!fileTypes.includes(extension)) {
+            // Pattern found but extension not in selected types, skip to non-sequential processing
+          } else {
+          
           // Process images in smaller batches for server-friendly validation
           const BATCH_SIZE = DEFAULTS.BATCH_SIZE
           let consecutiveMisses = 0
@@ -470,6 +475,7 @@ export const scrapeImages = async (
               await new Promise(res => setTimeout(res, TIMING.PROCESSING_DELAY))
             }
           }
+          } // End of file type check for sequential processing
         } else {
           // No sequential pattern found, process discovered URLs normally
           let processedCount = 0

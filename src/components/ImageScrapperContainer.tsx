@@ -107,7 +107,7 @@ const ImageScrapperContainer: React.FC = () => {
       
       const updatedSegments = pathSegments.map(segment => {
         if (segment === chapterInfo.chapterSegment) {
-          return chapterInfo.chapterSegment.replace(/\\d+/g, chapterNumber.toString())
+          return chapterInfo.chapterSegment.replace(/\d+/g, chapterNumber.toString())
         }
         return segment
       })
