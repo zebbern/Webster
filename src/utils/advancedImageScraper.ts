@@ -319,7 +319,6 @@ export const scrapeImages = async (
         const seqInfo = detectStrongSequentialPattern(imageUrls)
         if (seqInfo) {
           console.log('Strong sequential pattern detected:', seqInfo, 'from URLs:', imageUrls.slice(0, 5))
-          console.log(`Starting sequential generation with consecutiveMissThreshold=${consecutiveMissThreshold}`)
           const { basePath, extension, pad } = seqInfo
           
           // Process images in smaller batches for server-friendly validation
@@ -331,7 +330,6 @@ export const scrapeImages = async (
           while (currentIndex <= DEFAULTS.SEQUENTIAL_MAX_IMAGES && consecutiveMisses < consecutiveMissThreshold) {
             if (signal?.aborted) throw new Error('Aborted')
             
-            console.log(`Sequential generation: index=${currentIndex}, consecutiveMisses=${consecutiveMisses}, threshold=${consecutiveMissThreshold}`)
             
             // Create batch of candidates
             const batch: string[] = []
@@ -341,10 +339,8 @@ export const scrapeImages = async (
               if (!seenUrls.has(candidate)) {
                 batch.push(candidate)
               } else {
-                console.log(`Skipping already seen URL: ${candidate}`)
               }
             }
-            console.log(`Generated batch of ${batch.length} candidates starting from index ${currentIndex}:`, batch)
 
             // Unified failsafe approach - check images in batch regardless of validateImages setting
             let batchHasSuccess = false
@@ -409,23 +405,17 @@ export const scrapeImages = async (
                   img.src = candidate
                 })
                 
-                if (!imageExists) {
-                  console.log(`Image load test failed: ${candidate}`)
-                }
               }
 
               if (imageExists) {
-                console.log(`✓ Image exists: ${candidate}`)
                 // Check if image should be filtered out
                 if (imageFilter && imageFilter(candidate)) {
-                  console.log(`Image filtered out: ${candidate}`)
                   // Still count as successful but don't add to results
                   batchHasSuccess = true
                   chapterImageCount++
                   seenUrls.add(candidate)
                 } else {
                   // Success - add image
-                  console.log(`✓ Adding valid image: ${candidate}`)
                   batchHasSuccess = true
                   chapterImageCount++
                   seenUrls.add(candidate)
@@ -461,14 +451,13 @@ export const scrapeImages = async (
             // Batch failure takes precedence - if any image in batch fails, treat whole batch as failed
             if (batchFailed || batch.length === 0) {
               consecutiveMisses += 1 // Increment by 1 for each failed batch
-              console.log(`Batch failed - incrementing consecutiveMisses to ${consecutiveMisses} (threshold: ${consecutiveMissThreshold})`)
             } else if (batchHasSuccess) {
-              console.log(`Batch had success - resetting consecutiveMisses to 0 (was ${consecutiveMisses})`)
               consecutiveMisses = 0 // Reset only if entire batch succeeds without any failures
             }
 
             currentIndex += BATCH_SIZE
           }
+
 
           // If first chapter found no sequential images, try non-sequential approach for this chapter
           if (chapterImageCount === 0 && currentChapter === 1) {
