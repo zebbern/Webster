@@ -458,12 +458,13 @@ export const scrapeImages = async (
             }
 
             // Update consecutive misses based on batch result
-            if (batchHasSuccess) {
-              console.log(`Batch had success - resetting consecutiveMisses to 0 (was ${consecutiveMisses})`)
-              consecutiveMisses = 0 // Reset on any success in batch
-            } else if (batchFailed || batch.length === 0) {
+            // Batch failure takes precedence - if any image in batch fails, treat whole batch as failed
+            if (batchFailed || batch.length === 0) {
               consecutiveMisses += 1 // Increment by 1 for each failed batch
               console.log(`Batch failed - incrementing consecutiveMisses to ${consecutiveMisses} (threshold: ${consecutiveMissThreshold})`)
+            } else if (batchHasSuccess) {
+              console.log(`Batch had success - resetting consecutiveMisses to 0 (was ${consecutiveMisses})`)
+              consecutiveMisses = 0 // Reset only if entire batch succeeds without any failures
             }
 
             currentIndex += BATCH_SIZE
