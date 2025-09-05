@@ -494,14 +494,14 @@ export const scrapeImages = async (
             
             // Skip if wrong file type
             if (!type || !fileTypes.includes(type)) {
-              onProgress?.({ stage: 'scanning', processed: processedCount, total: discoveredOnlyUrls.length, found: images.length, currentUrl: imageUrl })
+              onProgress?.({ stage: 'scanning', processed: processedCount, total: discoveredOnlyUrls.length, found: images.length })
               continue
             }
             
             // Skip if filtered
             const isFiltered = imageFilter && imageFilter(imageUrl)
             if (isFiltered) {
-              onProgress?.({ stage: 'scanning', processed: processedCount, total: discoveredOnlyUrls.length, found: images.length, currentUrl: imageUrl })
+              onProgress?.({ stage: 'scanning', processed: processedCount, total: discoveredOnlyUrls.length, found: images.length })
               continue
             }
             
