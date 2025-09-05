@@ -330,6 +330,8 @@ export const scrapeImages = async (
           while (currentIndex <= DEFAULTS.SEQUENTIAL_MAX_IMAGES && consecutiveMisses < consecutiveMissThreshold) {
             if (signal?.aborted) throw new Error('Aborted')
             
+            console.log(`Sequential generation: index=${currentIndex}, consecutiveMisses=${consecutiveMisses}, threshold=${consecutiveMissThreshold}`)
+            
             // Create batch of candidates
             const batch: string[] = []
             for (let j = 0; j < BATCH_SIZE && (currentIndex + j) <= DEFAULTS.SEQUENTIAL_MAX_IMAGES; j++) {
@@ -451,9 +453,11 @@ export const scrapeImages = async (
 
             // Update consecutive misses based on batch result
             if (batchHasSuccess) {
+              console.log(`Batch had success - resetting consecutiveMisses to 0 (was ${consecutiveMisses})`)
               consecutiveMisses = 0 // Reset on any success in batch
             } else if (batchFailed || batch.length === 0) {
               consecutiveMisses += 1 // Increment by 1 for each failed batch
+              console.log(`Batch failed - incrementing consecutiveMisses to ${consecutiveMisses} (threshold: ${consecutiveMissThreshold})`)
             }
 
             currentIndex += BATCH_SIZE
@@ -852,13 +856,6 @@ function detectStrongSequentialPattern(urls: string[]): { basePath: string, exte
   for (const [key, set] of map.entries()) {
     const nums = Array.from(set).sort((a, b) => a - b)
     console.log(`Pattern candidate: key="${key}", numbers=[${nums.join(', ')}]`)
-    
-    // Skip if we found too many existing images (likely excessive content)
-    if (nums.length > DEFAULTS.SEQUENTIAL_MAX_IMAGES) {
-      console.log(`Skipping pattern - too many existing images (${nums.length} > ${DEFAULTS.SEQUENTIAL_MAX_IMAGES})`)
-      continue
-    }
-    
     for (let i = 0; i < nums.length - 1; i++) {
       if (nums[i + 1] === nums[i] + 1) {
         const [base, ext] = key.split('||')
