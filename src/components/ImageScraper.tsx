@@ -388,6 +388,7 @@ const ImageScraper: React.FC = () => {
         options.consecutiveMissThreshold = configuration.consecutiveMissThreshold
       }
 
+      console.log('Scraping with file types:', configuration.fileTypes)
       const scrapedImages = await scrapeImages(scrapeUrl, configuration.fileTypes, options)
 
       // Merge returned images with any live-inserted images ensuring uniqueness
