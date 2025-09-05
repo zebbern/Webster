@@ -298,14 +298,9 @@ export const scrapeImages = async (
 
         // Check for strong sequential patterns 
         const seqInfo = detectStrongSequentialPattern(imageUrls)
-        if (seqInfo) {
-          // Sequential pattern detected for batch processing
+        if (seqInfo && fileTypes.includes(seqInfo.extension)) {
+          // Sequential pattern detected and file type matches - do batch processing
           const { basePath, extension, pad } = seqInfo
-          
-          // Skip sequential processing if extension is not in selected file types
-          if (!fileTypes.includes(extension)) {
-            // Pattern found but extension not in selected types, skip to non-sequential processing
-          } else {
           
           // Process images in smaller batches for server-friendly validation
           const BATCH_SIZE = DEFAULTS.BATCH_SIZE
@@ -475,9 +470,9 @@ export const scrapeImages = async (
               await new Promise(res => setTimeout(res, TIMING.PROCESSING_DELAY))
             }
           }
-          } // End of file type check for sequential processing
         } else {
-          // No sequential pattern found, extract ONLY discovered URLs without generation
+          // No sequential pattern found OR pattern extension doesn't match selected file types
+          // Extract ONLY discovered URLs without generation
           const discoveredOnlyUrls = extractImageUrls(body, [], chapterUrl, body, false) // NO generation
           
           let processedCount = 0
