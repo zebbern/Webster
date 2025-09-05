@@ -292,8 +292,8 @@ export const scrapeImages = async (
 
         onProgress?.({ stage: 'scanning', processed: images.length, total: DEFAULTS.SEQUENTIAL_MAX_IMAGES * chapterCount, found: images.length, currentUrl: chapterUrl })
 
-        // Extract initial candidates for this chapter
-        let imageUrls = extractImageUrls(body, [], chapterUrl, body)
+        // Extract initial candidates for this chapter (with generation for sequential processing)
+        let imageUrls = extractImageUrls(body, [], chapterUrl, body, true)
         imageUrls = Array.from(new Set(imageUrls))
 
         // Check for strong sequential patterns 
@@ -477,12 +477,14 @@ export const scrapeImages = async (
           }
           } // End of file type check for sequential processing
         } else {
-          // No sequential pattern found, process discovered URLs in batches with same consecutive miss logic as sequential
+          // No sequential pattern found, extract ONLY discovered URLs without generation
+          const discoveredOnlyUrls = extractImageUrls(body, [], chapterUrl, body, false) // NO generation
+          
           let processedCount = 0
           let consecutiveMisses = 0
-          const FALLBACK_BATCH_SIZE = DEFAULTS.BATCH_SIZE // Use same batch size as sequential
+          const FALLBACK_BATCH_SIZE = DEFAULTS.BATCH_SIZE
           
-          for (let batchStart = 0; batchStart < imageUrls.length; batchStart += FALLBACK_BATCH_SIZE) {
+          for (let batchStart = 0; batchStart < discoveredOnlyUrls.length; batchStart += FALLBACK_BATCH_SIZE) {
             if (signal?.aborted) throw new Error('Aborted')
             
             // Check consecutive miss threshold (same as sequential)
@@ -491,9 +493,9 @@ export const scrapeImages = async (
               break
             }
             
-            // Create batch from discovered URLs
-            const batchEnd = Math.min(batchStart + FALLBACK_BATCH_SIZE, imageUrls.length)
-            const batch = imageUrls.slice(batchStart, batchEnd)
+            // Create batch from discovered URLs (no generation)
+            const batchEnd = Math.min(batchStart + FALLBACK_BATCH_SIZE, discoveredOnlyUrls.length)
+            const batch = discoveredOnlyUrls.slice(batchStart, batchEnd)
             let validImagesInBatch = 0
             
             // Validate each URL in the batch (same validation logic as sequential)
@@ -510,14 +512,14 @@ export const scrapeImages = async (
               
               // Skip if wrong file type
               if (!type || !fileTypes.includes(type)) {
-                onProgress?.({ stage: 'scanning', processed: processedCount, total: imageUrls.length, found: images.length, currentUrl: imageUrl })
+                onProgress?.({ stage: 'scanning', processed: processedCount, total: discoveredOnlyUrls.length, found: images.length, currentUrl: imageUrl })
                 continue
               }
               
               // Skip if filtered
               const isFiltered = imageFilter && imageFilter(imageUrl)
               if (isFiltered) {
-                onProgress?.({ stage: 'scanning', processed: processedCount, total: imageUrls.length, found: images.length, currentUrl: imageUrl })
+                onProgress?.({ stage: 'scanning', processed: processedCount, total: discoveredOnlyUrls.length, found: images.length, currentUrl: imageUrl })
                 continue
               }
               
@@ -595,7 +597,7 @@ export const scrapeImages = async (
                 onProgress?.({ 
                   stage: 'scanning', 
                   processed: processedCount, 
-                  total: imageUrls.length, 
+                  total: discoveredOnlyUrls.length, 
                   found: images.length, 
                   currentUrl: result.url, 
                   image: newImage 
@@ -706,7 +708,7 @@ export const scrapeImages = async (
 }
 
 // Extract image URLs from scraped content (robust checks)
-function extractImageUrls(markdown: string, links: any[], baseUrl: string, extract: any = null): string[] {
+function extractImageUrls(markdown: string, links: any[], baseUrl: string, extract: any = null, generateSequential: boolean = true): string[] {
   const imageUrls = new Set<string>()
   const sequentialPatterns = new Set<string>()
 
@@ -825,9 +827,11 @@ function extractImageUrls(markdown: string, links: any[], baseUrl: string, extra
     while ((pu = plainUrlRegex.exec(markdown)) !== null) tryAdd(pu[0])
   }
 
-  // 5) Generate additional sequential images based on detected patterns
-  const additionalUrls = generateSequentialImages(sequentialPatterns)
-  additionalUrls.forEach(url => imageUrls.add(url))
+  // 5) Generate additional sequential images based on detected patterns (only if enabled)
+  if (generateSequential !== false) {
+    const additionalUrls = generateSequentialImages(sequentialPatterns)
+    additionalUrls.forEach(url => imageUrls.add(url))
+  }
 
   return Array.from(imageUrls)
 }
