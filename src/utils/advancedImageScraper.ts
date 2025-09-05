@@ -340,8 +340,11 @@ export const scrapeImages = async (
               const candidate = `${basePath}${padded}.${extension}`
               if (!seenUrls.has(candidate)) {
                 batch.push(candidate)
+              } else {
+                console.log(`Skipping already seen URL: ${candidate}`)
               }
             }
+            console.log(`Generated batch of ${batch.length} candidates starting from index ${currentIndex}:`, batch)
 
             // Unified failsafe approach - check images in batch regardless of validateImages setting
             let batchHasSuccess = false
@@ -412,6 +415,7 @@ export const scrapeImages = async (
               }
 
               if (imageExists) {
+                console.log(`✓ Image exists: ${candidate}`)
                 // Check if image should be filtered out
                 if (imageFilter && imageFilter(candidate)) {
                   console.log(`Image filtered out: ${candidate}`)
@@ -421,6 +425,7 @@ export const scrapeImages = async (
                   seenUrls.add(candidate)
                 } else {
                   // Success - add image
+                  console.log(`✓ Adding valid image: ${candidate}`)
                   batchHasSuccess = true
                   chapterImageCount++
                   seenUrls.add(candidate)
