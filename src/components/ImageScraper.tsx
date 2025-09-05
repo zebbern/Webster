@@ -159,9 +159,11 @@ const ImageScraper: React.FC = () => {
       
       // First try using URL pattern manager for custom patterns
       newUrl = urlPatternManager.generateChapterUrl(url, targetChapterNumber)
+      console.log(`URL Pattern Manager result for chapter ${targetChapterNumber}:`, newUrl)
       
       // If pattern manager didn't generate a URL, fall back to default method
       if (!newUrl) {
+        console.log('No URL pattern found, using default chapter URL generation')
         newUrl = generateChapterUrl(url, targetChapterNumber)
       }
       
