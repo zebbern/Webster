@@ -496,36 +496,113 @@ export const scrapeImages = async (
             const batch = imageUrls.slice(batchStart, batchEnd)
             let validImagesInBatch = 0
             
-            // Process each URL in the batch
+            // Validate each URL in the batch (same validation logic as sequential)
+            let batchResults: { url: string; valid: boolean; filtered?: boolean; type?: string }[] = []
+            
+            // First pass: validate all images in batch
             for (const imageUrl of batch) {
               if (signal?.aborted) throw new Error('Aborted')
               if (!imageUrl) continue
               if (seenUrls.has(imageUrl)) continue
               
-              seenUrls.add(imageUrl)
               const type = getFileTypeFromUrl(imageUrl)
               processedCount++
-
+              
+              // Skip if wrong file type
               if (!type || !fileTypes.includes(type)) {
                 onProgress?.({ stage: 'scanning', processed: processedCount, total: imageUrls.length, found: images.length, currentUrl: imageUrl })
                 continue
               }
-
-              // Check if image should be filtered out
-              if (imageFilter && imageFilter(imageUrl)) {
+              
+              // Skip if filtered
+              const isFiltered = imageFilter && imageFilter(imageUrl)
+              if (isFiltered) {
                 onProgress?.({ stage: 'scanning', processed: processedCount, total: imageUrls.length, found: images.length, currentUrl: imageUrl })
                 continue
               }
+              
+              let imageExists = false
+              
+              if (validateImages) {
+                // Use HEAD request for validation (same as sequential)
+                try {
+                  const res = await fetchData(imageUrl, 'HEAD', signal)
+                  const status = res?.status ?? 200
+                  imageExists = status < THRESHOLDS.HTTP_SUCCESS_THRESHOLD
+                } catch (err) {
+                  imageExists = false
+                }
+              } else {
+                // Use Image element testing for no-validation mode (same as sequential)
+                imageExists = await new Promise<boolean>((resolve) => {
+                  const img = new Image()
+                  let resolved = false
+                  
+                  const cleanup = () => {
+                    if (resolved) return
+                    resolved = true
+                    img.onload = null
+                    img.onerror = null
+                    img.onabort = null
+                    img.src = ''
+                  }
+                  
+                  const timeout = setTimeout(() => {
+                    cleanup()
+                    resolve(false) // Timeout = failure
+                  }, TIMING.IMAGE_VALIDATION_TIMEOUT)
+                  
+                  img.onload = () => {
+                    clearTimeout(timeout)
+                    cleanup()
+                    resolve(true) // Successfully loaded
+                  }
+                  
+                  img.onerror = () => {
+                    clearTimeout(timeout)
+                    cleanup()
+                    resolve(false) // Failed to load
+                  }
+                  
+                  img.onabort = () => {
+                    clearTimeout(timeout)
+                    cleanup()
+                    resolve(false) // Request was aborted
+                  }
+                  
+                  img.src = imageUrl
+                })
+              }
+              
+              batchResults.push({ url: imageUrl, valid: imageExists, filtered: isFiltered, type })
+              seenUrls.add(imageUrl)
+            }
+            
+            // Second pass: only add valid images (same as sequential)
+            for (const result of batchResults) {
+              if (result.valid && !result.filtered) {
+                const newImage: ScrapedImage = { 
+                  url: result.url, 
+                  type: result.type!, 
+                  source: 'dynamic', 
+                  alt: `Image from ${new URL(chapterUrl).hostname} - Chapter ${currentChapter}` 
+                }
+                images.push(newImage)
+                validImagesInBatch++
 
-              const newImage: ScrapedImage = { url: imageUrl, type, source: 'dynamic', alt: `Image from ${new URL(chapterUrl).hostname} - Chapter ${currentChapter}` }
-              images.push(newImage)
-              validImagesInBatch++
+                // Live insertion
+                onNewImage?.(newImage)
+                onProgress?.({ 
+                  stage: 'scanning', 
+                  processed: processedCount, 
+                  total: imageUrls.length, 
+                  found: images.length, 
+                  currentUrl: result.url, 
+                  image: newImage 
+                })
 
-              // Live insertion
-              onNewImage?.(newImage)
-              onProgress?.({ stage: 'scanning', processed: processedCount, total: imageUrls.length, found: images.length, currentUrl: imageUrl, image: newImage })
-
-              await new Promise(res => setTimeout(res, TIMING.PROCESSING_DELAY))
+                await new Promise(res => setTimeout(res, TIMING.PROCESSING_DELAY))
+              }
             }
             
             // Update consecutive misses based on batch result (same logic as sequential)
