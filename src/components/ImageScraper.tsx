@@ -316,7 +316,7 @@ const ImageScraper: React.FC = () => {
     // Handle chapter results and show failure notifications
     if (p.chapterResults && configuration.chapterCount > 1) {
       const latestResult = p.chapterResults[p.chapterResults.length - 1]
-      if (latestResult && !latestResult.success) {
+      if (latestResult && !latestResult.success && latestResult.error !== 'Aborted') {
         toast.error(`Chapter ${latestResult.chapterNumber} failed: ${latestResult.error}`)
       }
     }
@@ -707,13 +707,13 @@ config=/comics/title/ch-{chapter:03d}`}
           <div className="flex items-center space-x-6 p-4 bg-accent/10 border border-accent/20 rounded-lg mb-6">
             <div className="flex items-center space-x-2 text-accent">
               <CheckCircle className="h-5 w-5" />
-              <span className="font-medium">{stats.total} images found</span>
+              <span className="font-medium">{scraping.stats.total} images found</span>
             </div>
             <div className="text-sm text-accent/80">
               {(() => {
-                const filteredCount = images.filter(img => shouldFilterImage(img.url)).length
-                const displayedCount = images.length - filteredCount
-                return `${displayedCount} displayed • ${filteredCount} filtered out • ${stats.duplicates} duplicates removed`
+                const filteredCount = scraping.images.filter(img => filterActions.shouldFilterImage(img.url)).length
+                const displayedCount = scraping.images.length - filteredCount
+                return `${displayedCount} displayed • ${filteredCount} filtered out • ${scraping.stats.duplicates} duplicates removed`
               })()}
             </div>
           </div>
