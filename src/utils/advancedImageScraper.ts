@@ -477,53 +477,63 @@ export const scrapeImages = async (
           }
           } // End of file type check for sequential processing
         } else {
-          // No sequential pattern found, process discovered URLs normally with consecutive miss logic
+          // No sequential pattern found, process discovered URLs in batches with same consecutive miss logic as sequential
           let processedCount = 0
           let consecutiveMisses = 0
-          let lastSuccessIndex = -1
+          const FALLBACK_BATCH_SIZE = DEFAULTS.BATCH_SIZE // Use same batch size as sequential
           
-          for (let i = 0; i < imageUrls.length; i++) {
-            const imageUrl = imageUrls[i]
+          for (let batchStart = 0; batchStart < imageUrls.length; batchStart += FALLBACK_BATCH_SIZE) {
             if (signal?.aborted) throw new Error('Aborted')
-            if (!imageUrl) continue
-            if (seenUrls.has(imageUrl)) continue
             
-            // Check consecutive miss threshold
+            // Check consecutive miss threshold (same as sequential)
             if (consecutiveMisses >= consecutiveMissThreshold) {
-              // Stop processing if too many consecutive failures
+              // Stop processing if too many consecutive batch failures
               break
             }
             
-            seenUrls.add(imageUrl)
-
-            const type = getFileTypeFromUrl(imageUrl)
-            processedCount++
-
-            if (!type || !fileTypes.includes(type)) {
-              onProgress?.({ stage: 'scanning', processed: processedCount, total: imageUrls.length, found: images.length, currentUrl: imageUrl })
-              consecutiveMisses++
-              continue
-            }
-
-            // Check if image should be filtered out
-            if (imageFilter && imageFilter(imageUrl)) {
-              onProgress?.({ stage: 'scanning', processed: processedCount, total: imageUrls.length, found: images.length, currentUrl: imageUrl })
-              consecutiveMisses++
-              continue
-            }
-
-            const newImage: ScrapedImage = { url: imageUrl, type, source: 'dynamic', alt: `Image from ${new URL(chapterUrl).hostname} - Chapter ${currentChapter}` }
-            images.push(newImage)
+            // Create batch from discovered URLs
+            const batchEnd = Math.min(batchStart + FALLBACK_BATCH_SIZE, imageUrls.length)
+            const batch = imageUrls.slice(batchStart, batchEnd)
+            let validImagesInBatch = 0
             
-            // Reset consecutive misses on success
-            consecutiveMisses = 0
-            lastSuccessIndex = i
+            // Process each URL in the batch
+            for (const imageUrl of batch) {
+              if (signal?.aborted) throw new Error('Aborted')
+              if (!imageUrl) continue
+              if (seenUrls.has(imageUrl)) continue
+              
+              seenUrls.add(imageUrl)
+              const type = getFileTypeFromUrl(imageUrl)
+              processedCount++
 
-            // Live insertion
-            onNewImage?.(newImage)
-            onProgress?.({ stage: 'scanning', processed: processedCount, total: imageUrls.length, found: images.length, currentUrl: imageUrl, image: newImage })
+              if (!type || !fileTypes.includes(type)) {
+                onProgress?.({ stage: 'scanning', processed: processedCount, total: imageUrls.length, found: images.length, currentUrl: imageUrl })
+                continue
+              }
 
-            await new Promise(res => setTimeout(res, TIMING.PROCESSING_DELAY))
+              // Check if image should be filtered out
+              if (imageFilter && imageFilter(imageUrl)) {
+                onProgress?.({ stage: 'scanning', processed: processedCount, total: imageUrls.length, found: images.length, currentUrl: imageUrl })
+                continue
+              }
+
+              const newImage: ScrapedImage = { url: imageUrl, type, source: 'dynamic', alt: `Image from ${new URL(chapterUrl).hostname} - Chapter ${currentChapter}` }
+              images.push(newImage)
+              validImagesInBatch++
+
+              // Live insertion
+              onNewImage?.(newImage)
+              onProgress?.({ stage: 'scanning', processed: processedCount, total: imageUrls.length, found: images.length, currentUrl: imageUrl, image: newImage })
+
+              await new Promise(res => setTimeout(res, TIMING.PROCESSING_DELAY))
+            }
+            
+            // Update consecutive misses based on batch result (same logic as sequential)
+            if (validImagesInBatch === 0) {
+              consecutiveMisses += 1 // Increment when batch has no valid images
+            } else {
+              consecutiveMisses = 0 // Reset if batch found valid images
+            }
           }
         }
         
