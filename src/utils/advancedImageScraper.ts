@@ -342,10 +342,11 @@ export const scrapeImages = async (
               }
             }
 
-            // Unified failsafe approach - check images in batch regardless of validateImages setting
-            let batchHasSuccess = false
+            // Check all images in batch first, only add if entire batch succeeds
+            let batchResults: { url: string; valid: boolean; filtered?: boolean }[] = []
             let batchFailed = false
             
+            // First pass: validate all images in batch
             for (let i = 0; i < batch.length; i++) {
               const candidate = batch[i]
               let imageExists = false
@@ -356,11 +357,7 @@ export const scrapeImages = async (
                   const res = await fetchData(candidate, 'HEAD', signal)
                   const status = res?.status ?? 200
                   imageExists = status < THRESHOLDS.HTTP_SUCCESS_THRESHOLD
-                  if (!imageExists) {
-                    console.log(`Image validation failed: ${candidate} (${status})`)
-                  }
                 } catch (err) {
-                  console.log(`Image validation error: ${candidate}`, err)
                   imageExists = false
                 }
               } else {
@@ -375,7 +372,6 @@ export const scrapeImages = async (
                     img.onload = null
                     img.onerror = null
                     img.onabort = null
-                    // Clear src to prevent any potential memory leaks
                     img.src = ''
                   }
                   
@@ -404,54 +400,51 @@ export const scrapeImages = async (
                   
                   img.src = candidate
                 })
-                
               }
 
-              if (imageExists) {
-                // Check if image should be filtered out
-                if (imageFilter && imageFilter(candidate)) {
-                  // Still count as successful but don't add to results
-                  batchHasSuccess = true
-                  chapterImageCount++
-                  seenUrls.add(candidate)
-                } else {
-                  // Success - add image
-                  batchHasSuccess = true
-                  chapterImageCount++
-                  seenUrls.add(candidate)
-                  
-                  const newImage: ScrapedImage = { 
-                    url: candidate, 
-                    type: extension, 
-                    source: 'static', 
-                    alt: `Image from ${new URL(chapterUrl).hostname} - Chapter ${currentChapter}` 
-                  }
-                  images.push(newImage)
-
-                  // Live insertion
-                  onNewImage?.(newImage)
-                  onProgress?.({ 
-                  stage: 'scanning', 
-                  processed: images.length, 
-                  total: DEFAULTS.SEQUENTIAL_MAX_IMAGES * chapterCount, 
-                  found: images.length, 
-                  currentUrl: candidate, 
-                  image: newImage 
-                })
-                }
-              } else {
-                // Failed image - mark batch as failed and stop checking rest of this batch
-                // This ensures if image 2 fails, images 2 and 3 are not displayed
+              const isFiltered = imageFilter && imageFilter(candidate)
+              batchResults.push({ url: candidate, valid: imageExists, filtered: isFiltered })
+              
+              // If any image fails, mark batch as failed and break
+              if (!imageExists) {
                 batchFailed = true
                 break
               }
             }
 
+            // Second pass: only add images if entire batch succeeded
+            if (!batchFailed && batchResults.length > 0) {
+              for (const result of batchResults) {
+                if (result.valid) {
+                  chapterImageCount++
+                  seenUrls.add(result.url)
+                  
+                  if (!result.filtered) {
+                    const newImage: ScrapedImage = { 
+                      url: result.url, 
+                      type: extension, 
+                      source: 'static', 
+                      alt: `Image from ${new URL(chapterUrl).hostname} - Chapter ${currentChapter}` 
+                    }
+                    images.push(newImage)
+                    onNewImage?.(newImage)
+                    onProgress?.({ 
+                      stage: 'scanning', 
+                      processed: images.length, 
+                      total: DEFAULTS.SEQUENTIAL_MAX_IMAGES * chapterCount, 
+                      found: images.length, 
+                      currentUrl: result.url, 
+                      image: newImage 
+                    })
+                  }
+                }
+              }
+            }
+
             // Update consecutive misses based on batch result
-            // Batch failure takes precedence - if any image in batch fails, treat whole batch as failed
             if (batchFailed || batch.length === 0) {
               consecutiveMisses += 1 // Increment by 1 for each failed batch
-            } else if (batchHasSuccess) {
+            } else {
               consecutiveMisses = 0 // Reset only if entire batch succeeds without any failures
             }
 
