@@ -67,34 +67,26 @@ export const ScrapingResultsSection = React.memo(({
   const handleAutoNextChapter = () => {
     const now = Date.now()
     
-    // Check both cooldowns: 30s after last auto navigation and 25s after entering preview
-    const autoScrollCooldownOK = now - lastAutoScrollTime >= TIMING.AUTO_CHAPTER_COOLDOWN
-    const previewEnterCooldownOK = now - lastPreviewEnterTime >= TIMING.AUTO_CHAPTER_PREVIEW_DELAY
+    // Cooldown checking is now done in ImageGallery via canAutoNavigate prop
+    // This function executes immediately when called (cooldowns already validated)
     
-    if (autoScrollCooldownOK && previewEnterCooldownOK && !isLoading && !isNavigating) { 
-      // Auto next chapter triggered - update timestamp immediately
-      updateLastScrollTime(now)
+    // Auto next chapter triggered - update timestamp immediately
+    updateLastScrollTime(now)
+    
+    // Update URL to next chapter and trigger scraping with the new URL
+    const chapterInfo = parseChapterFromUrl(url)
+    if (chapterInfo.hasChapter) {
+      const nextChapterNumber = chapterInfo.chapterNumber + chapterCount
+      const nextChapterUrl = updateChapterUrl(nextChapterNumber, true)
+      // Auto navigating to next chapter
       
-      // Update URL to next chapter and trigger scraping with the new URL
-      const chapterInfo = parseChapterFromUrl(url)
-      if (chapterInfo.hasChapter) {
-        const nextChapterNumber = chapterInfo.chapterNumber + chapterCount
-        const nextChapterUrl = updateChapterUrl(nextChapterNumber, true)
-        // Auto navigating to next chapter
-        
-        // Use the new URL directly
-        if (nextChapterUrl && nextChapterUrl !== url) {
-          onNextChapter(nextChapterUrl)
-        } else {
-          // Failed to generate next chapter URL, falling back
-          onNextChapter(url)
-        }
+      // Use the new URL directly
+      if (nextChapterUrl && nextChapterUrl !== url) {
+        onNextChapter(nextChapterUrl)
+      } else {
+        // Failed to generate next chapter URL, falling back
+        onNextChapter(url)
       }
-    } else {
-      const scrollCooldownRemaining = Math.max(0, TIMING.AUTO_CHAPTER_COOLDOWN - (now - lastAutoScrollTime)) / 1000
-      const previewCooldownRemaining = Math.max(0, TIMING.AUTO_CHAPTER_PREVIEW_DELAY - (now - lastPreviewEnterTime)) / 1000
-      const remainingTime = Math.max(scrollCooldownRemaining, previewCooldownRemaining)
-      // Auto next chapter blocked by cooldown
     }
   }
 
