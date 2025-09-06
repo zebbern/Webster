@@ -5,6 +5,7 @@ import { downloadImage, downloadAllImages } from '../utils/downloadUtils'
 import { copyToClipboard } from '../utils/clipboardUtils'
 import ImageModal from './ImageModal'
 import { downloadHTMLExport } from '../utils/htmlExporter'
+import { TIMING, THRESHOLDS, UI_CONFIG } from '../constants'
 
 interface ImageGalleryProps {
   images: ScrapedImage[]
@@ -45,22 +46,25 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
     setAutoNavTriggered(false)
   }, [images])
 
-  // Force preview mode refresh when new images are loaded
+  // Only scroll to top when initially entering preview mode, not when new images are added
   useEffect(() => {
     if (previewMode && images.length > 0) {
-      // Force a re-render by resetting scroll position immediately
       const previewContainer = document.getElementById('preview-overlay-scroll')
       if (previewContainer) {
-        // Reset scroll immediately to prevent stacked images
-        previewContainer.scrollTop = 0
+        // Only reset scroll position when first entering preview mode
+        // Check if we're at the top already (initial state) or if user manually scrolled there
+        const isAtTop = previewContainer.scrollTop <= THRESHOLDS.TOP_SCROLL_THRESHOLD
         
-        // Small delay to ensure DOM is updated, then smooth scroll to top
-        setTimeout(() => {
-          previewContainer.scrollTo({ top: 0, behavior: 'smooth' })
-        }, 100)
+        // Only auto-scroll to top if we're switching to preview mode and not already positioned correctly
+        if (isAtTop || previewContainer.scrollTop === 0) {
+          setTimeout(() => {
+            previewContainer.scrollTo({ top: 0, behavior: 'smooth' })
+          }, TIMING.PREVIEW_REFRESH_DELAY)
+        }
+        // Otherwise, maintain current scroll position when new images are added
       }
     }
-  }, [images, previewMode])
+  }, [previewMode]) // Removed 'images' dependency to prevent scroll reset when new images are added
 
   // Clean up scroll state when exiting preview mode
   useEffect(() => {
@@ -105,17 +109,16 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
     const scrollHeight = previewContainer.scrollHeight
     
     // More strict bottom detection - only trigger when very close to bottom
-    // Increased threshold to 50px to avoid early triggering
-    const isAtBottom = currentScrollY + containerHeight >= scrollHeight - 50
+    const isAtBottom = currentScrollY + containerHeight >= scrollHeight - THRESHOLDS.BOTTOM_SCROLL_THRESHOLD
     
     // Only consider "at bottom" if we've scrolled a significant amount
-    const hasScrolledSignificantly = currentScrollY > containerHeight * 0.5
+    const hasScrolledSignificantly = currentScrollY > containerHeight * THRESHOLDS.SCROLL_PERCENTAGE_THRESHOLD
 
     // Show buttons when:
     // 1. Scrolling up (currentScrollY < lastScrollY)
     // 2. At the bottom of the page
-    // 3. At the very top (currentScrollY < 50)
-    if (currentScrollY < lastScrollY || isAtBottom || currentScrollY < 50) {
+    // 3. At the very top
+    if (currentScrollY < lastScrollY || isAtBottom || currentScrollY < THRESHOLDS.TOP_SCROLL_THRESHOLD) {
       setButtonsVisible(true)
       onButtonVisibilityChange?.(true)
     } else if (currentScrollY > lastScrollY) {
@@ -138,7 +141,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
           console.log('Executing auto next chapter navigation')
           onNextChapter()
         }
-      }, 1500) // Increased from 1000ms to 1500ms
+      }, TIMING.AUTO_NAVIGATION_DELAY)
     }
 
     setLastScrollY(currentScrollY)
@@ -154,8 +157,8 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
         clearTimeout(scrollTimeoutRef.current)
       }
       
-      // Reduce throttling to improve responsiveness - 8ms (120fps)
-      scrollTimeoutRef.current = setTimeout(handleScrollThrottled, 8)
+      // Reduce throttling to improve responsiveness
+      scrollTimeoutRef.current = setTimeout(handleScrollThrottled, TIMING.SCROLL_THROTTLE_INTERVAL)
     }
 
     const previewContainer = document.getElementById('preview-overlay-scroll')
@@ -205,7 +208,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
 
   const formatFileSize = (bytes: number | undefined) => {
     if (!bytes || bytes === 0) return '—'
-    const k = 1024
+    const k = UI_CONFIG.BYTES_IN_KILOBYTE
     const sizes = ['B', 'KB', 'MB', 'GB']
     const i = Math.floor(Math.log(bytes) / Math.log(k))
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]

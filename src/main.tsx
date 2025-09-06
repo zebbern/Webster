@@ -66,5 +66,5 @@ Promise.all([
   // Add small delay to ensure everything is painted
   setTimeout(() => {
     rootElement.classList.add('loaded')
-  }, 50)
+  }, TIMING.MAIN_APP_LOAD_DELAY)
 }) 

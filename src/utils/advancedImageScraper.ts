@@ -1,5 +1,6 @@
 import corsClient from '../cors/client'
 import { urlPatternManager, extractChapterNumber } from './urlPatterns'
+import { consoleManager, withTemporaryConsole } from './consoleUtils'
 import {
   TIMING,
   DEFAULTS,
@@ -33,10 +34,7 @@ const fetchData = async (url: string, method: 'GET' | 'HEAD' = 'GET', signal?: A
   }
   
   // Temporarily silence console during fetch to reduce noise
-  const originalLog = console.log
-  const originalWarn = console.warn
-  console.log = () => {}
-  console.warn = () => {}
+  consoleManager.silence(['log', 'warn'])
   
   // Create the request promise and cache it
   const requestPromise = (async () => {
@@ -63,9 +61,9 @@ const fetchData = async (url: string, method: 'GET' | 'HEAD' = 'GET', signal?: A
         
         const delay = baseDelay * Math.pow(2, DEFAULTS.RETRY_COUNT - retries) // Exponential backoff
         
-        console.log = originalLog // Temporarily restore for this message
-        console.warn(`${errorType} (${fetched.status}) for ${url}, retrying in ${delay}ms... (${retries} retries left)`)
-        console.log = () => {}
+        withTemporaryConsole('warn', () => {
+          console.warn(`${errorType} (${fetched.status}) for ${url}, retrying in ${delay}ms... (${retries} retries left)`)
+        })
         
         // Remove from cache before retry to prevent caching failed attempts
         requestCache.delete(cacheKey)
@@ -75,17 +73,16 @@ const fetchData = async (url: string, method: 'GET' | 'HEAD' = 'GET', signal?: A
       
       // Log 525 errors that exceed retry limit
       if (fetched.status === 525) {
-        console.log = originalLog
-        console.error(`SSL handshake failed permanently for ${url} after all retries`)
-        console.log = () => {}
+        withTemporaryConsole('error', () => {
+          console.error(`SSL handshake failed permanently for ${url} after all retries`)
+        })
       }
       
       const body = typeof fetched.body === 'string' ? fetched.body : JSON.stringify(fetched.body)
       return { body, status: fetched.status || 200, headers: new Headers() }
     } catch (error: any) {
       // Handle fetch errors (including NS_BINDING_ABORTED)
-      console.log = originalLog
-      console.warn = originalWarn
+      consoleManager.restore()
       
       // Log the actual error for debugging
       if (!error.message?.includes('Aborted')) {
@@ -96,8 +93,7 @@ const fetchData = async (url: string, method: 'GET' | 'HEAD' = 'GET', signal?: A
       return { body: '', status: 500, headers: new Headers() }
     } finally {
       // Restore console
-      console.log = originalLog
-      console.warn = originalWarn
+      consoleManager.restore()
       // Always remove from cache when request completes (success or failure)
       requestCache.delete(cacheKey)
     }
@@ -164,19 +160,8 @@ export interface ScrapeOptions {
 }
 
 
-// Real web scraping using only direct HTML fetch
-export const scrapeImages = async (
-  url: string,
-  fileTypes: string[],
-  options: ScrapeOptions = {}
-): Promise<ScrapedImage[]> => {
-  const { onProgress, signal, onNewImage } = options
-  const consecutiveMissThreshold = options.consecutiveMissThreshold ?? DEFAULTS.CONSECUTIVE_MISS_THRESHOLD
-  const chapterCount = options.chapterCount ?? DEFAULTS.CHAPTER_COUNT
-  const validateImages = options.validateImages ?? DEFAULTS.VALIDATE_IMAGES
-  const fetchInterval = options.fetchInterval ?? DEFAULTS.FETCH_INTERVAL_MS
-  const imageFilter = options.imageFilter // Optional image filtering function
-
+// Validate input parameters and initialize scraping state
+const validateAndInitializeScraping = (url: string, options: ScrapeOptions) => {
   // Validate URL
   try {
     new URL(url)
@@ -187,6 +172,314 @@ export const scrapeImages = async (
   if (!url.startsWith('http://') && !url.startsWith('https://')) {
     throw new Error('URL must start with http:// or https://')
   }
+
+  const consecutiveMissThreshold = options.consecutiveMissThreshold ?? DEFAULTS.CONSECUTIVE_MISS_THRESHOLD
+  const chapterCount = options.chapterCount ?? DEFAULTS.CHAPTER_COUNT
+  const validateImages = options.validateImages ?? DEFAULTS.VALIDATE_IMAGES
+  const fetchInterval = options.fetchInterval ?? DEFAULTS.FETCH_INTERVAL_MS
+  const imageFilter = options.imageFilter
+
+  return {
+    consecutiveMissThreshold,
+    chapterCount,
+    validateImages,
+    fetchInterval,
+    imageFilter
+  }
+}
+
+// Generate chapter URL for multi-chapter scraping
+const generateChapterUrl = (baseUrl: string, chapterNumber: number): string => {
+  if (chapterNumber === 1) return baseUrl
+
+  // Try to use URL pattern manager first
+  const targetChapterNumber = extractChapterNumber(baseUrl)
+  if (targetChapterNumber !== null) {
+    const generatedUrl = urlPatternManager.generateChapterUrl(baseUrl, targetChapterNumber + (chapterNumber - 1))
+    if (generatedUrl) {
+      return generatedUrl
+    }
+  }
+
+  // Fallback: try to modify URL manually
+  try {
+    const urlObj = new URL(baseUrl)
+    const pathSegments = urlObj.pathname.split('/').filter(segment => segment.length > 0)
+    
+    for (let i = pathSegments.length - 1; i >= 0; i--) {
+      const segment = pathSegments[i]
+      const chapterMatch = segment.match(REGEX_PATTERNS.NUMBER_EXTRACTION)
+      if (chapterMatch) {
+        const [, prefix, numberStr, suffix] = chapterMatch
+        const currentNum = parseInt(numberStr, 10)
+        const newNum = currentNum + (chapterNumber - 1)
+        const paddedNum = numberStr.startsWith('0') ? newNum.toString().padStart(numberStr.length, '0') : newNum.toString()
+        pathSegments[i] = `${prefix}${paddedNum}${suffix}`
+        break
+      }
+    }
+    
+    urlObj.pathname = '/' + pathSegments.join('/') + (baseUrl.endsWith('/') ? '/' : '')
+    return urlObj.toString()
+  } catch (error) {
+    return baseUrl // Return original URL if generation fails
+  }
+}
+
+// Process images sequentially using detected pattern
+const processSequentialImages = async (
+  seqInfo: { basePath: string, extension: string, pad: number },
+  fileTypes: string[],
+  options: {
+    signal?: AbortSignal
+    validateImages: boolean
+    consecutiveMissThreshold: number
+    imageFilter?: (url: string) => boolean
+    onNewImage?: (image: ScrapedImage) => void
+    onProgress?: (progress: ScrapeProgress) => void
+    currentChapter: number
+    chapterUrl: string
+    images: ScrapedImage[]
+    seenUrls: Set<string>
+  }
+): Promise<void> => {
+  const { basePath, extension, pad } = seqInfo
+  const { 
+    signal, validateImages, consecutiveMissThreshold, imageFilter, 
+    onNewImage, onProgress, currentChapter, chapterUrl, images, seenUrls 
+  } = options
+  
+  if (!fileTypes.includes(extension)) return
+
+  const BATCH_SIZE = DEFAULTS.BATCH_SIZE
+  let consecutiveMisses = 0
+  let currentIndex = 1
+
+  while (currentIndex <= DEFAULTS.SEQUENTIAL_MAX_IMAGES && consecutiveMisses < consecutiveMissThreshold) {
+    if (signal?.aborted) throw new Error('Aborted')
+    
+    // Create batch of candidates
+    const batch: string[] = []
+    for (let j = 0; j < BATCH_SIZE && (currentIndex + j) <= DEFAULTS.SEQUENTIAL_MAX_IMAGES; j++) {
+      const padded = (currentIndex + j).toString().padStart(pad, '0')
+      const candidate = `${basePath}${padded}.${extension}`
+      if (!seenUrls.has(candidate)) {
+        batch.push(candidate)
+      }
+    }
+
+    // Check all images in batch
+    let batchResults: { url: string; valid: boolean; filtered?: boolean }[] = []
+    let firstFailureIndex = -1
+    
+    for (let i = 0; i < batch.length; i++) {
+      const candidate = batch[i]
+      const imageExists = await validateImageExists(candidate, validateImages, signal)
+      const isFiltered = imageFilter && imageFilter(candidate)
+      
+      batchResults.push({ url: candidate, valid: imageExists, filtered: isFiltered })
+      
+      if (!imageExists && firstFailureIndex === -1) {
+        firstFailureIndex = i
+        break
+      }
+    }
+
+    // Include all valid images up to first failure
+    const includeUpTo = firstFailureIndex === -1 ? batchResults.length : firstFailureIndex
+    let validImagesInBatch = 0
+    
+    for (let i = 0; i < includeUpTo; i++) {
+      const result = batchResults[i]
+      if (result.valid) {
+        validImagesInBatch++
+        seenUrls.add(result.url)
+        
+        if (!result.filtered) {
+          const newImage: ScrapedImage = { 
+            url: result.url, 
+            type: extension, 
+            source: 'static', 
+            alt: `Image from ${new URL(chapterUrl).hostname} - Chapter ${currentChapter}` 
+          }
+          images.push(newImage)
+          onNewImage?.(newImage)
+          onProgress?.({ 
+            stage: 'scanning', 
+            processed: images.length, 
+            total: DEFAULTS.SEQUENTIAL_MAX_IMAGES, 
+            found: images.length, 
+            currentUrl: result.url, 
+            image: newImage 
+          })
+        }
+      }
+    }
+
+    // Update consecutive misses
+    if (firstFailureIndex !== -1 || batch.length === 0) {
+      consecutiveMisses += 1
+    } else if (validImagesInBatch > 0) {
+      consecutiveMisses = 0
+    }
+
+    currentIndex += BATCH_SIZE
+  }
+}
+
+// Process discovered images one by one
+const processDiscoveredImages = async (
+  imageUrls: string[],
+  fileTypes: string[],
+  options: {
+    signal?: AbortSignal
+    validateImages: boolean
+    consecutiveMissThreshold: number
+    imageFilter?: (url: string) => boolean
+    onNewImage?: (image: ScrapedImage) => void
+    onProgress?: (progress: ScrapeProgress) => void
+    currentChapter: number
+    chapterUrl: string
+    images: ScrapedImage[]
+    seenUrls: Set<string>
+  }
+): Promise<void> => {
+  const { 
+    signal, validateImages, consecutiveMissThreshold, imageFilter,
+    onNewImage, onProgress, currentChapter, chapterUrl, images, seenUrls 
+  } = options
+
+  let processedCount = 0
+  let consecutiveMisses = 0
+  
+  for (const imageUrl of imageUrls) {
+    if (signal?.aborted) throw new Error('Aborted')
+    if (!imageUrl) continue
+    if (seenUrls.has(imageUrl)) continue
+    
+    if (consecutiveMisses >= consecutiveMissThreshold) break
+    
+    const type = getFileTypeFromUrl(imageUrl)
+    processedCount++
+    
+    if (!type || !fileTypes.includes(type)) {
+      onProgress?.({ stage: 'scanning', processed: processedCount, total: imageUrls.length, found: images.length, currentUrl: imageUrl })
+      continue
+    }
+    
+    const isFiltered = imageFilter && imageFilter(imageUrl)
+    if (isFiltered) {
+      onProgress?.({ stage: 'scanning', processed: processedCount, total: imageUrls.length, found: images.length, currentUrl: imageUrl })
+      continue
+    }
+    
+    const imageExists = await validateImageExists(imageUrl, validateImages, signal)
+    seenUrls.add(imageUrl)
+    
+    if (!imageExists) {
+      consecutiveMisses += 1
+    } else {
+      consecutiveMisses = 0
+      
+      const newImage: ScrapedImage = { 
+        url: imageUrl, 
+        type: type!, 
+        source: 'dynamic', 
+        alt: `Image from ${new URL(chapterUrl).hostname} - Chapter ${currentChapter}` 
+      }
+      images.push(newImage)
+
+      onNewImage?.(newImage)
+      onProgress?.({ 
+        stage: 'scanning', 
+        processed: processedCount, 
+        total: imageUrls.length, 
+        found: images.length, 
+        currentUrl: imageUrl, 
+        image: newImage 
+      })
+
+      await new Promise(res => setTimeout(res, TIMING.PROCESSING_DELAY))
+    }
+  }
+}
+
+// Check if discovery mode should be forced for specific sites
+const shouldForceDiscoveryMode = (chapterUrl: string, imageUrls: string[]): boolean => {
+  try {
+    const chapterUrlObj = new URL(chapterUrl)
+    if (chapterUrlObj.hostname.includes('manhuaus.com')) {
+      // Check if any discovered URLs use the hash-based pattern
+      return imageUrls.some(url => 
+        /img\.manhuaus\.com\/image[^\/]*\/[^\/]+\/[^\/]+\//.test(url)
+      )
+    }
+  } catch (error) {
+    // Ignore URL parsing errors
+  }
+  return false
+}
+
+// Validate if an image URL exists
+const validateImageExists = async (url: string, validateImages: boolean, signal?: AbortSignal): Promise<boolean> => {
+  if (validateImages) {
+    try {
+      const res = await fetchData(url, 'HEAD', signal)
+      return (res?.status ?? 200) < THRESHOLDS.HTTP_SUCCESS_THRESHOLD
+    } catch (err) {
+      return false
+    }
+  } else {
+    return await new Promise<boolean>((resolve) => {
+      const img = new Image()
+      let resolved = false
+      
+      const cleanup = () => {
+        if (resolved) return
+        resolved = true
+        img.onload = null
+        img.onerror = null
+        img.onabort = null
+        img.src = ''
+      }
+      
+      const timeout = setTimeout(() => {
+        cleanup()
+        resolve(false)
+      }, TIMING.IMAGE_VALIDATION_TIMEOUT)
+      
+      img.onload = () => {
+        clearTimeout(timeout)
+        cleanup()
+        resolve(true)
+      }
+      
+      img.onerror = () => {
+        clearTimeout(timeout)
+        cleanup()
+        resolve(false)
+      }
+      
+      img.onabort = () => {
+        clearTimeout(timeout)
+        cleanup()
+        resolve(false)
+      }
+      
+      img.src = url
+    })
+  }
+}
+
+// Real web scraping using only direct HTML fetch
+export const scrapeImages = async (
+  url: string,
+  fileTypes: string[],
+  options: ScrapeOptions = {}
+): Promise<ScrapedImage[]> => {
+  const { onProgress, signal, onNewImage } = options
+  const config = validateAndInitializeScraping(url, options)
+  const { consecutiveMissThreshold, chapterCount, validateImages, fetchInterval, imageFilter } = config
 
   const images: ScrapedImage[] = []
   const seenUrls = new Set<string>()
@@ -213,49 +506,11 @@ export const scrapeImages = async (
           currentUrl: `Waiting ${fetchInterval/1000} seconds before chapter ${currentChapter}...` 
         })
         
-        // Configurable delay between chapters
         await new Promise(resolve => setTimeout(resolve, fetchInterval))
         if (signal?.aborted) throw new Error('Aborted')
       }
       
-      // Determine the URL for this chapter
-      let chapterUrl = url
-      if (currentChapter > 1) {
-        // Try to use URL pattern manager first
-        const targetChapterNumber = extractChapterNumber(url)
-        if (targetChapterNumber !== null) {
-          const generatedUrl = urlPatternManager.generateChapterUrl(url, targetChapterNumber + (currentChapter - 1))
-          if (generatedUrl) {
-            chapterUrl = generatedUrl
-          }
-        }
-        
-        // Fallback: try to modify URL manually
-        if (chapterUrl === url) {
-          try {
-            const urlObj = new URL(url)
-            const pathSegments = urlObj.pathname.split('/').filter(segment => segment.length > 0)
-            
-            for (let i = pathSegments.length - 1; i >= 0; i--) {
-              const segment = pathSegments[i]
-              const chapterMatch = segment.match(REGEX_PATTERNS.NUMBER_EXTRACTION)
-              if (chapterMatch) {
-                const [, prefix, numberStr, suffix] = chapterMatch
-                const currentNum = parseInt(numberStr, 10)
-                const newNum = currentNum + (currentChapter - 1)
-                const paddedNum = numberStr.startsWith('0') ? newNum.toString().padStart(numberStr.length, '0') : newNum.toString()
-                pathSegments[i] = `${prefix}${paddedNum}${suffix}`
-                break
-              }
-            }
-            
-            urlObj.pathname = '/' + pathSegments.join('/') + (url.endsWith('/') ? '/' : '')
-            chapterUrl = urlObj.toString()
-          } catch (error) {
-            // Failed to generate URL for next chapter
-          }
-        }
-      }
+      const chapterUrl = generateChapterUrl(url, currentChapter)
 
       onProgress?.({ 
         stage: 'loading', 
@@ -292,286 +547,48 @@ export const scrapeImages = async (
 
         onProgress?.({ stage: 'scanning', processed: images.length, total: DEFAULTS.SEQUENTIAL_MAX_IMAGES * chapterCount, found: images.length, currentUrl: chapterUrl })
 
-        // Extract initial candidates for this chapter (with generation for sequential processing)
+        // Extract initial candidates for this chapter
         let imageUrls = extractImageUrls(body, [], chapterUrl, body, true)
         imageUrls = Array.from(new Set(imageUrls))
 
         // Check for strong sequential patterns 
         let seqInfo = detectStrongSequentialPattern(imageUrls)
         
-        // Special handling: Force discovery mode for newer manhuaus.com hash-based URLs
-        try {
-          const chapterUrlObj = new URL(chapterUrl)
-          if (chapterUrlObj.hostname.includes('manhuaus.com')) {
-            // Check if any discovered URLs use the hash-based pattern
-            const hasHashPattern = imageUrls.some(url => 
-              /img\.manhuaus\.com\/image[^\/]*\/[^\/]+\/[^\/]+\//.test(url)
-            )
-            if (hasHashPattern) {
-              // Force discovery mode by nullifying sequential pattern
-              seqInfo = null
-            }
-          }
-        } catch (error) {
-          // Ignore URL parsing errors
-        }
+        // Special handling: Force discovery mode for manhuaus.com hash-based URLs
+        seqInfo = shouldForceDiscoveryMode(chapterUrl, imageUrls) ? null : seqInfo
         
         if (seqInfo && fileTypes.includes(seqInfo.extension)) {
-          // Sequential pattern detected and file type matches - do batch processing
-          const { basePath, extension, pad } = seqInfo
-          
-          // Process images in smaller batches for server-friendly validation
-          const BATCH_SIZE = DEFAULTS.BATCH_SIZE
-          let consecutiveMisses = 0
-          let chapterImageCount = 0
-          let currentIndex = 1
-
-          while (currentIndex <= DEFAULTS.SEQUENTIAL_MAX_IMAGES && consecutiveMisses < consecutiveMissThreshold) {
-            if (signal?.aborted) throw new Error('Aborted')
-            
-            
-            // Create batch of candidates
-            const batch: string[] = []
-            for (let j = 0; j < BATCH_SIZE && (currentIndex + j) <= DEFAULTS.SEQUENTIAL_MAX_IMAGES; j++) {
-              const padded = (currentIndex + j).toString().padStart(pad, '0')
-              const candidate = `${basePath}${padded}.${extension}`
-              if (!seenUrls.has(candidate)) {
-                batch.push(candidate)
-              } else {
-              }
-            }
-
-            // Check all images in batch, include successful ones before first failure
-            let batchResults: { url: string; valid: boolean; filtered?: boolean }[] = []
-            let firstFailureIndex = -1
-            
-            // First pass: validate all images in batch
-            for (let i = 0; i < batch.length; i++) {
-              const candidate = batch[i]
-              let imageExists = false
-            
-              if (validateImages) {
-                // Use HEAD request for validation
-                try {
-                  const res = await fetchData(candidate, 'HEAD', signal)
-                  const status = res?.status ?? 200
-                  imageExists = status < THRESHOLDS.HTTP_SUCCESS_THRESHOLD
-                } catch (err) {
-                  imageExists = false
-                }
-              } else {
-                // Use Image element testing for no-validation mode with proper cleanup
-                imageExists = await new Promise<boolean>((resolve) => {
-                  const img = new Image()
-                  let resolved = false
-                  
-                  const cleanup = () => {
-                    if (resolved) return
-                    resolved = true
-                    img.onload = null
-                    img.onerror = null
-                    img.onabort = null
-                    img.src = ''
-                  }
-                  
-                  const timeout = setTimeout(() => {
-                    cleanup()
-                    resolve(false) // Timeout = failure
-                  }, TIMING.IMAGE_VALIDATION_TIMEOUT) // 5 second timeout
-                  
-                  img.onload = () => {
-                    clearTimeout(timeout)
-                    cleanup()
-                    resolve(true) // Successfully loaded
-                  }
-                  
-                  img.onerror = () => {
-                    clearTimeout(timeout)
-                    cleanup()
-                    resolve(false) // Failed to load
-                  }
-                  
-                  img.onabort = () => {
-                    clearTimeout(timeout)
-                    cleanup()
-                    resolve(false) // Request was aborted
-                  }
-                  
-                  img.src = candidate
-                })
-              }
-
-              const isFiltered = imageFilter && imageFilter(candidate)
-              batchResults.push({ url: candidate, valid: imageExists, filtered: isFiltered })
-              
-              // Track first failure for partial inclusion logic
-              if (!imageExists && firstFailureIndex === -1) {
-                firstFailureIndex = i
-                break // Stop checking after first failure
-              }
-            }
-
-            // Second pass: include all valid images up to (but not including) first failure
-            const includeUpTo = firstFailureIndex === -1 ? batchResults.length : firstFailureIndex
-            let validImagesInBatch = 0
-            
-            for (let i = 0; i < includeUpTo; i++) {
-              const result = batchResults[i]
-              if (result.valid) {
-                validImagesInBatch++
-                chapterImageCount++
-                seenUrls.add(result.url)
-                
-                if (!result.filtered) {
-                  const newImage: ScrapedImage = { 
-                    url: result.url, 
-                    type: extension, 
-                    source: 'static', 
-                    alt: `Image from ${new URL(chapterUrl).hostname} - Chapter ${currentChapter}` 
-                  }
-                  images.push(newImage)
-                  onNewImage?.(newImage)
-                  onProgress?.({ 
-                    stage: 'scanning', 
-                    processed: images.length, 
-                    total: DEFAULTS.SEQUENTIAL_MAX_IMAGES * chapterCount, 
-                    found: images.length, 
-                    currentUrl: result.url, 
-                    image: newImage 
-                  })
-                }
-              }
-            }
-
-            // Update consecutive misses based on batch result
-            if (firstFailureIndex !== -1 || batch.length === 0) {
-              consecutiveMisses += 1 // Increment when we hit a failure
-            } else if (validImagesInBatch > 0) {
-              consecutiveMisses = 0 // Reset if we found valid images
-            }
-
-            currentIndex += BATCH_SIZE
-          }
+          // Sequential pattern detected - use batch processing
+          await processSequentialImages(seqInfo, fileTypes, {
+            signal,
+            validateImages,
+            consecutiveMissThreshold,
+            imageFilter,
+            onNewImage,
+            onProgress,
+            currentChapter,
+            chapterUrl,
+            images,
+            seenUrls
+          })
 
 
         } else {
-          // No sequential pattern found OR pattern extension doesn't match selected file types
-          // Extract ONLY discovered URLs without generation
-          const discoveredOnlyUrls = extractImageUrls(body, [], chapterUrl, body, false) // NO generation
+          // No sequential pattern found - use discovery mode
+          const discoveredOnlyUrls = extractImageUrls(body, [], chapterUrl, body, false)
           
-          let processedCount = 0
-          let consecutiveMisses = 0
-          
-          // Process discovered URLs one by one with immediate validation (like main method)
-          for (const imageUrl of discoveredOnlyUrls) {
-            if (signal?.aborted) throw new Error('Aborted')
-            if (!imageUrl) continue
-            if (seenUrls.has(imageUrl)) continue
-            
-            // Check consecutive miss threshold before processing each URL
-            if (consecutiveMisses >= consecutiveMissThreshold) {
-              break
-            }
-            
-            const type = getFileTypeFromUrl(imageUrl)
-            processedCount++
-            
-            // Skip if wrong file type
-            if (!type || !fileTypes.includes(type)) {
-              onProgress?.({ stage: 'scanning', processed: processedCount, total: discoveredOnlyUrls.length, found: images.length, currentUrl: imageUrl })
-              continue
-            }
-            
-            // Skip if filtered
-            const isFiltered = imageFilter && imageFilter(imageUrl)
-            if (isFiltered) {
-              onProgress?.({ stage: 'scanning', processed: processedCount, total: discoveredOnlyUrls.length, found: images.length, currentUrl: imageUrl })
-              continue
-            }
-            
-            let imageExists = false
-            
-            if (validateImages) {
-              // Use HEAD request for validation (same as sequential)
-              try {
-                const res = await fetchData(imageUrl, 'HEAD', signal)
-                const status = res?.status ?? 200
-                imageExists = status < THRESHOLDS.HTTP_SUCCESS_THRESHOLD
-              } catch (err) {
-                imageExists = false
-              }
-            } else {
-              // Use Image element testing for no-validation mode (same as sequential)
-              imageExists = await new Promise<boolean>((resolve) => {
-                const img = new Image()
-                let resolved = false
-                
-                const cleanup = () => {
-                  if (resolved) return
-                  resolved = true
-                  img.onload = null
-                  img.onerror = null
-                  img.onabort = null
-                  img.src = ''
-                }
-                
-                const timeout = setTimeout(() => {
-                  cleanup()
-                  resolve(false) // Timeout = failure
-                }, TIMING.IMAGE_VALIDATION_TIMEOUT)
-                
-                img.onload = () => {
-                  clearTimeout(timeout)
-                  cleanup()
-                  resolve(true) // Successfully loaded
-                }
-                
-                img.onerror = () => {
-                  clearTimeout(timeout)
-                  cleanup()
-                  resolve(false) // Failed to load
-                }
-                
-                img.onabort = () => {
-                  clearTimeout(timeout)
-                  cleanup()
-                  resolve(false) // Request was aborted
-                }
-                
-                img.src = imageUrl
-              })
-            }
-            
-            seenUrls.add(imageUrl)
-            
-            // Update consecutive misses immediately (same logic as sequential)
-            if (!imageExists) {
-              consecutiveMisses += 1
-            } else {
-              consecutiveMisses = 0 // Reset on success
-              
-              const newImage: ScrapedImage = { 
-                url: imageUrl, 
-                type: type!, 
-                source: 'dynamic', 
-                alt: `Image from ${new URL(chapterUrl).hostname} - Chapter ${currentChapter}` 
-              }
-              images.push(newImage)
-
-              // Live insertion
-              onNewImage?.(newImage)
-              onProgress?.({ 
-                stage: 'scanning', 
-                processed: processedCount, 
-                total: discoveredOnlyUrls.length, 
-                found: images.length, 
-                currentUrl: imageUrl, 
-                image: newImage 
-              })
-
-              await new Promise(res => setTimeout(res, TIMING.PROCESSING_DELAY))
-            }
-          }
+          await processDiscoveredImages(discoveredOnlyUrls, fileTypes, {
+            signal,
+            validateImages,
+            consecutiveMissThreshold,
+            imageFilter,
+            onNewImage,
+            onProgress,
+            currentChapter,
+            chapterUrl,
+            images,
+            seenUrls
+          })
         }
         
         // Calculate chapter success

@@ -21,15 +21,19 @@ export const TIMING = {
   NAVIGATION_LOCK_TIMEOUT: 5000,
   EXTENDED_NAVIGATION_LOCK: 10000,
   AUTO_CHAPTER_COOLDOWN: 30000,
-  AUTO_NAVIGATION_DELAY: 1000,
+  AUTO_NAVIGATION_DELAY: 1500, // Updated from 1000ms
   
   // Processing intervals
   SAFETY_CHECK_INTERVAL: 30000,
-  SCROLL_THROTTLE_INTERVAL: 16, // 60fps
+  SCROLL_THROTTLE_INTERVAL: 8, // 120fps - Updated for better responsiveness
   PROCESSING_DELAY: 10,
   DOWNLOAD_DELAY_BETWEEN_IMAGES: 250,
   URL_CLEANUP_DELAY: 5000,
   IMAGE_STATE_RESET_DELAY: 10,
+  
+  // Preview and UI refresh delays
+  PREVIEW_REFRESH_DELAY: 100,
+  MAIN_APP_LOAD_DELAY: 50,
 } as const
 
 export const DEFAULTS = {
@@ -60,8 +64,9 @@ export const THRESHOLDS = {
   MIN_FETCH_INTERVAL_FOR_BULK: 30,
   
   // UI behavior thresholds
-  BOTTOM_SCROLL_THRESHOLD: 10,
+  BOTTOM_SCROLL_THRESHOLD: 50, // Updated from 10px for better auto-navigation
   TOP_SCROLL_THRESHOLD: 50,
+  SCROLL_PERCENTAGE_THRESHOLD: 0.5, // 50% of container height for significant scroll
   
   // HTTP status handling
   HTTP_SUCCESS_THRESHOLD: 400,
@@ -87,6 +92,10 @@ export const UI_CONFIG = {
   
   // CSS class patterns
   GRID_RESPONSIVE: 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5',
+  
+  // Common values
+  BYTES_IN_KILOBYTE: 1024,
+  PERCENTAGE_MULTIPLIER: 100,
 } as const
 
 export const FETCH_INTERVALS = {

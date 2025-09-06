@@ -1,6 +1,7 @@
 import { ScrapedImage } from './advancedImageScraper'
 import { saveAs } from 'file-saver'
 import { convertWebPToPNG, shouldConvertToPNG, getConvertedFilename } from './imageConverter'
+import { TIMING } from '../constants'
 
 export const downloadImage = async (image: ScrapedImage) => {
   try {
@@ -218,7 +219,7 @@ export const downloadAllImages = async (images: ScrapedImage[]) => {
       }
 
       // Small delay to reduce chance of blocking/popups
-      await new Promise(res => setTimeout(res, 250))
+      await new Promise(res => setTimeout(res, TIMING.DOWNLOAD_DELAY_BETWEEN_IMAGES))
     } catch (error) {
       // Fetch or blob failed (likely CORS/network)
       console.warn(`Failed to fetch/download image ${i + 1}/${images.length} (${image.url}):`, error)

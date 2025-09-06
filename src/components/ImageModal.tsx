@@ -3,6 +3,7 @@ import { X, Download, ExternalLink, Copy, Check } from 'lucide-react'
 import { ScrapedImage } from '../utils/advancedImageScraper'
 import { downloadImage } from '../utils/downloadUtils'
 import { copyToClipboard } from '../utils/clipboardUtils'
+import { UI_CONFIG, TIMING } from '../constants'
 
 interface ImageModalProps {
   image: ScrapedImage
@@ -16,13 +17,13 @@ const ImageModal: React.FC<ImageModalProps> = ({ image, onClose }) => {
     const success = await copyToClipboard(image.url)
     if (success) {
       setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
+      setTimeout(() => setCopied(false), TIMING.COPY_FEEDBACK_DURATION)
     }
   }
 
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return '0 B'
-    const k = 1024
+    const k = UI_CONFIG.BYTES_IN_KILOBYTE
     const sizes = ['B', 'KB', 'MB', 'GB']
     const i = Math.floor(Math.log(bytes) / Math.log(k))
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
