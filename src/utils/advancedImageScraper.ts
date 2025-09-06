@@ -813,6 +813,41 @@ function extractImageUrls(markdown: string, links: any[], baseUrl: string, extra
     while ((hrefImg = hrefImageRegex.exec(htmlString)) !== null) {
       tryAdd(hrefImg[1])
     }
+
+    // Site-specific handling for manhuaus.com image patterns
+    try {
+      const baseUrlObj = new URL(baseUrl)
+      if (baseUrlObj.hostname.includes('manhuaus.com')) {
+        // Pattern for newer chapters: https://img.manhuaus.com/image/manga_HASH/HASH2/NN.webp
+        const manhuausNewRegex = /https?:\/\/img\.manhuaus\.com\/image\/[^\/]+\/[^\/]+\/\d{2,3}\.(jpg|jpeg|png|gif|webp)/gi
+        let manhuausNew
+        while ((manhuausNew = manhuausNewRegex.exec(htmlString)) !== null) {
+          tryAdd(manhuausNew[0])
+        }
+        
+        // Pattern for older chapters: https://img.manhuaus.com/TITLE/chapter-N/NNN.webp
+        const manhuausOldRegex = /https?:\/\/img\.manhuaus\.com\/[^\/]+\/chapter-\d+\/\d{3}\.(jpg|jpeg|png|gif|webp)/gi
+        let manhuausOld
+        while ((manhuausOld = manhuausOldRegex.exec(htmlString)) !== null) {
+          tryAdd(manhuausOld[0])
+        }
+        
+        // Also look for these patterns without protocol
+        const relativeManhuausNewRegex = /img\.manhuaus\.com\/image\/[^\/\s"']+\/[^\/\s"']+\/\d{2,3}\.(jpg|jpeg|png|gif|webp)/gi
+        let relManhuausNew
+        while ((relManhuausNew = relativeManhuausNewRegex.exec(htmlString)) !== null) {
+          tryAdd('https://' + relManhuausNew[0])
+        }
+        
+        const relativeManhuausOldRegex = /img\.manhuaus\.com\/[^\/\s"']+\/chapter-\d+\/\d{3}\.(jpg|jpeg|png|gif|webp)/gi
+        let relManhuausOld
+        while ((relManhuausOld = relativeManhuausOldRegex.exec(htmlString)) !== null) {
+          tryAdd('https://' + relManhuausOld[0])
+        }
+      }
+    } catch (error) {
+      // Ignore URL parsing errors for site-specific handling
+    }
   }
 
   // 4) Plain text URLs in markdown
