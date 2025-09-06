@@ -15,11 +15,14 @@ interface ScrapingResultsSectionProps {
   autoNextChapter: boolean
   onNextChapter: (nextUrl: string) => void
   onStartNavigation: () => void
+  onPreviewEnter: () => void
   isNavigating: boolean
   isLoading: boolean
   lastAutoScrollTime: number
+  lastPreviewEnterTime: number
   chapterCount: number
   updateChapterUrl: (chapterNumber: number, immediate?: boolean) => string
+  updateLastScrollTime: (time: number) => void
 }
 
 export const ScrapingResultsSection = React.memo(({
@@ -33,11 +36,14 @@ export const ScrapingResultsSection = React.memo(({
   autoNextChapter,
   onNextChapter,
   onStartNavigation,
+  onPreviewEnter,
   isNavigating,
   isLoading,
   lastAutoScrollTime,
+  lastPreviewEnterTime,
   chapterCount,
-  updateChapterUrl
+  updateChapterUrl,
+  updateLastScrollTime
 }: ScrapingResultsSectionProps) => {
   // Memoize filtered images to prevent unnecessary recalculations
   const filteredImages = useMemo(() => 
@@ -53,9 +59,13 @@ export const ScrapingResultsSection = React.memo(({
   const handleAutoNextChapter = () => {
     const now = Date.now()
     
-    // Cooldown check
-    if (now - lastAutoScrollTime >= TIMING.AUTO_CHAPTER_COOLDOWN && !isLoading && !isNavigating) { 
-      // Auto next chapter triggered
+    // Check both cooldowns: 30s after last auto navigation and 25s after entering preview
+    const autoScrollCooldownOK = now - lastAutoScrollTime >= TIMING.AUTO_CHAPTER_COOLDOWN
+    const previewEnterCooldownOK = now - lastPreviewEnterTime >= TIMING.AUTO_CHAPTER_PREVIEW_DELAY
+    
+    if (autoScrollCooldownOK && previewEnterCooldownOK && !isLoading && !isNavigating) { 
+      // Auto next chapter triggered - update timestamp immediately
+      updateLastScrollTime(now)
       
       // Update URL to next chapter and trigger scraping with the new URL
       const chapterInfo = parseChapterFromUrl(url)
@@ -73,7 +83,9 @@ export const ScrapingResultsSection = React.memo(({
         }
       }
     } else {
-      const remainingTime = Math.max(0, TIMING.AUTO_CHAPTER_COOLDOWN - (now - lastAutoScrollTime)) / 1000
+      const scrollCooldownRemaining = Math.max(0, TIMING.AUTO_CHAPTER_COOLDOWN - (now - lastAutoScrollTime)) / 1000
+      const previewCooldownRemaining = Math.max(0, TIMING.AUTO_CHAPTER_PREVIEW_DELAY - (now - lastPreviewEnterTime)) / 1000
+      const remainingTime = Math.max(scrollCooldownRemaining, previewCooldownRemaining)
       // Auto next chapter blocked by cooldown
     }
   }
@@ -90,6 +102,7 @@ export const ScrapingResultsSection = React.memo(({
         autoNextChapter={autoNextChapter}
         onNextChapter={handleAutoNextChapter}
         onStartNavigation={onStartNavigation}
+        onPreviewEnter={onPreviewEnter}
         isNavigating={isNavigating}
       />
     </div>

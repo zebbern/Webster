@@ -21,6 +21,7 @@ export const TIMING = {
   NAVIGATION_LOCK_TIMEOUT: 5000,
   EXTENDED_NAVIGATION_LOCK: 10000,
   AUTO_CHAPTER_COOLDOWN: 30000,
+  AUTO_CHAPTER_PREVIEW_DELAY: 25000, // Delay after entering preview mode
   AUTO_NAVIGATION_DELAY: 1500, // Updated from 1000ms
   
   // Processing intervals

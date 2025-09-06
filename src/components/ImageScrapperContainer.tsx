@@ -131,6 +131,10 @@ const ImageScrapperContainer: React.FC = () => {
     }, TIMING.EXTENDED_NAVIGATION_LOCK)
   }, [navigationActions])
 
+  const handlePreviewEnter = useCallback(() => {
+    navigationActions.updatePreviewEnterTime(Date.now())
+  }, [navigationActions])
+
   // Progress handler with live insertion support
   const handleProgress = useCallback((p: ScrapeProgress) => {
     // Progress update received
@@ -417,11 +421,14 @@ const ImageScrapperContainer: React.FC = () => {
           autoNextChapter={configuration.autoNextChapter}
           onNextChapter={handleNextChapter}
           onStartNavigation={handleStartNavigation}
+          onPreviewEnter={handlePreviewEnter}
           isNavigating={navigation.isNavigating}
           isLoading={scraping.isLoading}
           lastAutoScrollTime={navigation.lastAutoScrollTime}
+          lastPreviewEnterTime={navigation.lastPreviewEnterTime}
           chapterCount={configuration.chapterCount}
           updateChapterUrl={updateChapterUrl}
+          updateLastScrollTime={navigationActions.updateLastScrollTime}
         />
       </div>
     </div>

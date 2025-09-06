@@ -19,10 +19,11 @@ interface ImageGalleryProps {
   autoNextChapter?: boolean
   onNextChapter?: () => void
   onStartNavigation?: () => void
+  onPreviewEnter?: () => void
   isNavigating?: boolean
 }
 
-const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', onImageError, onPreviewChange, onButtonVisibilityChange, showScrollButtons = false, initialPreviewMode = false, autoNextChapter = false, onNextChapter, onStartNavigation, isNavigating = false }) => {
+const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', onImageError, onPreviewChange, onButtonVisibilityChange, showScrollButtons = false, initialPreviewMode = false, autoNextChapter = false, onNextChapter, onStartNavigation, onPreviewEnter, isNavigating = false }) => {
   const [selectedImage, setSelectedImage] = useState<ScrapedImage | null>(null)
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null)
   const [downloadingAll, setDownloadingAll] = useState(false)
@@ -35,7 +36,10 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
 
   useEffect(() => {
     onPreviewChange?.(previewMode)
-  }, [previewMode, onPreviewChange])
+    if (previewMode) {
+      onPreviewEnter?.()
+    }
+  }, [previewMode, onPreviewChange, onPreviewEnter])
 
   // Update preview mode when initialPreviewMode changes
   useEffect(() => {

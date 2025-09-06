@@ -44,6 +44,7 @@ export interface NavigationState {
   isNavigating: boolean
   lastPageUrl: string | null
   lastAutoScrollTime: number
+  lastPreviewEnterTime: number
 }
 
 export interface NavigationActions {
@@ -51,6 +52,7 @@ export interface NavigationActions {
   updateChapterUrl: (chapterNumber: number, immediate?: boolean) => string
   startNavigation: () => void
   updateLastScrollTime: (time: number) => void
+  updatePreviewEnterTime: (time: number) => void
 }
 
 export interface ScrapingConfiguration {
