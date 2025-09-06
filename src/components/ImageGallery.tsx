@@ -79,16 +79,56 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
     }
   }, [previewMode])
 
-  // Disable main page scrollbar (not scroll position) when in preview mode
-  // This prevents main page scroll from interfering with preview scroll events
+  // Completely disable main page scroll when in preview mode
   useEffect(() => {
     if (previewMode) {
-      // Hide main page scrollbar but keep content position
+      // Store current scroll position
+      const scrollY = window.scrollY
+      
+      // Prevent all main page scrolling
       document.body.style.overflow = 'hidden'
+      document.body.style.position = 'fixed'
+      document.body.style.top = `-${scrollY}px`
+      document.body.style.width = '100%'
+      
+      // Add event listeners to prevent scroll attempts
+      const preventScroll = (e: Event) => {
+        e.preventDefault()
+        e.stopPropagation()
+        return false
+      }
+      
+      const preventWheel = (e: WheelEvent) => {
+        // Only prevent if not within preview container
+        const previewContainer = document.getElementById('preview-overlay-scroll')
+        if (previewContainer && !previewContainer.contains(e.target as Node)) {
+          e.preventDefault()
+          e.stopPropagation()
+          return false
+        }
+      }
+      
+      // Prevent scroll on window and document
+      window.addEventListener('scroll', preventScroll, { passive: false })
+      document.addEventListener('scroll', preventScroll, { passive: false })
+      document.addEventListener('wheel', preventWheel, { passive: false })
+      document.addEventListener('touchmove', preventScroll, { passive: false })
       
       return () => {
-        // Restore main page scrollbar when exiting preview
+        // Remove event listeners
+        window.removeEventListener('scroll', preventScroll)
+        document.removeEventListener('scroll', preventScroll)
+        document.removeEventListener('wheel', preventWheel)
+        document.removeEventListener('touchmove', preventScroll)
+        
+        // Restore body styles
         document.body.style.overflow = ''
+        document.body.style.position = ''
+        document.body.style.top = ''
+        document.body.style.width = ''
+        
+        // Restore scroll position
+        window.scrollTo(0, scrollY)
       }
     }
   }, [previewMode])
