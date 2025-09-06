@@ -1,11 +1,11 @@
 import React, { useState } from 'react'
-import { Settings, Filter, Info, Globe, Zap, ChevronDown } from 'lucide-react'
+import { Settings, Filter, Info, Globe, Zap, ChevronDown, Search } from 'lucide-react'
 import ScrapingConfiguration from './ScrapingConfiguration'
 import ImageFiltering from './ImageFiltering'
 import { Tooltip, TooltipTrigger, TooltipContent } from './ui/tooltip'
 import { parseChapterFromUrl } from '../utils/urlNavigation'
 import { FILE_EXTENSIONS } from '../constants'
-import { PREDEFINED_WEBSITE_PATTERNS, WebsitePattern, convertToEnvFormat, detectWebsitePattern } from '../constants/websitePatterns'
+import { PREDEFINED_WEBSITE_PATTERNS, WebsitePattern, convertToEnvFormat, detectWebsitePattern, autoDetectUrlPattern } from '../constants/websitePatterns'
 
 interface ScrapingConfigurationSectionProps {
   // UI State
@@ -120,6 +120,23 @@ export const ScrapingConfigurationSection = React.memo(({
     
     if (pattern.id === 'custom') {
       setShowAdvancedPatterns(true)
+    } else if (pattern.id === 'auto-detect') {
+      // Try to auto-detect the pattern from current URL
+      if (url) {
+        const detectedPattern = autoDetectUrlPattern(url)
+        if (detectedPattern) {
+          setSelectedWebsitePattern(detectedPattern)
+          setShowAdvancedPatterns(false)
+          // Auto-apply the detected pattern
+          const envFormat = convertToEnvFormat(detectedPattern)
+          onCustomUrlPatternsChange(envFormat)
+        } else {
+          // If auto-detection fails, show advanced patterns
+          setShowAdvancedPatterns(true)
+        }
+      } else {
+        setShowAdvancedPatterns(true)
+      }
     } else {
       setShowAdvancedPatterns(false)
       // Auto-apply the pattern
@@ -245,6 +262,8 @@ export const ScrapingConfigurationSection = React.memo(({
                         <div className="flex-shrink-0 mt-0.5">
                           {pattern.id === 'custom' ? (
                             <Settings className="h-4 w-4 text-muted-foreground" />
+                          ) : pattern.id === 'auto-detect' ? (
+                            <Search className="h-4 w-4 text-orange-500" />
                           ) : (
                             <Globe className="h-4 w-4 text-primary" />
                           )}
@@ -284,7 +303,7 @@ export const ScrapingConfigurationSection = React.memo(({
             <div className="flex items-center space-x-2">
               <button
                 onClick={handleApplySelectedPattern}
-                disabled={isLoading || !selectedWebsitePattern || selectedWebsitePattern.id === 'custom'}
+                disabled={isLoading || !selectedWebsitePattern || selectedWebsitePattern.id === 'custom' || selectedWebsitePattern.id === 'auto-detect'}
                 className="flex items-center space-x-2 px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors disabled:opacity-50"
               >
                 <Zap className="h-4 w-4" />

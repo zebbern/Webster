@@ -10,6 +10,15 @@ export interface WebsitePattern {
 
 export const PREDEFINED_WEBSITE_PATTERNS: WebsitePattern[] = [
   {
+    id: 'auto-detect',
+    name: 'Auto-Detect',
+    domain: '',
+    description: 'Automatically analyze the URL and detect chapter navigation pattern',
+    urlPattern: '',
+    chapterConfig: '',
+    example: 'Analyzes current URL structure to find chapter patterns automatically'
+  },
+  {
     id: 'manhuato',
     name: 'ManhuaTO',
     domain: 'manhuato.com',
@@ -122,6 +131,102 @@ export function detectWebsitePattern(url: string): WebsitePattern | null {
     return PREDEFINED_WEBSITE_PATTERNS.find(pattern => 
       pattern.domain && domain.includes(pattern.domain)
     ) || null
+  } catch {
+    return null
+  }
+}
+
+export function autoDetectUrlPattern(url: string): WebsitePattern | null {
+  if (!url) return null
+  
+  try {
+    const urlObj = new URL(url)
+    const domain = urlObj.hostname.replace('www.', '')
+    const path = urlObj.pathname
+    
+    // Common chapter patterns to detect
+    const chapterPatterns = [
+      // Pattern: /manga/title/chapter-123 or /manga/title/chapter-123-name
+      {
+        regex: /\/([^\/]+)\/([^\/]+)\/chapter-(\d+)(?:-[^\/]*)?/,
+        template: (match: RegExpMatchArray) => `https://${domain}/${match[1]}/${match[2]}/chapter-{chapter}`,
+        config: '{n}'
+      },
+      // Pattern: /manga/title/c123 or /manga/title/c123.html
+      {
+        regex: /\/([^\/]+)\/([^\/]+)\/c(\d+)(?:\.html?)?/,
+        template: (match: RegExpMatchArray) => `https://${domain}/${match[1]}/${match[2]}/c{chapter}`,
+        config: '{n}'
+      },
+      // Pattern: /read/title/123 or /read/title/123/
+      {
+        regex: /\/read\/([^\/]+)\/(\d+)\/?/,
+        template: (match: RegExpMatchArray) => `https://${domain}/read/${match[1]}/{chapter}`,
+        config: '{n}'
+      },
+      // Pattern: /title/123 or /title/123.html
+      {
+        regex: /\/([^\/]+)\/(\d+)(?:\.html?)?/,
+        template: (match: RegExpMatchArray) => `https://${domain}/${match[1]}/{chapter}`,
+        config: '{n}'
+      },
+      // Pattern: /manga/title/vol-1/ch-123
+      {
+        regex: /\/([^\/]+)\/([^\/]+)\/vol-\d+\/ch-(\d+)/,
+        template: (match: RegExpMatchArray) => `https://${domain}/${match[1]}/${match[2]}/vol-1/ch-{chapter}`,
+        config: '{n}'
+      },
+      // Pattern: /series/title/episode-123
+      {
+        regex: /\/series\/([^\/]+)\/episode-(\d+)/,
+        template: (match: RegExpMatchArray) => `https://${domain}/series/${match[1]}/episode-{chapter}`,
+        config: '{n}'
+      },
+      // Pattern: /webtoon/title/123/viewer
+      {
+        regex: /\/webtoon\/([^\/]+)\/(\d+)\/viewer/,
+        template: (match: RegExpMatchArray) => `https://${domain}/webtoon/${match[1]}/{chapter}/viewer`,
+        config: '{n}'
+      }
+    ]
+    
+    // Try to match against patterns
+    for (const pattern of chapterPatterns) {
+      const match = path.match(pattern.regex)
+      if (match) {
+        const urlPattern = pattern.template(match)
+        const chapterNumber = parseInt(match[match.length - 1])
+        
+        return {
+          id: 'auto-detected',
+          name: 'Auto-Detected Pattern',
+          domain: domain,
+          description: `Detected pattern from ${domain}`,
+          urlPattern: urlPattern,
+          chapterConfig: pattern.config,
+          example: urlPattern.replace('{chapter}', chapterNumber.toString())
+        }
+      }
+    }
+    
+    // If no specific pattern found, create a generic one
+    const genericChapterMatch = path.match(/(\d+)/)
+    if (genericChapterMatch) {
+      const chapterNumber = genericChapterMatch[1]
+      const genericPattern = url.replace(chapterNumber, '{chapter}')
+      
+      return {
+        id: 'auto-detected-generic',
+        name: 'Generic Auto-Detected',
+        domain: domain,
+        description: `Generic pattern detected from ${domain}`,
+        urlPattern: genericPattern,
+        chapterConfig: '{n}',
+        example: url
+      }
+    }
+    
+    return null
   } catch {
     return null
   }
