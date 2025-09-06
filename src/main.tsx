@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client'
 import App from './App'
 import './index.css'
 import { enableProductionMode } from './utils/consoleUtils'
+import { TIMING } from './constants'
 
 // Enable production mode to reduce console noise (in both dev and production)
 enableProductionMode()
