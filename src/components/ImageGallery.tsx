@@ -79,9 +79,19 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
     }
   }, [previewMode])
 
-  // Removed body scroll lock to allow normal browser scroll behavior in preview mode
-  // This allows mobile browsers to hide/show UI components when scrolling
-  // useBodyScrollLock(previewMode)
+  // Disable main page scrollbar (not scroll position) when in preview mode
+  // This prevents main page scroll from interfering with preview scroll events
+  useEffect(() => {
+    if (previewMode) {
+      // Hide main page scrollbar but keep content position
+      document.body.style.overflow = 'hidden'
+      
+      return () => {
+        // Restore main page scrollbar when exiting preview
+        document.body.style.overflow = ''
+      }
+    }
+  }, [previewMode])
 
 
   // Keyboard navigation for preview mode
@@ -267,11 +277,11 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
       <div 
         className="fixed inset-0 z-40 bg-black"
         onWheel={(e) => {
-          // Capture all wheel events within the preview overlay
+          // Capture scroll events at overlay level but let inner container handle them
           e.stopPropagation()
         }}
         onTouchMove={(e) => {
-          // Capture all touch events within the preview overlay
+          // Capture touch events at overlay level but let inner container handle them
           e.stopPropagation()
         }}
       >
