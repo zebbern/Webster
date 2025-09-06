@@ -346,6 +346,32 @@ const ImageScrapperContainer: React.FC = () => {
     }
   }, [url, configuration.chapterCount, updateChapterUrl, handleScrapeWithUrl])
 
+  // Calculate if auto navigation is allowed - needs to be recalculated frequently for accurate timing
+  const canAutoNavigate = (() => {
+    const now = Date.now()
+    const autoScrollCooldownOK = now - navigation.lastAutoScrollTime >= TIMING.AUTO_CHAPTER_COOLDOWN
+    const previewEnterCooldownOK = now - navigation.lastPreviewEnterTime >= TIMING.AUTO_CHAPTER_PREVIEW_DELAY
+    const result = autoScrollCooldownOK && previewEnterCooldownOK && !scraping.isLoading && !navigation.isNavigating
+    
+    // Debug logging for troubleshooting
+    if (!result) {
+      console.log('🔍 canAutoNavigate = false:', {
+        autoScrollCooldownOK,
+        previewEnterCooldownOK,
+        isLoading: scraping.isLoading,
+        isNavigating: navigation.isNavigating,
+        lastAutoScrollTime: new Date(navigation.lastAutoScrollTime).toLocaleTimeString(),
+        lastPreviewEnterTime: new Date(navigation.lastPreviewEnterTime).toLocaleTimeString(),
+        cooldownsRemaining: {
+          autoScroll: Math.max(0, TIMING.AUTO_CHAPTER_COOLDOWN - (now - navigation.lastAutoScrollTime)) / 1000,
+          previewEnter: Math.max(0, TIMING.AUTO_CHAPTER_PREVIEW_DELAY - (now - navigation.lastPreviewEnterTime)) / 1000
+        }
+      })
+    }
+    
+    return result
+  })()
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* Navigation Lock Overlay */}
@@ -453,12 +479,7 @@ const ImageScrapperContainer: React.FC = () => {
           onPreviewEnter={handlePreviewEnter}
           onPreviousChapter={handlePreviousChapter}
           currentChapter={url ? parseChapterFromUrl(url).chapterNumber : 0}
-          canAutoNavigate={(() => {
-            const now = Date.now()
-            const autoScrollCooldownOK = now - navigation.lastAutoScrollTime >= TIMING.AUTO_CHAPTER_COOLDOWN
-            const previewEnterCooldownOK = now - navigation.lastPreviewEnterTime >= TIMING.AUTO_CHAPTER_PREVIEW_DELAY
-            return autoScrollCooldownOK && previewEnterCooldownOK && !scraping.isLoading && !navigation.isNavigating
-          })()}
+          canAutoNavigate={canAutoNavigate}
           isNavigating={navigation.isNavigating}
           isLoading={scraping.isLoading}
           lastAutoScrollTime={navigation.lastAutoScrollTime}

@@ -136,6 +136,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
 
     // Auto next chapter functionality - only trigger if we've scrolled significantly and are at bottom and cooldowns are OK
     if (autoNextChapter && isAtBottom && hasScrolledSignificantly && !autoNavTriggered && !isNavigating && canAutoNavigate && onNextChapter && onStartNavigation) {
+      console.log('🚀 Auto Next Chapter triggered - all conditions met!')
       // IMMEDIATELY start navigation lock
       setAutoNavTriggered(true)
       onStartNavigation()
@@ -143,9 +144,26 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
       // Longer delay to prevent accidental navigation and allow user to stop if needed
       setTimeout(() => {
         if (!isNavigating) { // Double-check navigation state
+          console.log('📄 Auto Next Chapter executing navigation callback')
           onNextChapter()
+        } else {
+          console.log('⏸️ Auto Next Chapter blocked - navigation in progress')
         }
       }, TIMING.AUTO_NAVIGATION_DELAY)
+    } else if (autoNextChapter) {
+      // Debug logging to understand why auto navigation isn't triggering
+      console.log('❌ Auto Next Chapter blocked:', {
+        isAtBottom,
+        hasScrolledSignificantly,
+        autoNavTriggered,
+        isNavigating,
+        canAutoNavigate,
+        hasOnNextChapter: !!onNextChapter,
+        hasOnStartNavigation: !!onStartNavigation,
+        currentScrollY,
+        containerHeight,
+        scrollHeight
+      })
     }
 
     setLastScrollY(currentScrollY)
