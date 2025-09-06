@@ -5,7 +5,7 @@ import { downloadImage, downloadAllImages } from '../utils/downloadUtils'
 import { copyToClipboard } from '../utils/clipboardUtils'
 import ImageModal from './ImageModal'
 import { downloadHTMLExport } from '../utils/htmlExporter'
-import { useBodyScrollLock } from '../hooks/useBodyScrollLock'
+// Removed useBodyScrollLock import - no longer preventing body scroll in preview mode
 import { TIMING, THRESHOLDS, UI_CONFIG } from '../constants'
 
 interface ImageGalleryProps {
@@ -79,8 +79,9 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
     }
   }, [previewMode])
 
-  // Prevent body scroll when preview mode is active
-  useBodyScrollLock(previewMode)
+  // Removed body scroll lock to allow normal browser scroll behavior in preview mode
+  // This allows mobile browsers to hide/show UI components when scrolling
+  // useBodyScrollLock(previewMode)
 
 
   // Keyboard navigation for preview mode
