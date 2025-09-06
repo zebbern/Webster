@@ -18,6 +18,7 @@ interface ImageGalleryProps {
   initialPreviewMode?: boolean
   autoNextChapter?: boolean
   onNextChapter?: () => void
+  onManualNextChapter?: () => void
   onStartNavigation?: () => void
   onPreviewEnter?: () => void
   onPreviousChapter?: () => void
@@ -26,7 +27,7 @@ interface ImageGalleryProps {
   isNavigating?: boolean
 }
 
-const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', onImageError, onPreviewChange, onButtonVisibilityChange, showScrollButtons = false, initialPreviewMode = false, autoNextChapter = false, onNextChapter, onStartNavigation, onPreviewEnter, onPreviousChapter, currentChapter, canAutoNavigate = true, isNavigating = false }) => {
+const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', onImageError, onPreviewChange, onButtonVisibilityChange, showScrollButtons = false, initialPreviewMode = false, autoNextChapter = false, onNextChapter, onManualNextChapter, onStartNavigation, onPreviewEnter, onPreviousChapter, currentChapter, canAutoNavigate = true, isNavigating = false }) => {
   const [selectedImage, setSelectedImage] = useState<ScrapedImage | null>(null)
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null)
   const [downloadingAll, setDownloadingAll] = useState(false)
@@ -312,9 +313,9 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
               </div>
             )}
             
-            {onNextChapter && (
+            {(onManualNextChapter || onNextChapter) && (
               <button
-                onClick={onNextChapter}
+                onClick={onManualNextChapter || onNextChapter}
                 className="p-2.5 bg-card/90 text-foreground rounded-full hover:bg-card transition-colors shadow-lg"
                 title="Next chapter"
               >

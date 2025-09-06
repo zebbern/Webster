@@ -14,6 +14,7 @@ interface ScrapingResultsSectionProps {
   initialPreviewMode: boolean
   autoNextChapter: boolean
   onNextChapter: (nextUrl: string) => void
+  onManualNextChapter: () => void
   onStartNavigation: () => void
   onPreviewEnter: () => void
   onPreviousChapter: () => void
@@ -38,6 +39,7 @@ export const ScrapingResultsSection = React.memo(({
   initialPreviewMode,
   autoNextChapter,
   onNextChapter,
+  onManualNextChapter,
   onStartNavigation,
   onPreviewEnter,
   onPreviousChapter,
@@ -107,6 +109,7 @@ export const ScrapingResultsSection = React.memo(({
         initialPreviewMode={initialPreviewMode}
         autoNextChapter={autoNextChapter}
         onNextChapter={handleAutoNextChapter}
+        onManualNextChapter={onManualNextChapter}
         onStartNavigation={onStartNavigation}
         onPreviewEnter={onPreviewEnter}
         onPreviousChapter={onPreviousChapter}
