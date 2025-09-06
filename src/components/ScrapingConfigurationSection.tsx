@@ -6,7 +6,6 @@ import { Tooltip, TooltipTrigger, TooltipContent } from './ui/tooltip'
 import { parseChapterFromUrl } from '../utils/urlNavigation'
 import { FILE_EXTENSIONS } from '../constants'
 import { PREDEFINED_WEBSITE_PATTERNS, WebsitePattern, convertToEnvFormat, detectWebsitePattern, autoDetectUrlPattern } from '../constants/websitePatterns'
-import { extractImageUrls } from '../utils/advancedImageScraper'
 
 interface ScrapingConfigurationSectionProps {
   // UI State
@@ -101,9 +100,6 @@ export const ScrapingConfigurationSection = React.memo(({
   const [selectedWebsitePattern, setSelectedWebsitePattern] = useState<WebsitePattern | null>(null)
   const [isPatternDropdownOpen, setIsPatternDropdownOpen] = useState(false)
   const [showAdvancedPatterns, setShowAdvancedPatterns] = useState(false)
-  const [isAutoDetecting, setIsAutoDetecting] = useState(false)
-  const [discoveredUrls, setDiscoveredUrls] = useState<string[]>([])
-  const [showUrlSelection, setShowUrlSelection] = useState(false)
 
   const chapterInfo = parseChapterFromUrl(url)
   
@@ -125,85 +121,27 @@ export const ScrapingConfigurationSection = React.memo(({
     if (pattern.id === 'custom') {
       setShowAdvancedPatterns(true)
     } else if (pattern.id === 'auto-detect') {
-      // Start interactive auto-detection workflow
-      handleInteractiveAutoDetect()
+      // Try to auto-detect the pattern from current URL
+      if (url) {
+        const detectedPattern = autoDetectUrlPattern(url)
+        if (detectedPattern) {
+          setSelectedWebsitePattern(detectedPattern)
+          setShowAdvancedPatterns(false)
+          // Auto-apply the detected pattern
+          const envFormat = convertToEnvFormat(detectedPattern)
+          onCustomUrlPatternsChange(envFormat)
+        } else {
+          // If auto-detection fails, show advanced patterns
+          setShowAdvancedPatterns(true)
+        }
+      } else {
+        setShowAdvancedPatterns(true)
+      }
     } else {
       setShowAdvancedPatterns(false)
       // Auto-apply the pattern
       const envFormat = convertToEnvFormat(pattern)
       onCustomUrlPatternsChange(envFormat)
-    }
-  }
-
-  // Handle interactive auto-detection
-  const handleInteractiveAutoDetect = async () => {
-    if (!url) return
-
-    setIsAutoDetecting(true)
-    setShowUrlSelection(false)
-
-    try {
-      // Fetch the HTML content
-      const response = await fetch(url)
-      const html = await response.text()
-      
-      // Extract all image URLs from HTML
-      const discoveredImageUrls = extractImageUrls(html, [], url, html, false)
-      
-      // Filter out base64 images and group by domain/pattern
-      const validUrls = discoveredImageUrls
-        .filter(imgUrl => imgUrl.startsWith('http') && !imgUrl.startsWith('data:'))
-        .slice(0, 20) // Limit to first 20 for UI performance
-        
-      if (validUrls.length > 0) {
-        setDiscoveredUrls(validUrls)
-        setShowUrlSelection(true)
-      } else {
-        // No URLs found, fallback to advanced patterns
-        setShowAdvancedPatterns(true)
-      }
-    } catch (error) {
-      console.error('Auto-detection failed:', error)
-      setShowAdvancedPatterns(true)
-    } finally {
-      setIsAutoDetecting(false)
-    }
-  }
-
-  // Handle URL selection from discovered URLs
-  const handleUrlSelection = (selectedUrl: string) => {
-    try {
-      // Create pattern from selected URL
-      const urlObj = new URL(selectedUrl)
-      const domain = urlObj.hostname
-      
-      // Try to find number pattern in the URL
-      const numberMatch = selectedUrl.match(/(\d+)(\.[^\/]*)?$/)
-      if (numberMatch) {
-        const number = numberMatch[1]
-        const extension = numberMatch[2] || ''
-        const basePattern = selectedUrl.replace(number + extension, '{chapter:' + '0'.repeat(number.length) + 'd}' + extension)
-        
-        const detectedPattern: WebsitePattern = {
-          id: 'user-selected',
-          name: `Pattern from ${domain}`,
-          domain: domain,
-          description: `User-selected pattern from discovered URLs`,
-          urlPattern: basePattern,
-          chapterConfig: '{n}',
-          example: selectedUrl
-        }
-        
-        setSelectedWebsitePattern(detectedPattern)
-        setShowUrlSelection(false)
-        setShowAdvancedPatterns(false)
-        
-        // Auto-apply the pattern
-        const envFormat = convertToEnvFormat(detectedPattern)
-        onCustomUrlPatternsChange(envFormat)
-      }
-    } catch (error) {
-      console.error('Failed to create pattern from selected URL:', error)
     }
   }
 
@@ -356,64 +294,6 @@ export const ScrapingConfigurationSection = React.memo(({
                   <div className="text-xs">
                     <span className="text-muted-foreground">Example:</span>
                     <div className="text-foreground mt-1">{selectedWebsitePattern.example}</div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Auto-Detect Loading */}
-            {isAutoDetecting && (
-              <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
-                <div className="flex items-center space-x-3">
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
-                  <div>
-                    <div className="text-sm font-medium text-blue-900 dark:text-blue-100">Analyzing HTML content...</div>
-                    <div className="text-xs text-blue-700 dark:text-blue-300">Discovering image URLs from the page</div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* URL Selection Interface */}
-            {showUrlSelection && discoveredUrls.length > 0 && (
-              <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md">
-                <div className="text-sm font-medium text-green-900 dark:text-green-100 mb-3">
-                  Found {discoveredUrls.length} image URLs! Choose the pattern you want to use:
-                </div>
-                <div className="space-y-2 max-h-60 overflow-y-auto">
-                  {discoveredUrls.map((discoveredUrl, index) => {
-                    const urlObj = new URL(discoveredUrl)
-                    const path = urlObj.pathname
-                    const filename = path.split('/').pop() || ''
-                    
-                    return (
-                      <button
-                        key={index}
-                        onClick={() => handleUrlSelection(discoveredUrl)}
-                        className="w-full p-3 text-left bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded hover:border-green-400 hover:bg-green-50 dark:hover:bg-green-900/30 transition-colors group"
-                      >
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1 min-w-0">
-                            <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                              {filename}
-                            </div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">
-                              {urlObj.hostname}{path}
-                            </div>
-                          </div>
-                          <div className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <div className="text-xs bg-green-100 dark:bg-green-800 text-green-800 dark:text-green-200 px-2 py-1 rounded">
-                              Use Pattern
-                            </div>
-                          </div>
-                        </div>
-                      </button>
-                    )
-                  })}
-                </div>
-                <div className="mt-3 pt-3 border-t border-green-200 dark:border-green-700">
-                  <div className="text-xs text-green-700 dark:text-green-300">
-                    💡 Select an image URL that represents the pattern you want (e.g., "001.webp" for sequential numbering)
                   </div>
                 </div>
               </div>
