@@ -37,6 +37,15 @@ export const PREDEFINED_WEBSITE_PATTERNS: WebsitePattern[] = [
     example: 'https://manhuaus.com/manga/title/chapter-2/'
   },
   {
+    id: 'manhuaus2',
+    name: 'manhuaus.com 2',
+    domain: 'img.manhuaus.com',
+    description: 'ManhuaUS image server pattern',
+    urlPattern: 'https://img.manhuaus.com/image/{*}/{*}/0{ch_next}',
+    chapterConfig: '{n+1}',
+    example: 'https://img.manhuaus.com/image/manga/title/0201'
+  },
+  {
     id: 'mangakakalot',
     name: 'MangaKakalot',
     domain: 'mangakakalot.com',
