@@ -293,20 +293,27 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
             // WebkitOverflowScrolling: 'touch' - legacy iOS property, causes conflicts on modern browsers
           }}
         >
-          {images.length === 0 && initialPreviewMode ? (
-            // Show transparent placeholder when preserving preview mode during chapter navigation
+          {images.length === 0 && (initialPreviewMode || isNavigating) ? (
+            // Show loading placeholder when preserving preview mode during chapter navigation or auto navigation
             <div 
-              className="w-full" 
+              className="w-full flex items-center justify-center" 
               style={{ 
                 height: '100vh', 
                 backgroundColor: 'transparent',
-                display: 'block'
+                display: 'flex'
               }}
-            />
+            >
+              {isNavigating && (
+                <div className="flex flex-col items-center space-y-4">
+                  <Loader2 className="h-8 w-8 animate-spin text-accent" />
+                  <p className="text-muted-foreground">Loading next chapter...</p>
+                </div>
+              )}
+            </div>
           ) : (
             images.map((image, index) => (
               <img
-                key={`preview-${image.url}-${index}-${images.length}`}
+                key={`preview-${image.url}-${index}`}
                 src={image.url}
                 alt={image.alt || `Image ${index + 1}`}
                 className="w-full block"

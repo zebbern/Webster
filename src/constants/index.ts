@@ -29,7 +29,7 @@ export const TIMING = {
   PROCESSING_DELAY: 10,
   DOWNLOAD_DELAY_BETWEEN_IMAGES: 250,
   URL_CLEANUP_DELAY: 5000,
-  IMAGE_STATE_RESET_DELAY: 10,
+  IMAGE_STATE_RESET_DELAY: 100, // Increased from 10ms to prevent race conditions with Auto Next Chapter
   
   // Preview and UI refresh delays
   PREVIEW_REFRESH_DELAY: 100,
