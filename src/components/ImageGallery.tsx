@@ -45,6 +45,19 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
     setAutoNavTriggered(false)
   }, [images])
 
+  // Force preview mode refresh when new images are loaded
+  useEffect(() => {
+    if (previewMode && images.length > 0) {
+      // Small delay to ensure DOM is updated, then scroll to top of preview
+      setTimeout(() => {
+        const previewContainer = document.getElementById('preview-overlay-scroll')
+        if (previewContainer) {
+          previewContainer.scrollTo({ top: 0, behavior: 'smooth' })
+        }
+      }, 100)
+    }
+  }, [images, previewMode])
+
 
   // Keyboard navigation for preview mode
   useEffect(() => {
@@ -263,7 +276,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
           ) : (
             images.map((image, index) => (
               <img
-                key={index}
+                key={`${image.url}-${index}`}
                 src={image.url}
                 alt={image.alt || `Image ${index + 1}`}
                 className="w-full block"
@@ -329,7 +342,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
       <div className="p-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           {images.map((image, index) => (
-            <div key={index} className="group relative bg-muted/50 rounded-lg overflow-hidden border border-border hover:shadow-md transition-shadow">
+            <div key={`${image.url}-${index}`} className="group relative bg-muted/50 rounded-lg overflow-hidden border border-border hover:shadow-md transition-shadow">
               {/* Image */}
               <div className="aspect-square relative overflow-hidden">
                 <img
