@@ -305,7 +305,7 @@ export const scrapeImages = async (
           if (chapterUrlObj.hostname.includes('manhuaus.com')) {
             // Check if any discovered URLs use the hash-based pattern
             const hasHashPattern = imageUrls.some(url => 
-              /img\.manhuaus\.com\/image\/[^\/]+\/[^\/]+\//.test(url)
+              /img\.manhuaus\.com\/image[^\/]*\/[^\/]+\/[^\/]+\//.test(url)
             )
             if (hasHashPattern) {
               // Force discovery mode by nullifying sequential pattern
@@ -836,8 +836,8 @@ function extractImageUrls(markdown: string, links: any[], baseUrl: string, extra
     try {
       const baseUrlObj = new URL(baseUrl)
       if (baseUrlObj.hostname.includes('manhuaus.com')) {
-        // Pattern for newer chapters: https://img.manhuaus.com/image/manga_HASH/HASH2/NN.webp (2-3 digits for flexibility)
-        const manhuausNewRegex = /https?:\/\/img\.manhuaus\.com\/image\/[^\/]+\/[^\/]+\/\d{2,3}\.(jpg|jpeg|png|gif|webp)/gi
+        // Pattern for newer chapters: https://img.manhuaus.com/image*/manga_HASH/HASH2/NN.webp (2-3 digits for flexibility)
+        const manhuausNewRegex = /https?:\/\/img\.manhuaus\.com\/image[^\/]*\/[^\/]+\/[^\/]+\/\d{2,3}\.(jpg|jpeg|png|gif|webp)/gi
         let manhuausNew
         while ((manhuausNew = manhuausNewRegex.exec(htmlString)) !== null) {
           tryAdd(manhuausNew[0])
@@ -851,7 +851,7 @@ function extractImageUrls(markdown: string, links: any[], baseUrl: string, extra
         }
         
         // Also look for these patterns without protocol
-        const relativeManhuausNewRegex = /img\.manhuaus\.com\/image\/[^\/\s"']+\/[^\/\s"']+\/\d{2,3}\.(jpg|jpeg|png|gif|webp)/gi
+        const relativeManhuausNewRegex = /img\.manhuaus\.com\/image[^\/]*\/[^\/\s"']+\/[^\/\s"']+\/\d{2,3}\.(jpg|jpeg|png|gif|webp)/gi
         let relManhuausNew
         while ((relManhuausNew = relativeManhuausNewRegex.exec(htmlString)) !== null) {
           tryAdd('https://' + relManhuausNew[0])
