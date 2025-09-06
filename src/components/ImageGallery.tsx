@@ -48,15 +48,28 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
   // Force preview mode refresh when new images are loaded
   useEffect(() => {
     if (previewMode && images.length > 0) {
-      // Small delay to ensure DOM is updated, then scroll to top of preview
-      setTimeout(() => {
-        const previewContainer = document.getElementById('preview-overlay-scroll')
-        if (previewContainer) {
+      // Force a re-render by resetting scroll position immediately
+      const previewContainer = document.getElementById('preview-overlay-scroll')
+      if (previewContainer) {
+        // Reset scroll immediately to prevent stacked images
+        previewContainer.scrollTop = 0
+        
+        // Small delay to ensure DOM is updated, then smooth scroll to top
+        setTimeout(() => {
           previewContainer.scrollTo({ top: 0, behavior: 'smooth' })
-        }
-      }, 100)
+        }, 100)
+      }
     }
   }, [images, previewMode])
+
+  // Clean up scroll state when exiting preview mode
+  useEffect(() => {
+    if (!previewMode) {
+      setLastScrollY(0)
+      setAutoNavTriggered(false)
+      setButtonsVisible(true)
+    }
+  }, [previewMode])
 
 
   // Keyboard navigation for preview mode
@@ -90,7 +103,13 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
     const currentScrollY = previewContainer.scrollTop
     const containerHeight = previewContainer.clientHeight
     const scrollHeight = previewContainer.scrollHeight
-    const isAtBottom = currentScrollY + containerHeight >= scrollHeight - 10 // 10px threshold
+    
+    // More strict bottom detection - only trigger when very close to bottom
+    // Increased threshold to 50px to avoid early triggering
+    const isAtBottom = currentScrollY + containerHeight >= scrollHeight - 50
+    
+    // Only consider "at bottom" if we've scrolled a significant amount
+    const hasScrolledSignificantly = currentScrollY > containerHeight * 0.5
 
     // Show buttons when:
     // 1. Scrolling up (currentScrollY < lastScrollY)
@@ -105,16 +124,21 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
       onButtonVisibilityChange?.(false)
     }
 
-    // Auto next chapter functionality
-    if (autoNextChapter && isAtBottom && !autoNavTriggered && !isNavigating && onNextChapter && onStartNavigation) {
+    // Auto next chapter functionality - only trigger if we've scrolled significantly and are at bottom
+    if (autoNextChapter && isAtBottom && hasScrolledSignificantly && !autoNavTriggered && !isNavigating && onNextChapter && onStartNavigation) {
+      console.log('Auto next chapter triggered - at bottom with significant scroll')
+      
       // IMMEDIATELY start navigation lock
       setAutoNavTriggered(true)
       onStartNavigation()
       
-      // Delay actual navigation to ensure user intended to go to next chapter
+      // Longer delay to prevent accidental navigation and allow user to stop if needed
       setTimeout(() => {
-        onNextChapter()
-      }, 1000)
+        if (!isNavigating) { // Double-check navigation state
+          console.log('Executing auto next chapter navigation')
+          onNextChapter()
+        }
+      }, 1500) // Increased from 1000ms to 1500ms
     }
 
     setLastScrollY(currentScrollY)
@@ -130,8 +154,8 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
         clearTimeout(scrollTimeoutRef.current)
       }
       
-      // Throttle scroll handling to every 16ms (60fps)
-      scrollTimeoutRef.current = setTimeout(handleScrollThrottled, 16)
+      // Reduce throttling to improve responsiveness - 8ms (120fps)
+      scrollTimeoutRef.current = setTimeout(handleScrollThrottled, 8)
     }
 
     const previewContainer = document.getElementById('preview-overlay-scroll')
@@ -256,6 +280,9 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
           id="preview-overlay-scroll" 
           className="h-full overflow-y-auto"
           style={{
+            // Force hardware acceleration and proper stacking context
+            contain: 'layout style paint',
+            isolation: 'isolate',
             // Removed problematic properties that interfere with mobile browser scroll detection
             // willChange: 'scroll-position', - interferes with browser UI detection
             // transform: 'translateZ(0)', - creates new layer, breaks scroll detection  
@@ -276,14 +303,18 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
           ) : (
             images.map((image, index) => (
               <img
-                key={`${image.url}-${index}`}
+                key={`preview-${image.url}-${index}-${images.length}`}
                 src={image.url}
                 alt={image.alt || `Image ${index + 1}`}
                 className="w-full block"
                 style={{ 
                   display: 'block', 
                   margin: 0, 
-                  padding: 0
+                  padding: 0,
+                  position: 'relative',
+                  zIndex: 1,
+                  // Force proper rendering context
+                  contain: 'layout style'
                   // Removed problematic properties:
                   // willChange: 'auto', - can interfere with scroll performance
                   // backfaceVisibility: 'hidden', - conflicts with mobile scroll detection
