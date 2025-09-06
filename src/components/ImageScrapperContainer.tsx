@@ -438,6 +438,12 @@ const ImageScrapperContainer: React.FC = () => {
           onPreviewEnter={handlePreviewEnter}
           onPreviousChapter={handlePreviousChapter}
           currentChapter={url ? parseChapterFromUrl(url).chapterNumber : 0}
+          canAutoNavigate={(() => {
+            const now = Date.now()
+            const autoScrollCooldownOK = now - navigation.lastAutoScrollTime >= TIMING.AUTO_CHAPTER_COOLDOWN
+            const previewEnterCooldownOK = now - navigation.lastPreviewEnterTime >= TIMING.AUTO_CHAPTER_PREVIEW_DELAY
+            return autoScrollCooldownOK && previewEnterCooldownOK && !scraping.isLoading && !navigation.isNavigating
+          })()}
           isNavigating={navigation.isNavigating}
           isLoading={scraping.isLoading}
           lastAutoScrollTime={navigation.lastAutoScrollTime}
