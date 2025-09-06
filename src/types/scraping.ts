@@ -3,6 +3,10 @@
  * Following React/TypeScript industry standards for type organization
  */
 
+// Import types that are used in interface definitions
+import type { ScrapedImage, ScrapeProgress } from '../utils/advancedImageScraper'
+import type { ChapterInfo } from '../utils/urlNavigation'
+
 export interface ScrapingStats {
   total: number
   duplicates: number
@@ -106,5 +110,4 @@ export interface FilterActions {
 }
 
 // Re-export types from other modules for convenience
-export type { ScrapedImage, ScrapeProgress } from '../utils/advancedImageScraper'
-export type { ChapterInfo } from '../utils/urlNavigation'
+export type { ScrapedImage, ScrapeProgress, ChapterInfo }

@@ -5,11 +5,10 @@ import { ScrapingStatusSection } from './ScrapingStatusSection'
 import { ScrapingResultsSection } from './ScrapingResultsSection'
 import { ScrapingConfigurationSection } from './ScrapingConfigurationSection'
 import ThemeToggle from './ThemeToggle'
-import { scrapeImages, ScrapedImage, ScrapeProgress, clearRequestCache, detectStrongSequentialPattern } from '../utils/advancedImageScraper'
+import { scrapeImages, ScrapeProgress, clearRequestCache, detectStrongSequentialPattern } from '../utils/advancedImageScraper'
 import { parseChapterFromUrl } from '../utils/urlNavigation'
-import { urlPatternManager } from '../utils/urlPatterns'
 import { useImageScrapingState } from '../hooks/useImageScrapingState'
-import { TIMING, DEFAULTS, ERROR_MESSAGES, FILE_EXTENSIONS } from '../constants'
+import { TIMING, ERROR_MESSAGES } from '../constants'
 
 const ImageScrapperContainer: React.FC = () => {
   const [url, setUrl] = useState('')
@@ -351,7 +350,7 @@ const ImageScrapperContainer: React.FC = () => {
           isLoading={scraping.isLoading}
           chapterCount={configuration.chapterCount}
           navTooltipOpen={ui.tooltipStates.navInfo}
-          onNavTooltipToggle={(open) => handleTooltipToggle('navInfo')}
+          onNavTooltipToggle={(_open) => handleTooltipToggle('navInfo')}
           showConfiguration={ui.showConfiguration}
           onToggleConfiguration={uiActions.toggleConfiguration}
         />

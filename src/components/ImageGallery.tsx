@@ -5,6 +5,7 @@ import { downloadImage, downloadAllImages } from '../utils/downloadUtils'
 import { copyToClipboard } from '../utils/clipboardUtils'
 import ImageModal from './ImageModal'
 import { downloadHTMLExport } from '../utils/htmlExporter'
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock'
 import { TIMING, THRESHOLDS, UI_CONFIG } from '../constants'
 
 interface ImageGalleryProps {
@@ -76,29 +77,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
   }, [previewMode])
 
   // Prevent body scroll when preview mode is active
-  useEffect(() => {
-    if (previewMode) {
-      // Store current scroll position
-      const scrollY = window.scrollY
-      
-      // Prevent body scroll
-      document.body.style.overflow = 'hidden'
-      document.body.style.position = 'fixed'
-      document.body.style.top = `-${scrollY}px`
-      document.body.style.width = '100%'
-      
-      return () => {
-        // Restore body scroll
-        document.body.style.overflow = ''
-        document.body.style.position = ''
-        document.body.style.top = ''
-        document.body.style.width = ''
-        
-        // Restore scroll position
-        window.scrollTo(0, scrollY)
-      }
-    }
-  }, [previewMode])
+  useBodyScrollLock(previewMode)
 
 
   // Keyboard navigation for preview mode
@@ -154,8 +133,6 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
 
     // Auto next chapter functionality - only trigger if we've scrolled significantly and are at bottom
     if (autoNextChapter && isAtBottom && hasScrolledSignificantly && !autoNavTriggered && !isNavigating && onNextChapter && onStartNavigation) {
-      console.log('Auto next chapter triggered - at bottom with significant scroll')
-      
       // IMMEDIATELY start navigation lock
       setAutoNavTriggered(true)
       onStartNavigation()
@@ -163,7 +140,6 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
       // Longer delay to prevent accidental navigation and allow user to stop if needed
       setTimeout(() => {
         if (!isNavigating) { // Double-check navigation state
-          console.log('Executing auto next chapter navigation')
           onNextChapter()
         }
       }, TIMING.AUTO_NAVIGATION_DELAY)

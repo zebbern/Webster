@@ -206,7 +206,7 @@ export const ScrapingConfigurationSection = React.memo(({
           <div className="flex items-center space-x-2">
             <Filter className="h-5 w-5 text-muted-foreground" />
             <label className="text-sm font-medium text-foreground">URL Patterns</label>
-            <Tooltip open={tooltipStates.urlPatterns} onOpenChange={(open) => onTooltipToggle('urlPatterns')}>
+            <Tooltip open={tooltipStates.urlPatterns} onOpenChange={(_open) => onTooltipToggle('urlPatterns')}>
               <TooltipTrigger asChild>
                 <button className="w-5 h-5 rounded-full bg-muted/60 hover:bg-muted flex items-center justify-center text-muted-foreground" aria-label="URL patterns info">
                   <Info className="h-3 w-3" />
@@ -370,7 +370,7 @@ VITE_CH_NEXT_COMIC={n+1}`}
         showImageFilters={showImageFilters}
         isLoading={isLoading}
         tooltipOpen={tooltipStates.imageFiltering}
-        onTooltipOpenChange={(open) => onTooltipToggle('imageFiltering')}
+        onTooltipOpenChange={(_open) => onTooltipToggle('imageFiltering')}
         onNewFilterChange={onNewFilterChange}
         onShowFiltersToggle={onToggleImageFilters}
         onAddFilter={onAddFilter}

@@ -7,6 +7,8 @@ import {
   THRESHOLDS,
   REGEX_PATTERNS,
   ERROR_MESSAGES,
+  HTTP_STATUS,
+  NETWORK_TIMEOUTS,
   shouldRetryHttpStatus
 } from '../constants'
 
@@ -19,7 +21,7 @@ export const clearRequestCache = () => {
 }
 
 // Simple fetch wrapper using CORS client API with rate limiting and deduplication
-const fetchData = async (url: string, method: 'GET' | 'HEAD' = 'GET', signal?: AbortSignal, retries = DEFAULTS.RETRY_COUNT) => {
+const fetchData = async (url: string, method: 'GET' | 'HEAD' = 'GET', signal?: AbortSignal, retries = DEFAULTS.RETRY_COUNT): Promise<{ body: string; status: number; headers: Headers }> => {
   // Create cache key based on URL and method
   const cacheKey = `${method}:${url}`
   
@@ -48,10 +50,10 @@ const fetchData = async (url: string, method: 'GET' | 'HEAD' = 'GET', signal?: A
         let baseDelay: number
         let errorType: string
         
-        if (fetched.status === 525) {
+        if (fetched.status === HTTP_STATUS.SSL_HANDSHAKE_FAILED) {
           baseDelay = TIMING.RETRY_DELAY.SSL
           errorType = 'SSL Handshake Failed'
-        } else if (fetched.status === 408) {
+        } else if (fetched.status === HTTP_STATUS.TIMEOUT) {
           baseDelay = TIMING.RETRY_DELAY.TIMEOUT
           errorType = 'Request Timeout'
         } else {
@@ -71,8 +73,8 @@ const fetchData = async (url: string, method: 'GET' | 'HEAD' = 'GET', signal?: A
         return fetchData(url, method, signal, retries - 1)
       }
       
-      // Log 525 errors that exceed retry limit
-      if (fetched.status === 525) {
+      // Log SSL handshake errors that exceed retry limit
+      if (fetched.status === HTTP_STATUS.SSL_HANDSHAKE_FAILED) {
         withTemporaryConsole('error', () => {
           console.error(`SSL handshake failed permanently for ${url} after all retries`)
         })
@@ -90,7 +92,7 @@ const fetchData = async (url: string, method: 'GET' | 'HEAD' = 'GET', signal?: A
       }
       
       // Return a failed status for any fetch error
-      return { body: '', status: 500, headers: new Headers() }
+      return { body: '', status: HTTP_STATUS.INTERNAL_ERROR, headers: new Headers() }
     } finally {
       // Restore console
       consoleManager.restore()
@@ -446,7 +448,7 @@ const validateImageExists = async (url: string, validateImages: boolean, signal?
       const timeout = setTimeout(() => {
         cleanup()
         resolve(false)
-      }, TIMING.IMAGE_VALIDATION_TIMEOUT)
+      }, NETWORK_TIMEOUTS.IMAGE_VALIDATION)
       
       img.onload = () => {
         clearTimeout(timeout)
@@ -531,9 +533,9 @@ export const scrapeImages = async (
         
         // Check for failed fetch (timeout, network error, etc.)
         if (fetched.status >= THRESHOLDS.HTTP_SUCCESS_THRESHOLD) {
-          const errorMsg = fetched.status === 408 ? 'Request timeout (5 seconds)' : 
-                          fetched.status === 404 ? ERROR_MESSAGES.CHAPTER_NOT_FOUND :
-                          fetched.status === 403 ? ERROR_MESSAGES.ACCESS_FORBIDDEN :
+          const errorMsg = fetched.status === HTTP_STATUS.TIMEOUT ? 'Request timeout (5 seconds)' : 
+                          fetched.status === HTTP_STATUS.NOT_FOUND ? ERROR_MESSAGES.CHAPTER_NOT_FOUND :
+                          fetched.status === HTTP_STATUS.FORBIDDEN ? ERROR_MESSAGES.ACCESS_FORBIDDEN :
                           `HTTP ${fetched.status}`
           throw new Error(errorMsg)
         }

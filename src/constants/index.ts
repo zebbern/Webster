@@ -76,13 +76,37 @@ export const THRESHOLDS = {
   EMPTY_FILE_SIZE: 0,
 } as const
 
+// HTTP Status Codes
+export const HTTP_STATUS = {
+  // Success codes
+  OK: 200,
+  
+  // Client error codes
+  FORBIDDEN: 403,
+  NOT_FOUND: 404,
+  TIMEOUT: 408,
+  
+  // Server error codes  
+  INTERNAL_ERROR: 500,
+  SSL_HANDSHAKE_FAILED: 525,
+} as const
+
+// Network timeouts
+export const NETWORK_TIMEOUTS = {
+  DEFAULT_REQUEST: 30000, // 30 seconds
+  IMAGE_VALIDATION: 5000,  // 5 seconds  
+  URL_CLEANUP: 5000,       // 5 seconds
+} as const
+
 export const UI_CONFIG = {
   // Z-index layers for proper stacking
   Z_INDEX: {
-    NAVIGATION_OVERLAY: 70,
+    BASE: 10,
+    MODAL: 40,
     PREVIEW_OVERLAY: 40,
+    FLOATING_BUTTONS: 40, 
     PREVIEW_CONTROLS: 50,
-    FLOATING_BUTTONS: 40,
+    NAVIGATION_OVERLAY: 70,
   },
   
   // Local storage keys

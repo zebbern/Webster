@@ -96,7 +96,7 @@ const ScrapingConfiguration: React.FC<ScrapingConfigurationProps> = ({
                     <div className="text-xs mt-0.5 opacity-80">Thorough</div>
                   </div>
                 </button>
-                <Tooltip open={tooltipStates.smartInfo} onOpenChange={(open) => onTooltipToggle('smartInfo')}>
+                <Tooltip open={tooltipStates.smartInfo} onOpenChange={(_open) => onTooltipToggle('smartInfo')}>
                   <TooltipTrigger asChild>
                     <button 
                       onClick={() => onTooltipToggle('smartInfo')} 
@@ -128,7 +128,7 @@ const ScrapingConfiguration: React.FC<ScrapingConfigurationProps> = ({
                     <div className="text-xs mt-0.5 opacity-80">Sequential</div>
                   </div>
                 </button>
-                <Tooltip open={tooltipStates.fastInfo} onOpenChange={(open) => onTooltipToggle('fastInfo')}>
+                <Tooltip open={tooltipStates.fastInfo} onOpenChange={(_open) => onTooltipToggle('fastInfo')}>
                   <TooltipTrigger asChild>
                     <button 
                       onClick={() => onTooltipToggle('fastInfo')} 
@@ -163,7 +163,7 @@ const ScrapingConfiguration: React.FC<ScrapingConfigurationProps> = ({
                     <option value={2}>2</option>
                     <option value={3}>3</option>
                   </select>
-                  <Tooltip open={tooltipStates.missInfo} onOpenChange={(open) => onTooltipToggle('missInfo')}>
+                  <Tooltip open={tooltipStates.missInfo} onOpenChange={(_open) => onTooltipToggle('missInfo')}>
                     <TooltipTrigger asChild>
                       <button onClick={() => onTooltipToggle('missInfo')} className="absolute right-1 top-1/2 transform -translate-y-1/2 w-5 h-5 rounded-full bg-muted/60 hover:bg-muted flex items-center justify-center text-muted-foreground" aria-label="Miss info">
                         <Info className="h-3 w-3" />
@@ -191,7 +191,7 @@ const ScrapingConfiguration: React.FC<ScrapingConfigurationProps> = ({
                       <option key={num} value={num}>{num}</option>
                     ))}
                   </select>
-                  <Tooltip open={tooltipStates.chapterInfo} onOpenChange={(open) => onTooltipToggle('chapterInfo')}>
+                  <Tooltip open={tooltipStates.chapterInfo} onOpenChange={(_open) => onTooltipToggle('chapterInfo')}>
                     <TooltipTrigger asChild>
                       <button onClick={() => onTooltipToggle('chapterInfo')} className="absolute right-1 top-1/2 transform -translate-y-1/2 w-5 h-5 rounded-full bg-muted/60 hover:bg-muted flex items-center justify-center text-muted-foreground" aria-label="Chapters info">
                         <Info className="h-3 w-3" />
@@ -218,7 +218,7 @@ const ScrapingConfiguration: React.FC<ScrapingConfigurationProps> = ({
                     />
                     <div className="w-9 h-5 bg-muted peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-background after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
                   </label>
-                  <Tooltip open={tooltipStates.autoNextChapterInfo} onOpenChange={(open) => onTooltipToggle('autoNextChapterInfo')}>
+                  <Tooltip open={tooltipStates.autoNextChapterInfo} onOpenChange={(_open) => onTooltipToggle('autoNextChapterInfo')}>
                     <TooltipTrigger asChild>
                       <button 
                         onClick={() => onTooltipToggle('autoNextChapterInfo')} 
@@ -257,7 +257,7 @@ const ScrapingConfiguration: React.FC<ScrapingConfigurationProps> = ({
                       ))
                   }
                 </select>
-                <Tooltip open={tooltipStates.fetchIntervalInfo} onOpenChange={(open) => onTooltipToggle('fetchIntervalInfo')}>
+                <Tooltip open={tooltipStates.fetchIntervalInfo} onOpenChange={(_open) => onTooltipToggle('fetchIntervalInfo')}>
                   <TooltipTrigger asChild>
                     <button onClick={() => onTooltipToggle('fetchIntervalInfo')} className="absolute right-1 top-1/2 transform -translate-y-1/2 w-5 h-5 rounded-full bg-muted/60 hover:bg-muted flex items-center justify-center text-muted-foreground" aria-label="Fetch interval info">
                       <Info className="h-3 w-3" />
@@ -322,7 +322,7 @@ const ScrapingConfiguration: React.FC<ScrapingConfigurationProps> = ({
                 Validate images before adding
               </label>
               
-              <Tooltip open={tooltipStates.validateInfo} onOpenChange={(open) => onTooltipToggle('validateInfo')}>
+              <Tooltip open={tooltipStates.validateInfo} onOpenChange={(_open) => onTooltipToggle('validateInfo')}>
                 <TooltipTrigger asChild>
                   <button onClick={() => onTooltipToggle('validateInfo')} className="w-5 h-5 rounded-full bg-muted/60 hover:bg-muted flex items-center justify-center text-muted-foreground" aria-label="Validation info">
                     <Info className="h-3 w-3" />
