@@ -101,10 +101,6 @@ export const ScrapingConfigurationSection = React.memo(({
   const [isPatternDropdownOpen, setIsPatternDropdownOpen] = useState(false)
   const [showAdvancedPatterns, setShowAdvancedPatterns] = useState(false)
 
-  if (!showConfiguration) {
-    return null
-  }
-
   const chapterInfo = parseChapterFromUrl(url)
   
   // Auto-detect website pattern when URL changes
@@ -139,6 +135,10 @@ export const ScrapingConfigurationSection = React.memo(({
       onCustomUrlPatternsChange(envFormat)
       onUrlPatternsApply()
     }
+  }
+
+  if (!showConfiguration) {
+    return null
   }
 
   return (
