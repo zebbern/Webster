@@ -16,6 +16,8 @@ interface ScrapingResultsSectionProps {
   onNextChapter: (nextUrl: string) => void
   onStartNavigation: () => void
   onPreviewEnter: () => void
+  onPreviousChapter: () => void
+  currentChapter: number
   isNavigating: boolean
   isLoading: boolean
   lastAutoScrollTime: number
@@ -37,6 +39,8 @@ export const ScrapingResultsSection = React.memo(({
   onNextChapter,
   onStartNavigation,
   onPreviewEnter,
+  onPreviousChapter,
+  currentChapter,
   isNavigating,
   isLoading,
   lastAutoScrollTime,
@@ -103,6 +107,8 @@ export const ScrapingResultsSection = React.memo(({
         onNextChapter={handleAutoNextChapter}
         onStartNavigation={onStartNavigation}
         onPreviewEnter={onPreviewEnter}
+        onPreviousChapter={onPreviousChapter}
+        currentChapter={currentChapter}
         isNavigating={isNavigating}
       />
     </div>

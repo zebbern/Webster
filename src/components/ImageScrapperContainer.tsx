@@ -318,6 +318,20 @@ const ImageScrapperContainer: React.FC = () => {
     handleScrapeWithUrl(nextUrl)
   }, [navigationActions, handleScrapeWithUrl])
 
+  const handlePreviousChapter = useCallback(() => {
+    if (!url) return
+    
+    const chapterInfo = parseChapterFromUrl(url)
+    if (chapterInfo.hasChapter && chapterInfo.chapterNumber > 1) {
+      const prevChapterNumber = chapterInfo.chapterNumber - 1
+      const prevChapterUrl = updateChapterUrl(prevChapterNumber, true)
+      
+      if (prevChapterUrl && prevChapterUrl !== url) {
+        handleScrapeWithUrl(prevChapterUrl)
+      }
+    }
+  }, [url, updateChapterUrl, handleScrapeWithUrl])
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* Navigation Lock Overlay */}
@@ -422,6 +436,8 @@ const ImageScrapperContainer: React.FC = () => {
           onNextChapter={handleNextChapter}
           onStartNavigation={handleStartNavigation}
           onPreviewEnter={handlePreviewEnter}
+          onPreviousChapter={handlePreviousChapter}
+          currentChapter={url ? parseChapterFromUrl(url).chapterNumber : 0}
           isNavigating={navigation.isNavigating}
           isLoading={scraping.isLoading}
           lastAutoScrollTime={navigation.lastAutoScrollTime}

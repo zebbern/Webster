@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
-import { Download, Eye, Copy, Check, Grid, Maximize, ChevronUp, ChevronDown, Loader2 } from 'lucide-react'
+import { Download, Eye, Copy, Check, Grid, Maximize, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
 import { ScrapedImage } from '../utils/advancedImageScraper'
 import { downloadImage, downloadAllImages } from '../utils/downloadUtils'
 import { copyToClipboard } from '../utils/clipboardUtils'
@@ -20,10 +20,12 @@ interface ImageGalleryProps {
   onNextChapter?: () => void
   onStartNavigation?: () => void
   onPreviewEnter?: () => void
+  onPreviousChapter?: () => void
+  currentChapter?: number
   isNavigating?: boolean
 }
 
-const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', onImageError, onPreviewChange, onButtonVisibilityChange, showScrollButtons = false, initialPreviewMode = false, autoNextChapter = false, onNextChapter, onStartNavigation, onPreviewEnter, isNavigating = false }) => {
+const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', onImageError, onPreviewChange, onButtonVisibilityChange, showScrollButtons = false, initialPreviewMode = false, autoNextChapter = false, onNextChapter, onStartNavigation, onPreviewEnter, onPreviousChapter, currentChapter, isNavigating = false }) => {
   const [selectedImage, setSelectedImage] = useState<ScrapedImage | null>(null)
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null)
   const [downloadingAll, setDownloadingAll] = useState(false)
@@ -51,24 +53,17 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
     setAutoNavTriggered(false)
   }, [images])
 
-  // Only scroll to top when initially entering preview mode, not when new images are added or during navigation
+  // Always scroll to top when entering preview mode for normal browser behavior
   useEffect(() => {
     if (previewMode && images.length > 0 && !isNavigating) { // Prevent scroll reset during auto navigation
       const previewContainer = document.getElementById('preview-overlay-scroll')
       if (previewContainer) {
-        // Only reset scroll position when first entering preview mode
-        // Check if we're at the top already (initial state) or if user manually scrolled there
-        const isAtTop = previewContainer.scrollTop <= THRESHOLDS.TOP_SCROLL_THRESHOLD
-        
-        // Only auto-scroll to top if we're switching to preview mode and not already positioned correctly
-        if (isAtTop || previewContainer.scrollTop === 0) {
-          setTimeout(() => {
-            if (!isNavigating) { // Double-check navigation state before scrolling
-              previewContainer.scrollTo({ top: 0, behavior: 'smooth' })
-            }
-          }, TIMING.PREVIEW_REFRESH_DELAY)
-        }
-        // Otherwise, maintain current scroll position when new images are added
+        // Always scroll to top when entering preview mode to mimic normal browser behavior
+        setTimeout(() => {
+          if (!isNavigating) { // Double-check navigation state before scrolling
+            previewContainer.scrollTo({ top: 0, behavior: 'instant' })
+          }
+        }, TIMING.PREVIEW_REFRESH_DELAY)
       }
     }
   }, [previewMode, isNavigating]) // Added isNavigating dependency to prevent scroll reset during navigation
@@ -290,6 +285,41 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
             >
               <ChevronDown className="h-5 w-5" />
             </button>
+          </div>
+        </div>
+        )}
+
+        {/* Chapter navigation buttons */}
+        {(onPreviousChapter || onNextChapter) && (
+        <div className={`fixed left-4 bottom-6 z-50 flex flex-col items-start space-y-2 transition-all duration-300 ${
+          buttonsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        }`}>
+          <div className="flex items-center space-x-2">
+            {onPreviousChapter && (
+              <button
+                onClick={onPreviousChapter}
+                className="p-2.5 bg-card/90 text-foreground rounded-full hover:bg-card transition-colors shadow-lg"
+                title="Previous chapter"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+            )}
+            
+            {currentChapter && (
+              <div className="px-3 py-2 bg-card/90 text-foreground rounded-lg shadow-lg">
+                <span className="text-sm font-medium">Chapter {currentChapter}</span>
+              </div>
+            )}
+            
+            {onNextChapter && (
+              <button
+                onClick={onNextChapter}
+                className="p-2.5 bg-card/90 text-foreground rounded-full hover:bg-card transition-colors shadow-lg"
+                title="Next chapter"
+              >
+                <ChevronRight className="h-5 w-5" />
+              </button>
+            )}
           </div>
         </div>
         )}
