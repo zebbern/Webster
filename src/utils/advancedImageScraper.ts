@@ -818,7 +818,7 @@ function extractImageUrls(markdown: string, links: any[], baseUrl: string, extra
     try {
       const baseUrlObj = new URL(baseUrl)
       if (baseUrlObj.hostname.includes('manhuaus.com')) {
-        // Pattern for newer chapters: https://img.manhuaus.com/image/manga_HASH/HASH2/NN.webp
+        // Pattern for newer chapters: https://img.manhuaus.com/image/manga_HASH/HASH2/NN.webp (2-3 digits for flexibility)
         const manhuausNewRegex = /https?:\/\/img\.manhuaus\.com\/image\/[^\/]+\/[^\/]+\/\d{2,3}\.(jpg|jpeg|png|gif|webp)/gi
         let manhuausNew
         while ((manhuausNew = manhuausNewRegex.exec(htmlString)) !== null) {
