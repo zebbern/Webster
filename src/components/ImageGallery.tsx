@@ -75,6 +75,31 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
     }
   }, [previewMode])
 
+  // Prevent body scroll when preview mode is active
+  useEffect(() => {
+    if (previewMode) {
+      // Store current scroll position
+      const scrollY = window.scrollY
+      
+      // Prevent body scroll
+      document.body.style.overflow = 'hidden'
+      document.body.style.position = 'fixed'
+      document.body.style.top = `-${scrollY}px`
+      document.body.style.width = '100%'
+      
+      return () => {
+        // Restore body scroll
+        document.body.style.overflow = ''
+        document.body.style.position = ''
+        document.body.style.top = ''
+        document.body.style.width = ''
+        
+        // Restore scroll position
+        window.scrollTo(0, scrollY)
+      }
+    }
+  }, [previewMode])
+
 
   // Keyboard navigation for preview mode
   useEffect(() => {
@@ -241,7 +266,17 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
   // Preview mode - full window with no spacing
   if (previewMode) {
     return (
-      <div className="fixed inset-0 z-40 bg-black">
+      <div 
+        className="fixed inset-0 z-40 bg-black"
+        onWheel={(e) => {
+          // Capture all wheel events within the preview overlay
+          e.stopPropagation()
+        }}
+        onTouchMove={(e) => {
+          // Capture all touch events within the preview overlay
+          e.stopPropagation()
+        }}
+      >
         {/* Exit button */}
         <button
           onClick={() => setPreviewMode(false)}
@@ -282,6 +317,14 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
         <div 
           id="preview-overlay-scroll" 
           className="h-full overflow-y-auto"
+          onWheel={(e) => {
+            // Prevent wheel events from bubbling to body when preview is active
+            e.stopPropagation()
+          }}
+          onTouchMove={(e) => {
+            // Prevent touch scroll events from bubbling to body
+            e.stopPropagation()
+          }}
           style={{
             // Force hardware acceleration and proper stacking context
             contain: 'layout style paint',
