@@ -6,7 +6,7 @@ import { TIMING } from '../constants'
 export const useNavigationState = () => {
   const [isNavigating, setIsNavigating] = useState(false)
   const [lastPageUrl, setLastPageUrl] = useState<string | null>(null)
-  const [lastAutoScrollTime, setLastAutoScrollTime] = useState(Date.now())
+  const [lastAutoScrollTime, setLastAutoScrollTime] = useState(0) // Initialize to 0 to allow first auto navigation
 
   const setNavigating = useCallback((navigating: boolean) => {
     setIsNavigating(navigating)

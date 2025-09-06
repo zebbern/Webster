@@ -47,9 +47,9 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
     setAutoNavTriggered(false)
   }, [images])
 
-  // Only scroll to top when initially entering preview mode, not when new images are added
+  // Only scroll to top when initially entering preview mode, not when new images are added or during navigation
   useEffect(() => {
-    if (previewMode && images.length > 0) {
+    if (previewMode && images.length > 0 && !isNavigating) { // Prevent scroll reset during auto navigation
       const previewContainer = document.getElementById('preview-overlay-scroll')
       if (previewContainer) {
         // Only reset scroll position when first entering preview mode
@@ -59,13 +59,15 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
         // Only auto-scroll to top if we're switching to preview mode and not already positioned correctly
         if (isAtTop || previewContainer.scrollTop === 0) {
           setTimeout(() => {
-            previewContainer.scrollTo({ top: 0, behavior: 'smooth' })
+            if (!isNavigating) { // Double-check navigation state before scrolling
+              previewContainer.scrollTo({ top: 0, behavior: 'smooth' })
+            }
           }, TIMING.PREVIEW_REFRESH_DELAY)
         }
         // Otherwise, maintain current scroll position when new images are added
       }
     }
-  }, [previewMode]) // Removed 'images' dependency to prevent scroll reset when new images are added
+  }, [previewMode, isNavigating]) // Added isNavigating dependency to prevent scroll reset during navigation
 
   // Clean up scroll state when exiting preview mode
   useEffect(() => {
