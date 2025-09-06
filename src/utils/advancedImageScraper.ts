@@ -747,6 +747,41 @@ function extractImageUrls(markdown: string, links: any[], baseUrl: string, extra
       tryAdd(u[0])
     }
 
+    // Enhanced: Look for URLs ending with image extensions even without protocols
+    const relativeImageRegex = /(?:^|[^\w])([^\s"'<>]*\.(jpg|jpeg|png|gif|webp|svg|bmp|tiff|ico)(?:[?#][^\s"'<>]*)?)/gi
+    let rel
+    while ((rel = relativeImageRegex.exec(htmlString)) !== null) {
+      tryAdd(rel[1])
+    }
+
+    // Enhanced: Look for image URLs in JSON objects and arrays
+    const jsonImageRegex = /["']([^"']*\.(jpg|jpeg|png|gif|webp|svg|bmp|tiff|ico)(?:[?#][^"']*)?)/gi
+    let json
+    while ((json = jsonImageRegex.exec(htmlString)) !== null) {
+      tryAdd(json[1])
+    }
+
+    // Enhanced: Look for image URLs in data attributes
+    const dataAttrRegex = /data-[^=]*=["']([^"']*\.(jpg|jpeg|png|gif|webp|svg|bmp|tiff|ico)(?:[?#][^"']*)?)/gi
+    let dataAttr
+    while ((dataAttr = dataAttrRegex.exec(htmlString)) !== null) {
+      tryAdd(dataAttr[1])
+    }
+
+    // Enhanced: Look for image URLs in CSS content property
+    const cssContentRegex = /content:\s*["']([^"']*\.(jpg|jpeg|png|gif|webp|svg|bmp|tiff|ico)(?:[?#][^"']*)?)/gi
+    let cssContent
+    while ((cssContent = cssContentRegex.exec(htmlString)) !== null) {
+      tryAdd(cssContent[1])
+    }
+
+    // Enhanced: Look for base64 encoded images (for fallback discovery)
+    const base64ImageRegex = /data:image\/[^;]+;base64,[A-Za-z0-9+/=]+/gi
+    let base64
+    while ((base64 = base64ImageRegex.exec(htmlString)) !== null) {
+      // Skip base64 images as they're not scrapable URLs, but log for debugging
+    }
+
     // Specific pattern: arrays in JS like ["...jpg","...jpg"]
     const arrayRegex = /\[([^\]]*?\.(?:jpg|jpeg|png|gif|webp|svg|bmp|tiff|ico)[^\]]*?)\]/gi
     let a
@@ -757,6 +792,26 @@ function extractImageUrls(markdown: string, links: any[], baseUrl: string, extra
       while ((it = itemRegex.exec(inner)) !== null) {
         tryAdd(it[0])
       }
+      // Enhanced: Also look for relative URLs in arrays
+      const relativeItemRegex = /[^https?:][^\s,'"\]]*\.(jpg|jpeg|png|gif|webp|svg|bmp|tiff|ico)/gi
+      let relItem
+      while ((relItem = relativeItemRegex.exec(inner)) !== null) {
+        tryAdd(relItem[0])
+      }
+    }
+
+    // Enhanced: Look for JavaScript variables containing image URLs
+    const jsVarRegex = /(?:var|let|const)\s+[^=]*=\s*["']([^"']*\.(jpg|jpeg|png|gif|webp|svg|bmp|tiff|ico)(?:[?#][^"']*)?)/gi
+    let jsVar
+    while ((jsVar = jsVarRegex.exec(htmlString)) !== null) {
+      tryAdd(jsVar[1])
+    }
+
+    // Enhanced: Look for image URLs in href attributes (for download links)
+    const hrefImageRegex = /href=["']([^"']*\.(jpg|jpeg|png|gif|webp|svg|bmp|tiff|ico)(?:[?#][^"']*)?)/gi
+    let hrefImg
+    while ((hrefImg = hrefImageRegex.exec(htmlString)) !== null) {
+      tryAdd(hrefImg[1])
     }
   }
 
