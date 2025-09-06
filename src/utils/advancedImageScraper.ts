@@ -297,7 +297,25 @@ export const scrapeImages = async (
         imageUrls = Array.from(new Set(imageUrls))
 
         // Check for strong sequential patterns 
-        const seqInfo = detectStrongSequentialPattern(imageUrls)
+        let seqInfo = detectStrongSequentialPattern(imageUrls)
+        
+        // Special handling: Force discovery mode for newer manhuaus.com hash-based URLs
+        try {
+          const chapterUrlObj = new URL(chapterUrl)
+          if (chapterUrlObj.hostname.includes('manhuaus.com')) {
+            // Check if any discovered URLs use the hash-based pattern
+            const hasHashPattern = imageUrls.some(url => 
+              /img\.manhuaus\.com\/image\/[^\/]+\/[^\/]+\//.test(url)
+            )
+            if (hasHashPattern) {
+              // Force discovery mode by nullifying sequential pattern
+              seqInfo = null
+            }
+          }
+        } catch (error) {
+          // Ignore URL parsing errors
+        }
+        
         if (seqInfo && fileTypes.includes(seqInfo.extension)) {
           // Sequential pattern detected and file type matches - do batch processing
           const { basePath, extension, pad } = seqInfo
