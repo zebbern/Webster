@@ -1,10 +1,11 @@
-import React from 'react'
-import { Settings, Filter, Info } from 'lucide-react'
+import React, { useState } from 'react'
+import { Settings, Filter, Info, Globe, Zap, ChevronDown } from 'lucide-react'
 import ScrapingConfiguration from './ScrapingConfiguration'
 import ImageFiltering from './ImageFiltering'
 import { Tooltip, TooltipTrigger, TooltipContent } from './ui/tooltip'
 import { parseChapterFromUrl } from '../utils/urlNavigation'
 import { FILE_EXTENSIONS } from '../constants'
+import { PREDEFINED_WEBSITE_PATTERNS, WebsitePattern, convertToEnvFormat, detectWebsitePattern } from '../constants/websitePatterns'
 
 interface ScrapingConfigurationSectionProps {
   // UI State
@@ -96,11 +97,49 @@ export const ScrapingConfigurationSection = React.memo(({
   onRemoveFilter,
   onClearAllFilters
 }: ScrapingConfigurationSectionProps) => {
+  const [selectedWebsitePattern, setSelectedWebsitePattern] = useState<WebsitePattern | null>(null)
+  const [isPatternDropdownOpen, setIsPatternDropdownOpen] = useState(false)
+  const [showAdvancedPatterns, setShowAdvancedPatterns] = useState(false)
+
   if (!showConfiguration) {
     return null
   }
 
   const chapterInfo = parseChapterFromUrl(url)
+  
+  // Auto-detect website pattern when URL changes
+  React.useEffect(() => {
+    if (url) {
+      const detectedPattern = detectWebsitePattern(url)
+      if (detectedPattern && !selectedWebsitePattern) {
+        setSelectedWebsitePattern(detectedPattern)
+      }
+    }
+  }, [url, selectedWebsitePattern])
+
+  // Handle pattern selection
+  const handlePatternSelect = (pattern: WebsitePattern) => {
+    setSelectedWebsitePattern(pattern)
+    setIsPatternDropdownOpen(false)
+    
+    if (pattern.id === 'custom') {
+      setShowAdvancedPatterns(true)
+    } else {
+      setShowAdvancedPatterns(false)
+      // Auto-apply the pattern
+      const envFormat = convertToEnvFormat(pattern)
+      onCustomUrlPatternsChange(envFormat)
+    }
+  }
+
+  // Handle apply pattern button
+  const handleApplySelectedPattern = () => {
+    if (selectedWebsitePattern && selectedWebsitePattern.id !== 'custom') {
+      const envFormat = convertToEnvFormat(selectedWebsitePattern)
+      onCustomUrlPatternsChange(envFormat)
+      onUrlPatternsApply()
+    }
+  }
 
   return (
     <div className="mb-6 bg-accent/5 border border-accent/20 rounded-xl p-6 space-y-6">
@@ -158,8 +197,8 @@ export const ScrapingConfigurationSection = React.memo(({
               </TooltipTrigger>
               <TooltipContent side="top">
                 <div className="text-xs max-w-64">
-                  <div className="font-medium mb-1">Custom URL Patterns</div>
-                  <div>Configure custom chapter URL patterns for specific websites. Use .env format with domain-specific templates.</div>
+                  <div className="font-medium mb-1">Website URL Patterns</div>
+                  <div>Choose from predefined patterns for popular manga/comic sites, or create custom patterns for any website. No more .env editing required!</div>
                 </div>
               </TooltipContent>
             </Tooltip>
@@ -173,41 +212,134 @@ export const ScrapingConfigurationSection = React.memo(({
         </div>
         
         {showUrlPatterns && (
-          <div className="space-y-3">
+          <div className="space-y-4">
+            {/* Website Pattern Dropdown */}
             <div>
-              <label className="text-xs text-muted-foreground mb-2 block">Pattern Configuration (.env format)</label>
-              <textarea
-                value={customUrlPatterns}
-                onChange={(e) => onCustomUrlPatternsChange(e.target.value)}
-                placeholder={`# Example URL patterns:
-# manga-site.com
-url=https://manga-site.com/manga/title/chapter-1
-config=/manga/title/chapter-{chapter}
+              <label className="text-xs text-muted-foreground mb-2 block">Select Website Pattern</label>
+              <div className="relative">
+                <button
+                  onClick={() => setIsPatternDropdownOpen(!isPatternDropdownOpen)}
+                  className="w-full flex items-center justify-between px-3 py-2 bg-input border border-border rounded-md text-foreground hover:bg-accent/20 transition-colors"
+                  disabled={isLoading}
+                >
+                  <div className="flex items-center space-x-2">
+                    <Globe className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm">
+                      {selectedWebsitePattern 
+                        ? `${selectedWebsitePattern.name} (${selectedWebsitePattern.domain || 'Custom'})`
+                        : 'Choose a website pattern...'
+                      }
+                    </span>
+                  </div>
+                  <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${isPatternDropdownOpen ? 'rotate-180' : ''}`} />
+                </button>
 
-# comic-reader.net  
-url=https://comic-reader.net/comics/title/ch-001
-config=/comics/title/ch-{chapter:03d}`}
-                className="w-full h-24 px-3 py-2 text-xs bg-input border border-border rounded-md text-foreground font-mono resize-none"
-                disabled={isLoading}
-              />
+                {isPatternDropdownOpen && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-popover border border-border rounded-md shadow-lg z-50 max-h-64 overflow-y-auto">
+                    {PREDEFINED_WEBSITE_PATTERNS.map((pattern) => (
+                      <button
+                        key={pattern.id}
+                        onClick={() => handlePatternSelect(pattern)}
+                        className="w-full flex items-start space-x-3 px-3 py-2.5 hover:bg-accent/50 transition-colors text-left"
+                      >
+                        <div className="flex-shrink-0 mt-0.5">
+                          {pattern.id === 'custom' ? (
+                            <Settings className="h-4 w-4 text-muted-foreground" />
+                          ) : (
+                            <Globe className="h-4 w-4 text-primary" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-sm text-foreground">{pattern.name}</div>
+                          {pattern.domain && (
+                            <div className="text-xs text-muted-foreground">{pattern.domain}</div>
+                          )}
+                          <div className="text-xs text-muted-foreground mt-0.5">{pattern.description}</div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-            
+
+            {/* Selected Pattern Preview */}
+            {selectedWebsitePattern && selectedWebsitePattern.id !== 'custom' && (
+              <div className="p-3 bg-accent/10 border border-accent/20 rounded-md">
+                <div className="text-sm font-medium text-foreground mb-2">Pattern Preview</div>
+                <div className="space-y-1.5">
+                  <div className="text-xs">
+                    <span className="text-muted-foreground">URL Pattern:</span>
+                    <div className="font-mono text-primary bg-background/50 px-2 py-1 rounded mt-1">{selectedWebsitePattern.urlPattern}</div>
+                  </div>
+                  <div className="text-xs">
+                    <span className="text-muted-foreground">Example:</span>
+                    <div className="text-foreground mt-1">{selectedWebsitePattern.example}</div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Action Buttons */}
             <div className="flex items-center space-x-2">
               <button
-                onClick={onUrlPatternsApply}
-                disabled={isLoading || !customUrlPatterns.trim()}
-                className="px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors disabled:opacity-50"
+                onClick={handleApplySelectedPattern}
+                disabled={isLoading || !selectedWebsitePattern || selectedWebsitePattern.id === 'custom'}
+                className="flex items-center space-x-2 px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors disabled:opacity-50"
               >
-                Apply Patterns
+                <Zap className="h-4 w-4" />
+                <span>Apply Pattern</span>
               </button>
               <button
-                onClick={onUrlPatternsExport}
-                disabled={isLoading}
+                onClick={() => setShowAdvancedPatterns(!showAdvancedPatterns)}
                 className="px-3 py-1.5 text-sm bg-secondary text-secondary-foreground rounded hover:bg-secondary/90 transition-colors"
               >
-                Export Current
+                {showAdvancedPatterns ? 'Hide Advanced' : 'Show Advanced'}
               </button>
             </div>
+
+            {/* Advanced Pattern Configuration */}
+            {(showAdvancedPatterns || selectedWebsitePattern?.id === 'custom') && (
+              <div className="space-y-3 p-3 bg-muted/10 border border-muted/20 rounded-md">
+                <div className="text-sm font-medium text-foreground">Advanced Configuration</div>
+                <div>
+                  <label className="text-xs text-muted-foreground mb-2 block">Pattern Configuration (.env format)</label>
+                  <textarea
+                    value={customUrlPatterns}
+                    onChange={(e) => onCustomUrlPatternsChange(e.target.value)}
+                    placeholder={`# Example URL patterns:
+# manga-site.com
+VITE_URL_MANGA=manga-site.com
+VITE_CONFIG_MANGA=https://manga-site.com/manga/{title}/chapter-{chapter}
+VITE_CH_NEXT_MANGA={n+1}
+
+# comic-reader.net  
+VITE_URL_COMIC=comic-reader.net
+VITE_CONFIG_COMIC=https://comic-reader.net/comics/{title}/ch-{chapter:03d}
+VITE_CH_NEXT_COMIC={n+1}`}
+                    className="w-full h-32 px-3 py-2 text-xs bg-input border border-border rounded-md text-foreground font-mono resize-none"
+                    disabled={isLoading}
+                  />
+                </div>
+                
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={onUrlPatternsApply}
+                    disabled={isLoading || !customUrlPatterns.trim()}
+                    className="px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors disabled:opacity-50"
+                  >
+                    Apply Advanced Patterns
+                  </button>
+                  <button
+                    onClick={onUrlPatternsExport}
+                    disabled={isLoading}
+                    className="px-3 py-1.5 text-sm bg-secondary text-secondary-foreground rounded hover:bg-secondary/90 transition-colors"
+                  >
+                    Export Current
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
