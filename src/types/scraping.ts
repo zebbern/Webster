@@ -44,7 +44,6 @@ export interface NavigationState {
   isNavigating: boolean
   lastPageUrl: string | null
   lastAutoScrollTime: number
-  lastPreviewEnterTime: number
 }
 
 export interface NavigationActions {
@@ -52,7 +51,6 @@ export interface NavigationActions {
   updateChapterUrl: (chapterNumber: number, immediate?: boolean) => string
   startNavigation: () => void
   updateLastScrollTime: (time: number) => void
-  updatePreviewEnterTime: (time: number) => void
 }
 
 export interface ScrapingConfiguration {
@@ -63,7 +61,6 @@ export interface ScrapingConfiguration {
   validateImages: boolean
   fetchInterval: number
   showScrollButtons: boolean
-  autoNextChapter: boolean
 }
 
 export interface ConfigurationActions {
@@ -74,7 +71,6 @@ export interface ConfigurationActions {
   updateValidateImages: (validate: boolean) => void
   updateFetchInterval: (interval: number) => void
   updateShowScrollButtons: (show: boolean) => void
-  updateAutoNextChapter: (auto: boolean) => void
   toggleFileType: (type: string) => void
 }
 

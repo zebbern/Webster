@@ -12,18 +12,15 @@ interface ScrapingResultsSectionProps {
   onPreviewChange: (active: boolean) => void
   showScrollButtons: boolean
   initialPreviewMode: boolean
-  autoNextChapter: boolean
   onNextChapter: (nextUrl: string) => void
   onManualNextChapter: () => void
   onStartNavigation: () => void
-  onPreviewEnter: () => void
   onPreviousChapter: () => void
   currentChapter: number
   canAutoNavigate: boolean
   isNavigating: boolean
   isLoading: boolean
   lastAutoScrollTime: number
-  lastPreviewEnterTime: number
   chapterCount: number
   updateChapterUrl: (chapterNumber: number, immediate?: boolean) => string
   updateLastScrollTime: (time: number) => void
@@ -37,18 +34,15 @@ export const ScrapingResultsSection = React.memo(({
   onPreviewChange,
   showScrollButtons,
   initialPreviewMode,
-  autoNextChapter,
   onNextChapter,
   onManualNextChapter,
   onStartNavigation,
-  onPreviewEnter,
   onPreviousChapter,
   currentChapter,
   canAutoNavigate,
   isNavigating,
   isLoading,
   lastAutoScrollTime,
-  lastPreviewEnterTime,
   chapterCount,
   updateChapterUrl,
   updateLastScrollTime
@@ -64,13 +58,13 @@ export const ScrapingResultsSection = React.memo(({
     return null
   }
 
-  const handleAutoNextChapter = () => {
+  const handleNextChapter = () => {
     const now = Date.now()
     
     // Cooldown checking is now done in ImageGallery via canAutoNavigate prop
     // This function executes immediately when called (cooldowns already validated)
     
-    // Auto next chapter triggered - update timestamp immediately
+    // Next chapter triggered - update timestamp immediately
     updateLastScrollTime(now)
     
     // Update URL to next chapter and trigger scraping with the new URL
@@ -99,11 +93,9 @@ export const ScrapingResultsSection = React.memo(({
         onPreviewChange={onPreviewChange} 
         showScrollButtons={showScrollButtons} 
         initialPreviewMode={initialPreviewMode}
-        autoNextChapter={autoNextChapter}
-        onNextChapter={handleAutoNextChapter}
+        onNextChapter={handleNextChapter}
         onManualNextChapter={onManualNextChapter}
         onStartNavigation={onStartNavigation}
-        onPreviewEnter={onPreviewEnter}
         onPreviousChapter={onPreviousChapter}
         currentChapter={currentChapter}
         canAutoNavigate={canAutoNavigate}

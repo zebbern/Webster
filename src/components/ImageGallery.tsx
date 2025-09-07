@@ -16,18 +16,16 @@ interface ImageGalleryProps {
   onButtonVisibilityChange?: (visible: boolean) => void
   showScrollButtons?: boolean
   initialPreviewMode?: boolean
-  autoNextChapter?: boolean
   onNextChapter?: () => void
   onManualNextChapter?: () => void
   onStartNavigation?: () => void
-  onPreviewEnter?: () => void
   onPreviousChapter?: () => void
   currentChapter?: number
   canAutoNavigate?: boolean
   isNavigating?: boolean
 }
 
-const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', onImageError, onPreviewChange, onButtonVisibilityChange, showScrollButtons = false, initialPreviewMode = false, autoNextChapter = false, onNextChapter, onManualNextChapter, onStartNavigation, onPreviewEnter, onPreviousChapter, currentChapter, canAutoNavigate = true, isNavigating = false }) => {
+const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', onImageError, onPreviewChange, onButtonVisibilityChange, showScrollButtons = false, initialPreviewMode = false, onNextChapter, onManualNextChapter, onStartNavigation, onPreviousChapter, currentChapter, canAutoNavigate = true, isNavigating = false }) => {
   const [selectedImage, setSelectedImage] = useState<ScrapedImage | null>(null)
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null)
   const [downloadingAll, setDownloadingAll] = useState(false)
@@ -35,25 +33,17 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
   const [previewMode, setPreviewMode] = useState(initialPreviewMode)
   const [buttonsVisible, setButtonsVisible] = useState<boolean>(true)
   const [lastScrollY, setLastScrollY] = useState<number>(0)
-  const [autoNavTriggered, setAutoNavTriggered] = useState<boolean>(false)
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     onPreviewChange?.(previewMode)
-    if (previewMode) {
-      onPreviewEnter?.()
-    }
-  }, [previewMode, onPreviewChange, onPreviewEnter])
+  }, [previewMode, onPreviewChange])
 
   // Update preview mode when initialPreviewMode changes
   useEffect(() => {
     setPreviewMode(initialPreviewMode)
   }, [initialPreviewMode])
 
-  // Reset auto nav trigger when images change (new chapter loaded)
-  useEffect(() => {
-    setAutoNavTriggered(false)
-  }, [images])
 
   // Always scroll to top when entering preview mode for normal browser behavior
   useEffect(() => {
@@ -74,7 +64,6 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
   useEffect(() => {
     if (!previewMode) {
       setLastScrollY(0)
-      setAutoNavTriggered(false)
       setButtonsVisible(true)
     }
   }, [previewMode])
@@ -185,40 +174,9 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
       onButtonVisibilityChange?.(false)
     }
 
-    // Auto next chapter functionality - only trigger if we've scrolled significantly and are at bottom and cooldowns are OK
-    if (autoNextChapter && isAtBottom && hasScrolledSignificantly && !autoNavTriggered && !isNavigating && canAutoNavigate && onNextChapter && onStartNavigation) {
-      console.log('🚀 Auto Next Chapter triggered - all conditions met!')
-      // IMMEDIATELY start navigation lock
-      setAutoNavTriggered(true)
-      onStartNavigation()
-      
-      // Longer delay to prevent accidental navigation and allow user to stop if needed
-      setTimeout(() => {
-        if (!isNavigating) { // Double-check navigation state
-          console.log('📄 Auto Next Chapter executing navigation callback')
-          onNextChapter()
-        } else {
-          console.log('⏸️ Auto Next Chapter blocked - navigation in progress')
-        }
-      }, TIMING.AUTO_NAVIGATION_DELAY)
-    } else if (autoNextChapter) {
-      // Debug logging to understand why auto navigation isn't triggering
-      console.log('❌ Auto Next Chapter blocked:', {
-        isAtBottom,
-        hasScrolledSignificantly,
-        autoNavTriggered,
-        isNavigating,
-        canAutoNavigate,
-        hasOnNextChapter: !!onNextChapter,
-        hasOnStartNavigation: !!onStartNavigation,
-        currentScrollY,
-        containerHeight,
-        scrollHeight
-      })
-    }
 
     setLastScrollY(currentScrollY)
-  }, [lastScrollY, autoNextChapter, autoNavTriggered, isNavigating, canAutoNavigate, onNextChapter, onStartNavigation, onButtonVisibilityChange])
+  }, [lastScrollY, onButtonVisibilityChange])
 
   // Scroll detection for button visibility in preview mode
   useEffect(() => {

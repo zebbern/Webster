@@ -12,8 +12,6 @@ interface ScrapingConfigurationProps {
   onConsecutiveMissThresholdChange: (value: number) => void
   chapterCount: number
   onChapterCountChange: (value: number) => void
-  autoNextChapter: boolean
-  onAutoNextChapterChange: (value: boolean) => void
   
   // Request timing
   fetchInterval: number
@@ -43,7 +41,6 @@ interface ScrapingConfigurationProps {
     chapterInfo: boolean
     validateInfo: boolean
     fetchIntervalInfo: boolean
-    autoNextChapterInfo: boolean
   }
   onTooltipToggle: (key: string) => void
 }
@@ -55,8 +52,6 @@ const ScrapingConfiguration: React.FC<ScrapingConfigurationProps> = ({
   onConsecutiveMissThresholdChange,
   chapterCount,
   onChapterCountChange,
-  autoNextChapter,
-  onAutoNextChapterChange,
   fetchInterval,
   onFetchIntervalChange,
   showScrollButtons,
@@ -198,37 +193,6 @@ const ScrapingConfiguration: React.FC<ScrapingConfigurationProps> = ({
                       </button>
                     </TooltipTrigger>
                     <TooltipContent side="top">Number of chapters to fetch in a single action when navigating.</TooltipContent>
-                  </Tooltip>
-                </div>
-              </div>
-            </div>
-            
-            {/* Auto Next Chapter Toggle */}
-            <div className="mt-3 pt-3 border-t border-accent/20">
-              <div className="flex items-center justify-between">
-                <label className="text-xs text-muted-foreground">Auto Next Chapter (Preview Mode)</label>
-                <div className="flex items-center space-x-2">
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={autoNextChapter}
-                      onChange={(e) => onAutoNextChapterChange(e.target.checked)}
-                      className="sr-only peer"
-                      disabled={isLoading}
-                    />
-                    <div className="w-9 h-5 bg-muted peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-background after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
-                  </label>
-                  <Tooltip open={tooltipStates.autoNextChapterInfo} onOpenChange={(_open) => onTooltipToggle('autoNextChapterInfo')}>
-                    <TooltipTrigger asChild>
-                      <button 
-                        onClick={() => onTooltipToggle('autoNextChapterInfo')} 
-                        className="w-5 h-5 rounded-full bg-muted/60 hover:bg-muted flex items-center justify-center text-muted-foreground" 
-                        aria-label="Auto next chapter info"
-                      >
-                        <Info className="h-3 w-3" />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top">Automatically loads the next chapter when scrolling to the bottom in preview mode</TooltipContent>
                   </Tooltip>
                 </div>
               </div>

@@ -20,8 +20,6 @@ export const TIMING = {
   COPY_FEEDBACK_DURATION: 2000,
   NAVIGATION_LOCK_TIMEOUT: 3400,
   EXTENDED_NAVIGATION_LOCK: 10000,
-  AUTO_CHAPTER_COOLDOWN: 30000,
-  AUTO_CHAPTER_PREVIEW_DELAY: 25000, // Delay after entering preview mode
   AUTO_NAVIGATION_DELAY: 1500, // Updated from 1000ms
   
   // Processing intervals
@@ -30,7 +28,7 @@ export const TIMING = {
   PROCESSING_DELAY: 10,
   DOWNLOAD_DELAY_BETWEEN_IMAGES: 250,
   URL_CLEANUP_DELAY: 5000,
-  IMAGE_STATE_RESET_DELAY: 100, // Increased from 10ms to prevent race conditions with Auto Next Chapter
+  IMAGE_STATE_RESET_DELAY: 100,
   
   // Preview and UI refresh delays
   PREVIEW_REFRESH_DELAY: 100,

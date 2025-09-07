@@ -131,9 +131,6 @@ const ImageScrapperContainer: React.FC = () => {
     }, TIMING.EXTENDED_NAVIGATION_LOCK)
   }, [navigationActions])
 
-  const handlePreviewEnter = useCallback(() => {
-    navigationActions.updatePreviewEnterTime(Date.now())
-  }, [navigationActions])
 
   // Progress handler with live insertion support
   const handleProgress = useCallback((p: ScrapeProgress) => {
@@ -347,30 +344,7 @@ const ImageScrapperContainer: React.FC = () => {
   }, [url, configuration.chapterCount, updateChapterUrl, handleScrapeWithUrl])
 
   // Calculate if auto navigation is allowed - needs to be recalculated frequently for accurate timing
-  const canAutoNavigate = (() => {
-    const now = Date.now()
-    const autoScrollCooldownOK = now - navigation.lastAutoScrollTime >= TIMING.AUTO_CHAPTER_COOLDOWN
-    const previewEnterCooldownOK = now - navigation.lastPreviewEnterTime >= TIMING.AUTO_CHAPTER_PREVIEW_DELAY
-    const result = autoScrollCooldownOK && previewEnterCooldownOK && !scraping.isLoading && !navigation.isNavigating
-    
-    // Debug logging for troubleshooting
-    if (!result) {
-      console.log('🔍 canAutoNavigate = false:', {
-        autoScrollCooldownOK,
-        previewEnterCooldownOK,
-        isLoading: scraping.isLoading,
-        isNavigating: navigation.isNavigating,
-        lastAutoScrollTime: new Date(navigation.lastAutoScrollTime).toLocaleTimeString(),
-        lastPreviewEnterTime: new Date(navigation.lastPreviewEnterTime).toLocaleTimeString(),
-        cooldownsRemaining: {
-          autoScroll: Math.max(0, TIMING.AUTO_CHAPTER_COOLDOWN - (now - navigation.lastAutoScrollTime)) / 1000,
-          previewEnter: Math.max(0, TIMING.AUTO_CHAPTER_PREVIEW_DELAY - (now - navigation.lastPreviewEnterTime)) / 1000
-        }
-      })
-    }
-    
-    return result
-  })()
+  const canAutoNavigate = !scraping.isLoading && !navigation.isNavigating
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -424,8 +398,6 @@ const ImageScrapperContainer: React.FC = () => {
           onConsecutiveMissThresholdChange={configurationActions.updateConsecutiveMissThreshold}
           chapterCount={configuration.chapterCount}
           onChapterCountChange={handleChapterCountChange}
-          autoNextChapter={configuration.autoNextChapter}
-          onAutoNextChapterChange={configurationActions.updateAutoNextChapter}
           fetchInterval={configuration.fetchInterval}
           onFetchIntervalChange={handleFetchIntervalChange}
           showScrollButtons={configuration.showScrollButtons}
@@ -472,18 +444,15 @@ const ImageScrapperContainer: React.FC = () => {
           onPreviewChange={uiActions.setPreviewActive}
           showScrollButtons={configuration.showScrollButtons}
           initialPreviewMode={ui.previewActive}
-          autoNextChapter={configuration.autoNextChapter}
           onNextChapter={handleNextChapter}
           onManualNextChapter={handleManualNextChapter}
           onStartNavigation={handleStartNavigation}
-          onPreviewEnter={handlePreviewEnter}
           onPreviousChapter={handlePreviousChapter}
           currentChapter={url ? parseChapterFromUrl(url).chapterNumber : 0}
           canAutoNavigate={canAutoNavigate}
           isNavigating={navigation.isNavigating}
           isLoading={scraping.isLoading}
           lastAutoScrollTime={navigation.lastAutoScrollTime}
-          lastPreviewEnterTime={navigation.lastPreviewEnterTime}
           chapterCount={configuration.chapterCount}
           updateChapterUrl={updateChapterUrl}
           updateLastScrollTime={navigationActions.updateLastScrollTime}

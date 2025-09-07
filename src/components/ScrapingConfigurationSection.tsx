@@ -22,8 +22,6 @@ interface ScrapingConfigurationSectionProps {
   onConsecutiveMissThresholdChange: (threshold: number) => void
   chapterCount: number
   onChapterCountChange: (count: number) => void
-  autoNextChapter: boolean
-  onAutoNextChapterChange: (auto: boolean) => void
   fetchInterval: number
   onFetchIntervalChange: (interval: number) => void
   showScrollButtons: boolean
@@ -69,8 +67,6 @@ export const ScrapingConfigurationSection = React.memo(({
   onConsecutiveMissThresholdChange,
   chapterCount,
   onChapterCountChange,
-  autoNextChapter,
-  onAutoNextChapterChange,
   fetchInterval,
   onFetchIntervalChange,
   showScrollButtons,
@@ -184,8 +180,6 @@ export const ScrapingConfigurationSection = React.memo(({
         onConsecutiveMissThresholdChange={onConsecutiveMissThresholdChange}
         chapterCount={chapterCount}
         onChapterCountChange={onChapterCountChange}
-        autoNextChapter={autoNextChapter}
-        onAutoNextChapterChange={onAutoNextChapterChange}
         fetchInterval={fetchInterval}
         onFetchIntervalChange={onFetchIntervalChange}
         showScrollButtons={showScrollButtons}

@@ -10,7 +10,6 @@ export const useScrapingConfiguration = () => {
   const [validateImages, setValidateImages] = useState(DEFAULTS.VALIDATE_IMAGES)
   const [fetchInterval, setFetchInterval] = useState(DEFAULTS.FETCH_INTERVAL_SECONDS)
   const [showScrollButtons, setShowScrollButtons] = useState(DEFAULTS.SHOW_SCROLL_BUTTONS)
-  const [autoNextChapter, setAutoNextChapter] = useState(false)
 
   const updateScrapingMethod = useCallback((method: 'smart' | 'fast') => {
     setScrapingMethod(method)
@@ -47,9 +46,6 @@ export const useScrapingConfiguration = () => {
     setShowScrollButtons(show)
   }, [])
 
-  const updateAutoNextChapter = useCallback((auto: boolean) => {
-    setAutoNextChapter(auto)
-  }, [])
 
   const toggleFileType = useCallback((type: string) => {
     setFileTypes(prev => {
@@ -68,8 +64,7 @@ export const useScrapingConfiguration = () => {
     consecutiveMissThreshold,
     validateImages,
     fetchInterval,
-    showScrollButtons,
-    autoNextChapter
+    showScrollButtons
   }
 
   const actions = {
@@ -80,7 +75,6 @@ export const useScrapingConfiguration = () => {
     updateValidateImages,
     updateFetchInterval,
     updateShowScrollButtons,
-    updateAutoNextChapter,
     toggleFileType
   }
 
