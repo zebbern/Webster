@@ -321,7 +321,8 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
             // Mobile-friendly scrolling with proper touch support
             WebkitOverflowScrolling: 'touch',
             overscrollBehavior: 'contain',
-            // REMOVED: contain: 'layout style' - This was isolating scroll events from mobile browser UI detection
+            // Basic containment without breaking mobile browser behavior
+            contain: 'layout style',
           }}
         >
           {images.length === 0 && (initialPreviewMode || isNavigating) ? (
