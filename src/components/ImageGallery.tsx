@@ -68,20 +68,46 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
     }
   }, [previewMode])
 
-  // Gentle scroll prevention that preserves mobile browser UI detection
+  // Ultra-gentle scroll management that preserves mobile browser behavior
   useEffect(() => {
     if (previewMode) {
       // Store current scroll position
       const scrollY = window.scrollY
       
-      // Use a mobile-friendly approach that doesn't block touch detection
-      document.body.style.overflow = 'hidden'
-      // REMOVED: document.body.style.touchAction = 'none' - This was blocking mobile browser UI detection!
+      // Use overscroll-behavior instead of overflow hidden - much gentler approach
+      document.body.style.overscrollBehavior = 'none'
+      document.body.style.height = '100%'
+      
+      // Disable custom scrollbars in preview mode - use native browser scrollbars
+      const style = document.createElement('style')
+      style.id = 'preview-scrollbar-override'
+      style.textContent = `
+        .fixed.inset-0 ::-webkit-scrollbar {
+          width: auto !important;
+          height: auto !important;
+        }
+        .fixed.inset-0 ::-webkit-scrollbar-track {
+          background: transparent !important;
+        }
+        .fixed.inset-0 ::-webkit-scrollbar-thumb {
+          background: transparent !important;
+        }
+        .fixed.inset-0 * {
+          scrollbar-width: auto !important;
+        }
+      `
+      document.head.appendChild(style)
       
       return () => {
         // Restore body styles
-        document.body.style.overflow = ''
-        // REMOVED: document.body.style.touchAction = '' - No longer needed
+        document.body.style.overscrollBehavior = ''
+        document.body.style.height = ''
+        
+        // Remove scrollbar override
+        const styleElement = document.getElementById('preview-scrollbar-override')
+        if (styleElement) {
+          document.head.removeChild(styleElement)
+        }
         
         // Restore scroll position
         window.scrollTo(0, scrollY)
@@ -242,7 +268,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
       <div 
         className="fixed inset-0 z-40 bg-black"
         style={{
-          // Explicitly tell mobile browsers to allow normal touch interactions
+          // Explicitly tell mobile browsers to allow normal touch interactions  
           touchAction: 'manipulation',
         }}
       >
