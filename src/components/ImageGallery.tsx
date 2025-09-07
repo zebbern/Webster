@@ -74,22 +74,20 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
       // Store current scroll position
       const scrollY = window.scrollY
       
-      // Only control body overflow if navigation isn't already controlling it
-      if (!isNavigating) {
-        document.body.style.overflow = 'hidden'
-      }
+      // Use a mobile-friendly approach that doesn't block touch detection
+      document.body.style.overflow = 'hidden'
+      // REMOVED: document.body.style.touchAction = 'none' - This was blocking mobile browser UI detection!
       
       return () => {
-        // Only restore if we were the ones controlling it
-        if (!isNavigating) {
-          document.body.style.overflow = ''
-        }
+        // Restore body styles
+        document.body.style.overflow = ''
+        // REMOVED: document.body.style.touchAction = '' - No longer needed
         
-        // Always restore scroll position
+        // Restore scroll position
         window.scrollTo(0, scrollY)
       }
     }
-  }, [previewMode, isNavigating])
+  }, [previewMode])
 
 
   // Keyboard navigation for preview mode
