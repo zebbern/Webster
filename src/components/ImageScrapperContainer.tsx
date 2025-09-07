@@ -40,21 +40,19 @@ const ImageScrapperContainer: React.FC = () => {
     [scraping.images.length, filteredCount]
   )
 
-  // Navigation lock with minimal fullscreen interference
+  // Navigation lock that preserves mobile browser UI detection
   useEffect(() => {
     if (navigation.isNavigating) {
       document.body.style.overflow = 'hidden'
-      document.body.style.touchAction = 'none'
+      // REMOVED: touchAction = 'none' to preserve mobile browser UI detection
       // Navigation lock active
     } else {
       document.body.style.overflow = ''
-      document.body.style.touchAction = ''
       // Navigation lock restored
     }
 
     return () => {
       document.body.style.overflow = ''
-      document.body.style.touchAction = ''
     }
   }, [navigation.isNavigating])
 
