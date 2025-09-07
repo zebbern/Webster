@@ -68,53 +68,20 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
     }
   }, [previewMode])
 
-  // Completely disable main page scroll when in preview mode
+  // Mobile-friendly scroll prevention for preview mode
   useEffect(() => {
     if (previewMode) {
       // Store current scroll position
       const scrollY = window.scrollY
       
-      // Prevent all main page scrolling
+      // Use a more mobile-friendly approach - just hide overflow without position fixed
       document.body.style.overflow = 'hidden'
-      document.body.style.position = 'fixed'
-      document.body.style.top = `-${scrollY}px`
-      document.body.style.width = '100%'
-      
-      // Add event listeners to prevent scroll attempts
-      const preventScroll = (e: Event) => {
-        e.preventDefault()
-        e.stopPropagation()
-        return false
-      }
-      
-      const preventWheel = (e: WheelEvent) => {
-        // Only prevent if not within preview container
-        const previewContainer = document.getElementById('preview-overlay-scroll')
-        if (previewContainer && !previewContainer.contains(e.target as Node)) {
-          e.preventDefault()
-          e.stopPropagation()
-          return false
-        }
-      }
-      
-      // Prevent scroll on window and document
-      window.addEventListener('scroll', preventScroll, { passive: false })
-      document.addEventListener('scroll', preventScroll, { passive: false })
-      document.addEventListener('wheel', preventWheel, { passive: false })
-      document.addEventListener('touchmove', preventScroll, { passive: false })
+      document.body.style.touchAction = 'none'
       
       return () => {
-        // Remove event listeners
-        window.removeEventListener('scroll', preventScroll)
-        document.removeEventListener('scroll', preventScroll)
-        document.removeEventListener('wheel', preventWheel)
-        document.removeEventListener('touchmove', preventScroll)
-        
         // Restore body styles
         document.body.style.overflow = ''
-        document.body.style.position = ''
-        document.body.style.top = ''
-        document.body.style.width = ''
+        document.body.style.touchAction = ''
         
         // Restore scroll position
         window.scrollTo(0, scrollY)
@@ -274,14 +241,6 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
     return (
       <div 
         className="fixed inset-0 z-40 bg-black"
-        onWheel={(e) => {
-          // Capture scroll events at overlay level but let inner container handle them
-          e.stopPropagation()
-        }}
-        onTouchMove={(e) => {
-          // Capture touch events at overlay level but let inner container handle them
-          e.stopPropagation()
-        }}
       >
         {/* Exit button */}
         <button
@@ -358,23 +317,12 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
         <div 
           id="preview-overlay-scroll" 
           className="h-full overflow-y-auto"
-          onWheel={(e) => {
-            // Prevent wheel events from bubbling to body when preview is active
-            e.stopPropagation()
-          }}
-          onTouchMove={(e) => {
-            // Prevent touch scroll events from bubbling to body
-            e.stopPropagation()
-          }}
           style={{
-            // Force hardware acceleration and proper stacking context
-            contain: 'layout style paint',
-            isolation: 'isolate',
-            // Removed problematic properties that interfere with mobile browser scroll detection
-            // willChange: 'scroll-position', - interferes with browser UI detection
-            // transform: 'translateZ(0)', - creates new layer, breaks scroll detection  
-            // backfaceVisibility: 'hidden', - rendering optimization that conflicts with scroll
-            // WebkitOverflowScrolling: 'touch' - legacy iOS property, causes conflicts on modern browsers
+            // Mobile-friendly scrolling with proper touch support
+            WebkitOverflowScrolling: 'touch',
+            overscrollBehavior: 'contain',
+            // Basic containment without breaking mobile browser behavior
+            contain: 'layout style',
           }}
         >
           {images.length === 0 && (initialPreviewMode || isNavigating) ? (
@@ -405,14 +353,8 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
                   display: 'block', 
                   margin: 0, 
                   padding: 0,
-                  position: 'relative',
-                  zIndex: 1,
-                  // Force proper rendering context
-                  contain: 'layout style'
-                  // Removed problematic properties:
-                  // willChange: 'auto', - can interfere with scroll performance
-                  // backfaceVisibility: 'hidden', - conflicts with mobile scroll detection
-                  // transform: 'translateZ(0)' - creates stacking context issues
+                  width: '100%',
+                  height: 'auto'
                 }}
                 loading="lazy"
                 decoding="async"
