@@ -241,6 +241,10 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
     return (
       <div 
         className="fixed inset-0 z-40 bg-black"
+        style={{
+          // Explicitly tell mobile browsers to allow normal touch interactions
+          touchAction: 'manipulation',
+        }}
       >
         {/* Exit button */}
         <button
@@ -323,6 +327,8 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
             overscrollBehavior: 'contain',
             // Basic containment without breaking mobile browser behavior
             contain: 'layout style',
+            // Explicitly allow all touch gestures for mobile browser UI detection
+            touchAction: 'auto',
           }}
         >
           {images.length === 0 && (initialPreviewMode || isNavigating) ? (
