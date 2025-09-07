@@ -45,29 +45,15 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
   }, [initialPreviewMode])
 
 
-  // Force mobile browser to recognize scroll state and hide address bar
+  // Simple scroll to top when entering preview mode
   useEffect(() => {
     if (previewMode && images.length > 0 && !isNavigating) {
       const previewContainer = document.getElementById('preview-overlay-scroll')
       if (previewContainer) {
         setTimeout(() => {
           if (!isNavigating) {
-            // First scroll to top
+            // Simply scroll to top - let natural mobile browser behavior handle the rest
             previewContainer.scrollTo({ top: 0, behavior: 'instant' })
-            
-            // On mobile, force a small scroll to trigger browser UI state recognition
-            setTimeout(() => {
-              if (window.navigator.userAgent.match(/iPhone|iPad|Android/i)) {
-                // Force mobile browser to recognize scroll capability by doing a small scroll sequence
-                previewContainer.scrollTo({ top: 1, behavior: 'instant' })
-                setTimeout(() => {
-                  previewContainer.scrollTo({ top: 50, behavior: 'smooth' })
-                  setTimeout(() => {
-                    previewContainer.scrollTo({ top: 0, behavior: 'smooth' })
-                  }, 150)
-                }, 50)
-              }
-            }, 200)
           }
         }, TIMING.PREVIEW_REFRESH_DELAY)
       }
@@ -82,32 +68,20 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
     }
   }, [previewMode])
 
-  // Mobile-friendly scroll prevention for preview mode
+  // Gentle scroll prevention that preserves mobile browser UI detection
   useEffect(() => {
     if (previewMode) {
       // Store current scroll position
       const scrollY = window.scrollY
       
-      // On mobile, first trigger a scroll to wake up browser UI detection
-      if (window.navigator.userAgent.match(/iPhone|iPad|Android/i)) {
-        // Briefly allow scrolling and force a scroll to activate mobile browser UI
-        window.scrollTo(0, scrollY + 1)
-        setTimeout(() => {
-          window.scrollTo(0, scrollY)
-          // Now disable scrolling after browser has recognized scroll capability
-          document.body.style.overflow = 'hidden'
-          document.body.style.touchAction = 'none'
-        }, 50)
-      } else {
-        // Desktop - immediately disable scrolling
-        document.body.style.overflow = 'hidden'
-        document.body.style.touchAction = 'none'
-      }
+      // Use a mobile-friendly approach that doesn't block touch detection
+      document.body.style.overflow = 'hidden'
+      // REMOVED: document.body.style.touchAction = 'none' - This was blocking mobile browser UI detection!
       
       return () => {
         // Restore body styles
         document.body.style.overflow = ''
-        document.body.style.touchAction = ''
+        // REMOVED: document.body.style.touchAction = '' - No longer needed
         
         // Restore scroll position
         window.scrollTo(0, scrollY)
