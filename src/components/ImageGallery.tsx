@@ -45,20 +45,34 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
   }, [initialPreviewMode])
 
 
-  // Always scroll to top when entering preview mode for normal browser behavior
+  // Force mobile browser to recognize scroll state and hide address bar
   useEffect(() => {
-    if (previewMode && images.length > 0 && !isNavigating) { // Prevent scroll reset during auto navigation
+    if (previewMode && images.length > 0 && !isNavigating) {
       const previewContainer = document.getElementById('preview-overlay-scroll')
       if (previewContainer) {
-        // Always scroll to top when entering preview mode to mimic normal browser behavior
         setTimeout(() => {
-          if (!isNavigating) { // Double-check navigation state before scrolling
+          if (!isNavigating) {
+            // First scroll to top
             previewContainer.scrollTo({ top: 0, behavior: 'instant' })
+            
+            // On mobile, force a small scroll to trigger browser UI state recognition
+            setTimeout(() => {
+              if (window.navigator.userAgent.match(/iPhone|iPad|Android/i)) {
+                // Force mobile browser to recognize scroll capability by doing a small scroll sequence
+                previewContainer.scrollTo({ top: 1, behavior: 'instant' })
+                setTimeout(() => {
+                  previewContainer.scrollTo({ top: 50, behavior: 'smooth' })
+                  setTimeout(() => {
+                    previewContainer.scrollTo({ top: 0, behavior: 'smooth' })
+                  }, 150)
+                }, 50)
+              }
+            }, 200)
           }
         }, TIMING.PREVIEW_REFRESH_DELAY)
       }
     }
-  }, [previewMode, isNavigating]) // Added isNavigating dependency to prevent scroll reset during navigation
+  }, [previewMode, isNavigating])
 
   // Clean up scroll state when exiting preview mode
   useEffect(() => {
@@ -74,9 +88,21 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
       // Store current scroll position
       const scrollY = window.scrollY
       
-      // Use a more mobile-friendly approach - just hide overflow without position fixed
-      document.body.style.overflow = 'hidden'
-      document.body.style.touchAction = 'none'
+      // On mobile, first trigger a scroll to wake up browser UI detection
+      if (window.navigator.userAgent.match(/iPhone|iPad|Android/i)) {
+        // Briefly allow scrolling and force a scroll to activate mobile browser UI
+        window.scrollTo(0, scrollY + 1)
+        setTimeout(() => {
+          window.scrollTo(0, scrollY)
+          // Now disable scrolling after browser has recognized scroll capability
+          document.body.style.overflow = 'hidden'
+          document.body.style.touchAction = 'none'
+        }, 50)
+      } else {
+        // Desktop - immediately disable scrolling
+        document.body.style.overflow = 'hidden'
+        document.body.style.touchAction = 'none'
+      }
       
       return () => {
         // Restore body styles
