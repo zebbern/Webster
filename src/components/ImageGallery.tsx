@@ -323,16 +323,19 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
         </div>
         )}
 
-        {/* Chapter display - top left */}
-        {currentChapter && (
-        <div className={`fixed top-4 left-4 z-[60] transition-all duration-300 ${
+        {/* Chapter and image count display - top left */}
+        <div className={`fixed top-4 left-4 z-[60] flex items-center space-x-3 transition-all duration-300 ${
           buttonsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}>
+          {currentChapter && (
+            <div className="px-4 py-2 bg-black/50 text-white rounded-lg shadow-lg">
+              <span className="text-lg font-medium">Chapter {currentChapter}</span>
+            </div>
+          )}
           <div className="px-4 py-2 bg-black/50 text-white rounded-lg shadow-lg">
-            <span className="text-lg font-medium">Chapter {currentChapter}</span>
+            <span className="text-lg font-medium">{images.length} Images</span>
           </div>
         </div>
-        )}
 
         {/* Large centered chapter navigation buttons */}
         {(onPreviousChapter || onNextChapter) && (
