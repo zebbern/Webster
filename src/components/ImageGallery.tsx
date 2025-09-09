@@ -52,8 +52,16 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
   // Reset button visibility when new images load (after navigation)
   useEffect(() => {
     if (previewMode && images.length > 0) {
+      // Force button visibility with a small delay to override any scroll handler conflicts
       setButtonsVisible(true)
       setLastScrollY(0)
+      
+      // Additional safety: ensure buttons remain visible after scroll handlers initialize
+      const safetyTimer = setTimeout(() => {
+        setButtonsVisible(true)
+      }, 150)
+      
+      return () => clearTimeout(safetyTimer)
     }
   }, [images.length, previewMode])
 
@@ -81,17 +89,16 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
     }
   }, [previewMode])
 
-  // Ultra-gentle scroll management that preserves mobile browser behavior
+  // Minimal scroll management that preserves mobile browser behavior
   useEffect(() => {
     if (previewMode) {
       // Store current scroll position
       const scrollY = window.scrollY
       
-      // Use overscroll-behavior instead of overflow hidden - much gentler approach
-      document.body.style.overscrollBehavior = 'none'
-      document.body.style.height = '100%'
+      // REMOVED: overscrollBehavior and height changes that interfere with mobile browser scroll detection
+      // These body manipulations prevent mobile browsers from detecting scroll for UI chrome behavior
       
-      // Disable custom scrollbars in preview mode - use native browser scrollbars
+      // Only disable custom scrollbars in preview mode - use native browser scrollbars
       const style = document.createElement('style')
       style.id = 'preview-scrollbar-override'
       style.textContent = `
@@ -112,10 +119,6 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
       document.head.appendChild(style)
       
       return () => {
-        // Restore body styles
-        document.body.style.overscrollBehavior = ''
-        document.body.style.height = ''
-        
         // Remove scrollbar override
         const styleElement = document.getElementById('preview-scrollbar-override')
         if (styleElement) {
