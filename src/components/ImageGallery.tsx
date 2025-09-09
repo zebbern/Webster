@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { Download, Eye, Copy, Check, Grid, Maximize, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
 import { ScrapedImage } from '../utils/advancedImageScraper'
 import { downloadImage, downloadAllImages } from '../utils/downloadUtils'
@@ -89,40 +90,52 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
     }
   }, [previewMode])
 
-  // Minimal scroll management that preserves mobile browser behavior
+  // Document-level Preview mode that preserves mobile browser behavior
   useEffect(() => {
     if (previewMode) {
       // Store current scroll position
       const scrollY = window.scrollY
       
-      // REMOVED: overscrollBehavior and height changes that interfere with mobile browser scroll detection
-      // These body manipulations prevent mobile browsers from detecting scroll for UI chrome behavior
+      // Apply black background to body and remove margins/padding for full-width images
+      const originalBackground = document.body.style.backgroundColor
+      const originalColor = document.body.style.color
+      const originalMargin = document.body.style.margin
+      const originalPadding = document.body.style.padding
       
-      // Only disable custom scrollbars in preview mode - use native browser scrollbars
-      const style = document.createElement('style')
-      style.id = 'preview-scrollbar-override'
-      style.textContent = `
-        .fixed.inset-0 ::-webkit-scrollbar {
-          width: auto !important;
-          height: auto !important;
-        }
-        .fixed.inset-0 ::-webkit-scrollbar-track {
-          background: transparent !important;
-        }
-        .fixed.inset-0 ::-webkit-scrollbar-thumb {
-          background: transparent !important;
-        }
-        .fixed.inset-0 * {
-          scrollbar-width: auto !important;
-        }
-      `
-      document.head.appendChild(style)
+      document.body.style.backgroundColor = 'black'
+      document.body.style.color = 'white'
+      document.body.style.margin = '0'
+      document.body.style.padding = '0'
+      
+      // Hide the main app container completely
+      const rootElement = document.getElementById('root')
+      const originalRootDisplay = rootElement?.style.display
+      if (rootElement) {
+        rootElement.style.display = 'none'
+      }
+      
+      // Hide sticky header by finding it in the DOM
+      const headerElement = document.querySelector('header')
+      const originalHeaderDisplay = headerElement?.style.display
+      if (headerElement) {
+        (headerElement as HTMLElement).style.display = 'none'
+      }
       
       return () => {
-        // Remove scrollbar override
-        const styleElement = document.getElementById('preview-scrollbar-override')
-        if (styleElement) {
-          document.head.removeChild(styleElement)
+        // Restore body styles
+        document.body.style.backgroundColor = originalBackground
+        document.body.style.color = originalColor
+        document.body.style.margin = originalMargin
+        document.body.style.padding = originalPadding
+        
+        // Show the main app container
+        if (rootElement) {
+          rootElement.style.display = originalRootDisplay || ''
+        }
+        
+        // Show header
+        if (headerElement) {
+          (headerElement as HTMLElement).style.display = originalHeaderDisplay || ''
         }
         
         // Restore scroll position
@@ -264,83 +277,106 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
   }
 
 
-  // Preview mode - document-level scrolling for mobile browser compatibility
+  // Preview mode - render directly to document body using Portal
   if (previewMode) {
-    return (
-      <>
+    return createPortal(
+      <div 
+        className="fixed inset-0 z-50"
+        style={{
+          backgroundColor: 'black',
+          margin: 0,
+          padding: 0,
+          width: '100vw',
+          height: '100vh',
+          overflow: 'visible'
+        }}
+      >
         {/* Fixed UI Controls */}
-        <div className="fixed inset-0 pointer-events-none z-50">
-          {/* Exit button */}
-          <button
-            onClick={() => setPreviewMode(false)}
-            className="fixed top-4 right-4 pointer-events-auto p-2 bg-black/50 text-white rounded-full hover:bg-black/70 transition-all duration-300"
-            title="Exit preview mode"
-          >
-            <Grid className="h-5 w-5" />
-          </button>
-          
-          {/* Scroll to top/bottom buttons */}
-          {showScrollButtons && (
-          <div className="fixed right-4 bottom-6 pointer-events-auto flex flex-col items-end space-y-2 transition-all duration-300">
-            <div className="flex flex-col space-y-2">
-              <button
-                onClick={scrollToTop}
-                className="p-2.5 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors shadow-lg"
-                title="Scroll to top"
-              >
-                <ChevronUp className="h-5 w-5" />
-              </button>
-              <button
-                onClick={scrollToBottom}
-                className="p-2.5 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors shadow-lg"
-                title="Scroll to bottom"
-              >
-                <ChevronDown className="h-5 w-5" />
-              </button>
-            </div>
+        {/* Exit button */}
+        <button
+          onClick={() => setPreviewMode(false)}
+          className={`fixed top-4 right-4 z-[60] p-2 bg-black/50 text-white rounded-full hover:bg-black/70 transition-all duration-300 ${
+            buttonsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
+          }`}
+          title="Exit preview mode"
+        >
+          <Grid className="h-5 w-5" />
+        </button>
+        
+        {/* Scroll to top/bottom buttons */}
+        {showScrollButtons && (
+        <div className={`fixed right-4 bottom-6 z-[60] flex flex-col items-end space-y-2 transition-all duration-300 ${
+          buttonsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        }`}>
+          <div className="flex flex-col space-y-2">
+            <button
+              onClick={scrollToTop}
+              className="p-2.5 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors shadow-lg"
+              title="Scroll to top"
+            >
+              <ChevronUp className="h-5 w-5" />
+            </button>
+            <button
+              onClick={scrollToBottom}
+              className="p-2.5 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors shadow-lg"
+              title="Scroll to bottom"
+            >
+              <ChevronDown className="h-5 w-5" />
+            </button>
           </div>
-          )}
-
-          {/* Chapter navigation buttons */}
-          {(onPreviousChapter || onNextChapter) && (
-          <div className="fixed left-4 bottom-6 pointer-events-auto flex flex-col items-start space-y-2 transition-all duration-300">
-            <div className="flex items-center space-x-2">
-              {onPreviousChapter && (
-                <button
-                  onClick={onPreviousChapter}
-                  className="p-2.5 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors shadow-lg"
-                  title="Previous chapter"
-                >
-                  <ChevronLeft className="h-5 w-5" />
-                </button>
-              )}
-              
-              {currentChapter && (
-                <div className="px-3 py-2 bg-black/50 text-white rounded-lg shadow-lg">
-                  <span className="text-sm font-medium">Chapter {currentChapter}</span>
-                </div>
-              )}
-              
-              {(onManualNextChapter || onNextChapter) && (
-                <button
-                  onClick={onManualNextChapter || onNextChapter}
-                  className="p-2.5 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors shadow-lg"
-                  title="Next chapter"
-                >
-                  <ChevronRight className="h-5 w-5" />
-                </button>
-              )}
-            </div>
-          </div>
-          )}
         </div>
+        )}
 
-        {/* Images in document flow for natural scrolling */}
-        <div className="min-h-screen">
+        {/* Chapter navigation buttons */}
+        {(onPreviousChapter || onNextChapter) && (
+        <div className={`fixed left-4 bottom-6 z-[60] flex flex-col items-start space-y-2 transition-all duration-300 ${
+          buttonsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        }`}>
+          <div className="flex items-center space-x-2">
+            {onPreviousChapter && (
+              <button
+                onClick={onPreviousChapter}
+                className="p-2.5 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors shadow-lg"
+                title="Previous chapter"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+            )}
+            
+            {currentChapter && (
+              <div className="px-3 py-2 bg-black/50 text-white rounded-lg shadow-lg">
+                <span className="text-sm font-medium">Chapter {currentChapter}</span>
+              </div>
+            )}
+            
+            {(onManualNextChapter || onNextChapter) && (
+              <button
+                onClick={onManualNextChapter || onNextChapter}
+                className="p-2.5 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors shadow-lg"
+                title="Next chapter"
+              >
+                <ChevronRight className="h-5 w-5" />
+              </button>
+            )}
+          </div>
+        </div>
+        )}
+        
+        {/* Images container with document-level scrolling */}
+        <div 
+          className="absolute top-0 left-0"
+          style={{
+            width: '100vw',
+            minHeight: '100vh',
+            margin: 0,
+            padding: 0
+          }}
+        >
           {images.length === 0 && (initialPreviewMode || isNavigating) ? (
             // Show loading placeholder when preserving preview mode during chapter navigation
             <div 
-              className="w-full flex items-center justify-center min-h-screen" 
+              className="flex items-center justify-center"
+              style={{ width: '100vw', height: '100vh' }}
             >
               {isNavigating && (
                 <div className="flex flex-col items-center space-y-4">
@@ -355,13 +391,13 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
                 key={`preview-${image.url}-${index}`}
                 src={image.url}
                 alt={image.alt || `Image ${index + 1}`}
-                className="block"
                 style={{ 
                   display: 'block', 
                   margin: 0, 
                   padding: 0,
                   width: '100vw',
-                  height: 'auto'
+                  height: 'auto',
+                  maxWidth: 'none'
                 }}
                 loading="lazy"
                 decoding="async"
@@ -370,7 +406,8 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
             ))
           )}
         </div>
-      </>
+      </div>,
+      document.body
     )
   }
 
