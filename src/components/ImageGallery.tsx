@@ -42,7 +42,20 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
   // Update preview mode when initialPreviewMode changes
   useEffect(() => {
     setPreviewMode(initialPreviewMode)
+    // Reset button visibility when entering preview mode
+    if (initialPreviewMode) {
+      setButtonsVisible(true)
+      setLastScrollY(0)
+    }
   }, [initialPreviewMode])
+
+  // Reset button visibility when new images load (after navigation)
+  useEffect(() => {
+    if (previewMode && images.length > 0) {
+      setButtonsVisible(true)
+      setLastScrollY(0)
+    }
+  }, [images.length, previewMode])
 
 
   // Simple scroll to top when entering preview mode
