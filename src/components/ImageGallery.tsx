@@ -323,38 +323,41 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
         </div>
         )}
 
-        {/* Chapter navigation buttons */}
-        {(onPreviousChapter || onNextChapter) && (
-        <div className={`fixed left-4 bottom-6 z-[60] flex flex-col items-start space-y-2 transition-all duration-300 ${
+        {/* Chapter display - top left */}
+        {currentChapter && (
+        <div className={`fixed top-4 left-4 z-[60] transition-all duration-300 ${
           buttonsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}>
-          <div className="flex items-center space-x-2">
-            {onPreviousChapter && (
-              <button
-                onClick={onPreviousChapter}
-                className="p-2.5 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors shadow-lg"
-                title="Previous chapter"
-              >
-                <ChevronLeft className="h-5 w-5" />
-              </button>
-            )}
-            
-            {currentChapter && (
-              <div className="px-3 py-2 bg-black/50 text-white rounded-lg shadow-lg">
-                <span className="text-sm font-medium">Chapter {currentChapter}</span>
-              </div>
-            )}
-            
-            {(onManualNextChapter || onNextChapter) && (
-              <button
-                onClick={onManualNextChapter || onNextChapter}
-                className="p-2.5 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors shadow-lg"
-                title="Next chapter"
-              >
-                <ChevronRight className="h-5 w-5" />
-              </button>
-            )}
+          <div className="px-4 py-2 bg-black/50 text-white rounded-lg shadow-lg">
+            <span className="text-lg font-medium">Chapter {currentChapter}</span>
           </div>
+        </div>
+        )}
+
+        {/* Large centered chapter navigation buttons */}
+        {(onPreviousChapter || onNextChapter) && (
+        <div className={`fixed left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[60] flex items-center space-x-8 transition-all duration-300 ${
+          buttonsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        }`}>
+          {onPreviousChapter && (
+            <button
+              onClick={onPreviousChapter}
+              className="p-6 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors shadow-lg border border-white/20"
+              title="Previous chapter"
+            >
+              <ChevronLeft className="h-8 w-8" />
+            </button>
+          )}
+          
+          {(onManualNextChapter || onNextChapter) && (
+            <button
+              onClick={onManualNextChapter || onNextChapter}
+              className="p-6 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors shadow-lg border border-white/20"
+              title="Next chapter"
+            >
+              <ChevronRight className="h-8 w-8" />
+            </button>
+          )}
         </div>
         )}
         
