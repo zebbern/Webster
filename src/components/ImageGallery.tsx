@@ -273,9 +273,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
           {/* Exit button */}
           <button
             onClick={() => setPreviewMode(false)}
-            className={`fixed top-4 right-4 pointer-events-auto p-2 bg-black/50 text-white rounded-full hover:bg-black/70 transition-all duration-300 ${
-              buttonsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
-            }`}
+            className="fixed top-4 right-4 pointer-events-auto p-2 bg-black/50 text-white rounded-full hover:bg-black/70 transition-all duration-300"
             title="Exit preview mode"
           >
             <Grid className="h-5 w-5" />
@@ -283,9 +281,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
           
           {/* Scroll to top/bottom buttons */}
           {showScrollButtons && (
-          <div className={`fixed right-4 bottom-6 pointer-events-auto flex flex-col items-end space-y-2 transition-all duration-300 ${
-            buttonsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
-          }`}>
+          <div className="fixed right-4 bottom-6 pointer-events-auto flex flex-col items-end space-y-2 transition-all duration-300">
             <div className="flex flex-col space-y-2">
               <button
                 onClick={scrollToTop}
@@ -307,9 +303,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
 
           {/* Chapter navigation buttons */}
           {(onPreviousChapter || onNextChapter) && (
-          <div className={`fixed left-4 bottom-6 pointer-events-auto flex flex-col items-start space-y-2 transition-all duration-300 ${
-            buttonsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
-          }`}>
+          <div className="fixed left-4 bottom-6 pointer-events-auto flex flex-col items-start space-y-2 transition-all duration-300">
             <div className="flex items-center space-x-2">
               {onPreviousChapter && (
                 <button
@@ -361,12 +355,12 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
                 key={`preview-${image.url}-${index}`}
                 src={image.url}
                 alt={image.alt || `Image ${index + 1}`}
-                className="w-full block"
+                className="block"
                 style={{ 
                   display: 'block', 
                   margin: 0, 
                   padding: 0,
-                  width: '100%',
+                  width: '100vw',
                   height: 'auto'
                 }}
                 loading="lazy"
