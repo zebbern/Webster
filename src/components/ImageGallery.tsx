@@ -339,7 +339,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
 
         {/* Large centered chapter navigation buttons */}
         {(onPreviousChapter || onNextChapter) && (
-        <div className={`fixed left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[60] flex items-center space-x-8 transition-all duration-300 ${
+        <div className={`fixed left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[60] flex items-center space-x-16 transition-all duration-300 ${
           buttonsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}>
           {onPreviousChapter && (
