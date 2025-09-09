@@ -198,7 +198,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
     setLastScrollY(currentScrollY)
   }, [lastScrollY, onButtonVisibilityChange, previewMode])
 
-  // Scroll detection for button visibility in preview mode
+  // Document-level scroll detection for button visibility in preview mode
   useEffect(() => {
     if (!previewMode) return
 
@@ -212,14 +212,12 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
       scrollTimeoutRef.current = setTimeout(handleScrollThrottled, TIMING.SCROLL_THROTTLE_INTERVAL)
     }
 
-    const previewContainer = document.getElementById('preview-overlay-scroll')
-    if (previewContainer) {
-      previewContainer.addEventListener('scroll', handleScroll, { passive: true })
-      return () => {
-        previewContainer.removeEventListener('scroll', handleScroll)
-        if (scrollTimeoutRef.current) {
-          clearTimeout(scrollTimeoutRef.current)
-        }
+    // Use window scroll events for document-level scroll detection
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => {
+      window.removeEventListener('scroll', handleScroll)
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current)
       }
     }
   }, [previewMode, handleScrollThrottled])
