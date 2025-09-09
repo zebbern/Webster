@@ -75,6 +75,8 @@ export const ScrapingConfigurationSection = React.memo(({
   onShowScrollButtonsChange,
   validateImages,
   onValidateImagesChange,
+  backgroundPreloading,
+  onBackgroundPreloadingChange,
   fileTypes,
   onFileTypeToggle,
   isLoading,
