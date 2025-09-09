@@ -281,14 +281,14 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
   if (previewMode) {
     return createPortal(
       <div 
-        className="fixed inset-0 z-50"
         style={{
           backgroundColor: 'black',
           margin: 0,
           padding: 0,
           width: '100vw',
-          height: '100vh',
-          overflow: 'visible'
+          minHeight: '100vh',
+          position: 'relative',
+          zIndex: 50
         }}
       >
         {/* Fixed UI Controls */}
@@ -364,12 +364,12 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
         
         {/* Images container with document-level scrolling */}
         <div 
-          className="absolute top-0 left-0"
           style={{
             width: '100vw',
             minHeight: '100vh',
             margin: 0,
-            padding: 0
+            padding: 0,
+            position: 'relative'
           }}
         >
           {images.length === 0 && (initialPreviewMode || isNavigating) ? (
