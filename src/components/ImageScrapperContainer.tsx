@@ -402,6 +402,8 @@ const ImageScrapperContainer: React.FC = () => {
           onShowScrollButtonsChange={configurationActions.updateShowScrollButtons}
           validateImages={configuration.validateImages}
           onValidateImagesChange={configurationActions.updateValidateImages}
+          backgroundPreloading={configuration.backgroundPreloading}
+          onBackgroundPreloadingChange={configurationActions.updateBackgroundPreloading}
           fileTypes={configuration.fileTypes}
           onFileTypeToggle={handleFileTypeToggle}
           isLoading={scraping.isLoading}
@@ -454,6 +456,9 @@ const ImageScrapperContainer: React.FC = () => {
           chapterCount={configuration.chapterCount}
           updateChapterUrl={updateChapterUrl}
           updateLastScrollTime={navigationActions.updateLastScrollTime}
+          backgroundPreloading={configuration.backgroundPreloading}
+          fileTypes={configuration.fileTypes}
+          validateImages={configuration.validateImages}
         />
       </div>
     </div>

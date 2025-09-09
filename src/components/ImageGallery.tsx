@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { Download, Eye, Copy, Check, Grid, Maximize, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
-import { ScrapedImage } from '../utils/advancedImageScraper'
+import { ScrapedImage, preloadNextChapterImages } from '../utils/advancedImageScraper'
 import { downloadImage, downloadAllImages } from '../utils/downloadUtils'
 import { copyToClipboard } from '../utils/clipboardUtils'
 import ImageModal from './ImageModal'
@@ -24,9 +24,12 @@ interface ImageGalleryProps {
   currentChapter?: number
   canAutoNavigate?: boolean
   isNavigating?: boolean
+  backgroundPreloading?: boolean
+  fileTypes?: string[]
+  validateImages?: boolean
 }
 
-const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', onImageError, onPreviewChange, onButtonVisibilityChange, showScrollButtons = false, initialPreviewMode = false, onNextChapter, onManualNextChapter, onStartNavigation, onPreviousChapter, currentChapter, canAutoNavigate = true, isNavigating = false }) => {
+const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', onImageError, onPreviewChange, onButtonVisibilityChange, showScrollButtons = false, initialPreviewMode = false, onNextChapter, onManualNextChapter, onStartNavigation, onPreviousChapter, currentChapter, canAutoNavigate = true, isNavigating = false, backgroundPreloading = false, fileTypes = [], validateImages = false }) => {
   const [selectedImage, setSelectedImage] = useState<ScrapedImage | null>(null)
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null)
   const [downloadingAll, setDownloadingAll] = useState(false)
@@ -144,6 +147,24 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
     }
   }, [previewMode])
 
+  // Background preloading for next chapter when in preview mode
+  useEffect(() => {
+    if (!previewMode || !backgroundPreloading || !websiteUrl || images.length === 0) {
+      return
+    }
+
+    // Add a small delay to let the current chapter load completely
+    const preloadTimer = setTimeout(() => {
+      preloadNextChapterImages(websiteUrl, fileTypes, {
+        validateImages,
+        maxPreloadImages: 15 // Limit to avoid excessive network usage
+      }).catch(() => {
+        // Silently ignore preload failures
+      })
+    }, 3000) // 3 second delay after preview mode starts
+
+    return () => clearTimeout(preloadTimer)
+  }, [previewMode, backgroundPreloading, websiteUrl, images.length, fileTypes, validateImages])
 
   // Keyboard navigation for preview mode
   useEffect(() => {

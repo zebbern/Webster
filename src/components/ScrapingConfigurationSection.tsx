@@ -28,6 +28,8 @@ interface ScrapingConfigurationSectionProps {
   onShowScrollButtonsChange: (show: boolean) => void
   validateImages: boolean
   onValidateImagesChange: (validate: boolean) => void
+  backgroundPreloading: boolean
+  onBackgroundPreloadingChange: (enabled: boolean) => void
   fileTypes: string[]
   onFileTypeToggle: (type: string) => void
   
@@ -186,6 +188,8 @@ export const ScrapingConfigurationSection = React.memo(({
         onShowScrollButtonsChange={onShowScrollButtonsChange}
         validateImages={validateImages}
         onValidateImagesChange={onValidateImagesChange}
+        backgroundPreloading={backgroundPreloading}
+        onBackgroundPreloadingChange={onBackgroundPreloadingChange}
         fileTypes={fileTypes}
         availableFileTypes={FILE_EXTENSIONS.AVAILABLE}
         onFileTypeToggle={onFileTypeToggle}

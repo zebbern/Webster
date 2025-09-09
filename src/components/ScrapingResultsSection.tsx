@@ -24,6 +24,9 @@ interface ScrapingResultsSectionProps {
   chapterCount: number
   updateChapterUrl: (chapterNumber: number, immediate?: boolean) => string
   updateLastScrollTime: (time: number) => void
+  backgroundPreloading: boolean
+  fileTypes: string[]
+  validateImages: boolean
 }
 
 export const ScrapingResultsSection = React.memo(({
@@ -45,7 +48,10 @@ export const ScrapingResultsSection = React.memo(({
   lastAutoScrollTime,
   chapterCount,
   updateChapterUrl,
-  updateLastScrollTime
+  updateLastScrollTime,
+  backgroundPreloading,
+  fileTypes,
+  validateImages
 }: ScrapingResultsSectionProps) => {
   // Memoize filtered images to prevent unnecessary recalculations
   const filteredImages = useMemo(() => 
@@ -100,6 +106,9 @@ export const ScrapingResultsSection = React.memo(({
         currentChapter={currentChapter}
         canAutoNavigate={canAutoNavigate}
         isNavigating={isNavigating}
+        backgroundPreloading={backgroundPreloading}
+        fileTypes={fileTypes}
+        validateImages={validateImages}
       />
     </div>
   )

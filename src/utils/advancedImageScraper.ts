@@ -1016,3 +1016,75 @@ export function detectStrongSequentialPattern(urls: string[]): { basePath: strin
   return null
 }
 
+// Background image preloading for next chapter
+export const preloadNextChapterImages = async (
+  currentUrl: string,
+  fileTypes: string[],
+  config: {
+    validateImages?: boolean
+    consecutiveMissThreshold?: number
+    signal?: AbortSignal
+    maxPreloadImages?: number
+  } = {}
+): Promise<void> => {
+  const { 
+    validateImages = false, 
+    consecutiveMissThreshold = DEFAULTS.CONSECUTIVE_MISS_THRESHOLD,
+    signal,
+    maxPreloadImages = 20
+  } = config
+
+  try {
+    // Generate next chapter URL
+    const nextChapterUrl = generateChapterUrl(currentUrl, 2) // Get next chapter
+    
+    if (nextChapterUrl === currentUrl) {
+      return // No chapter pattern detected, can't preload
+    }
+
+    // Fetch next chapter page (background, no progress updates)
+    const fetched = await fetchData(nextChapterUrl, 'GET', signal)
+    if (signal?.aborted || fetched.status >= THRESHOLDS.HTTP_SUCCESS_THRESHOLD) {
+      return // Failed to fetch or aborted, skip preloading
+    }
+
+    const body = typeof fetched.body === 'string' ? fetched.body : JSON.stringify(fetched.body)
+    if (!body || body.trim().length === 0) {
+      return // Empty response, skip preloading
+    }
+
+    // Extract image URLs from next chapter
+    let imageUrls = extractImageUrls(body, [], nextChapterUrl, body, true)
+    imageUrls = Array.from(new Set(imageUrls))
+
+    // Limit the number of images to preload to avoid excessive network usage
+    imageUrls = imageUrls.slice(0, maxPreloadImages)
+
+    // Start preloading images in background (fire and forget)
+    const preloadPromises = imageUrls.map(async (imageUrl) => {
+      if (signal?.aborted) return
+      
+      try {
+        // Create image element to trigger browser preload
+        const img = new Image()
+        img.src = imageUrl
+        
+        // Optional: validate the image exists if configured
+        if (validateImages) {
+          await validateImageExists(imageUrl, validateImages, signal)
+        }
+      } catch (error) {
+        // Silently ignore preload failures
+      }
+    })
+
+    // Start all preloads but don't wait for them to complete
+    Promise.all(preloadPromises).catch(() => {
+      // Silently ignore any preload errors
+    })
+
+  } catch (error) {
+    // Silently ignore preload errors to avoid disrupting main app
+  }
+}
+

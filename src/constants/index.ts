@@ -54,6 +54,7 @@ export const DEFAULTS = {
   // UI defaults
   SHOW_SCROLL_BUTTONS: true,
   VALIDATE_IMAGES: false,
+  BACKGROUND_PRELOADING: true,
 } as const
 
 export const THRESHOLDS = {

@@ -61,6 +61,7 @@ export interface ScrapingConfiguration {
   validateImages: boolean
   fetchInterval: number
   showScrollButtons: boolean
+  backgroundPreloading: boolean
 }
 
 export interface ConfigurationActions {
@@ -71,6 +72,7 @@ export interface ConfigurationActions {
   updateValidateImages: (validate: boolean) => void
   updateFetchInterval: (interval: number) => void
   updateShowScrollButtons: (show: boolean) => void
+  updateBackgroundPreloading: (enabled: boolean) => void
   toggleFileType: (type: string) => void
 }
 
