@@ -168,20 +168,19 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [previewMode])
 
-  // Throttled scroll handler to improve performance
+  // Throttled scroll handler using document-level scrolling
   const handleScrollThrottled = useCallback(() => {
-    const previewContainer = document.getElementById('preview-overlay-scroll')
-    if (!previewContainer) return
-
-    const currentScrollY = previewContainer.scrollTop
-    const containerHeight = previewContainer.clientHeight
-    const scrollHeight = previewContainer.scrollHeight
+    if (!previewMode) return
+    
+    const currentScrollY = window.scrollY
+    const windowHeight = window.innerHeight
+    const documentHeight = document.documentElement.scrollHeight
     
     // More strict bottom detection - only trigger when very close to bottom
-    const isAtBottom = currentScrollY + containerHeight >= scrollHeight - THRESHOLDS.BOTTOM_SCROLL_THRESHOLD
+    const isAtBottom = currentScrollY + windowHeight >= documentHeight - THRESHOLDS.BOTTOM_SCROLL_THRESHOLD
     
     // Only consider "at bottom" if we've scrolled a significant amount
-    const hasScrolledSignificantly = currentScrollY > containerHeight * THRESHOLDS.SCROLL_PERCENTAGE_THRESHOLD
+    const hasScrolledSignificantly = currentScrollY > windowHeight * THRESHOLDS.SCROLL_PERCENTAGE_THRESHOLD
 
     // Show buttons when:
     // 1. Scrolling up (currentScrollY < lastScrollY)
@@ -196,9 +195,8 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
       onButtonVisibilityChange?.(false)
     }
 
-
     setLastScrollY(currentScrollY)
-  }, [lastScrollY, onButtonVisibilityChange])
+  }, [lastScrollY, onButtonVisibilityChange, previewMode])
 
   // Scroll detection for button visibility in preview mode
   useEffect(() => {
