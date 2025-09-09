@@ -255,137 +255,103 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
   }
 
   const scrollToTop = () => {
-    if (previewMode) {
-      const el = document.getElementById('preview-overlay-scroll')
-      if (el) {
-        el.scrollTo({ top: 0, behavior: 'smooth' })
-        return
-      }
-    }
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   const scrollToBottom = () => {
-    if (previewMode) {
-      const el = document.getElementById('preview-overlay-scroll')
-      if (el) {
-        el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
-        return
-      }
-    }
     const bottom = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight)
     window.scrollTo({ top: bottom, behavior: 'smooth' })
   }
 
 
-  // Preview mode - full window with no spacing
+  // Preview mode - document-level scrolling for mobile browser compatibility
   if (previewMode) {
     return (
-      <div 
-        className="fixed inset-0 z-40 bg-black"
-        style={{
-          // Allow all touch interactions for mobile browser scroll detection
-          touchAction: 'auto',
-        }}
-      >
-        {/* Exit button */}
-        <button
-          onClick={() => setPreviewMode(false)}
-          className={`fixed top-4 right-4 z-50 p-2 bg-black/50 text-white rounded-full hover:bg-black/70 transition-all duration-300 ${
+      <>
+        {/* Fixed UI Controls */}
+        <div className="fixed inset-0 pointer-events-none z-50">
+          {/* Exit button */}
+          <button
+            onClick={() => setPreviewMode(false)}
+            className={`fixed top-4 right-4 pointer-events-auto p-2 bg-black/50 text-white rounded-full hover:bg-black/70 transition-all duration-300 ${
+              buttonsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
+            }`}
+            title="Exit preview mode"
+          >
+            <Grid className="h-5 w-5" />
+          </button>
+          
+          {/* Scroll to top/bottom buttons */}
+          {showScrollButtons && (
+          <div className={`fixed right-4 bottom-6 pointer-events-auto flex flex-col items-end space-y-2 transition-all duration-300 ${
             buttonsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
-          }`}
-          title="Exit preview mode"
-        >
-          <Grid className="h-5 w-5" />
-        </button>
-        
-        {/* Scroll to top/bottom buttons (placed near bottom of preview) */}
-        {showScrollButtons && (
-        <div className={`fixed right-4 bottom-6 z-50 flex flex-col items-end space-y-2 transition-all duration-300 ${
-          buttonsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
-        }`}>
-          <div className="flex flex-col space-y-2">
-            <button
-              onClick={scrollToTop}
-              className="p-2.5 bg-card/90 text-foreground rounded-full hover:bg-card transition-colors shadow-lg"
-              title="Scroll to top"
-            >
-              <ChevronUp className="h-5 w-5" />
-            </button>
-            <button
-              onClick={scrollToBottom}
-              className="p-2.5 bg-card/90 text-foreground rounded-full hover:bg-card transition-colors shadow-lg"
-              title="Scroll to bottom"
-            >
-              <ChevronDown className="h-5 w-5" />
-            </button>
-          </div>
-        </div>
-        )}
-
-        {/* Chapter navigation buttons */}
-        {(onPreviousChapter || onNextChapter) && (
-        <div className={`fixed left-4 bottom-6 z-50 flex flex-col items-start space-y-2 transition-all duration-300 ${
-          buttonsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
-        }`}>
-          <div className="flex items-center space-x-2">
-            {onPreviousChapter && (
+          }`}>
+            <div className="flex flex-col space-y-2">
               <button
-                onClick={onPreviousChapter}
-                className="p-2.5 bg-card/90 text-foreground rounded-full hover:bg-card transition-colors shadow-lg"
-                title="Previous chapter"
+                onClick={scrollToTop}
+                className="p-2.5 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors shadow-lg"
+                title="Scroll to top"
               >
-                <ChevronLeft className="h-5 w-5" />
+                <ChevronUp className="h-5 w-5" />
               </button>
-            )}
-            
-            {currentChapter && (
-              <div className="px-3 py-2 bg-card/90 text-foreground rounded-lg shadow-lg">
-                <span className="text-sm font-medium">Chapter {currentChapter}</span>
-              </div>
-            )}
-            
-            {(onManualNextChapter || onNextChapter) && (
               <button
-                onClick={onManualNextChapter || onNextChapter}
-                className="p-2.5 bg-card/90 text-foreground rounded-full hover:bg-card transition-colors shadow-lg"
-                title="Next chapter"
+                onClick={scrollToBottom}
+                className="p-2.5 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors shadow-lg"
+                title="Scroll to bottom"
               >
-                <ChevronRight className="h-5 w-5" />
+                <ChevronDown className="h-5 w-5" />
               </button>
-            )}
+            </div>
           </div>
+          )}
+
+          {/* Chapter navigation buttons */}
+          {(onPreviousChapter || onNextChapter) && (
+          <div className={`fixed left-4 bottom-6 pointer-events-auto flex flex-col items-start space-y-2 transition-all duration-300 ${
+            buttonsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
+          }`}>
+            <div className="flex items-center space-x-2">
+              {onPreviousChapter && (
+                <button
+                  onClick={onPreviousChapter}
+                  className="p-2.5 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors shadow-lg"
+                  title="Previous chapter"
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </button>
+              )}
+              
+              {currentChapter && (
+                <div className="px-3 py-2 bg-black/50 text-white rounded-lg shadow-lg">
+                  <span className="text-sm font-medium">Chapter {currentChapter}</span>
+                </div>
+              )}
+              
+              {(onManualNextChapter || onNextChapter) && (
+                <button
+                  onClick={onManualNextChapter || onNextChapter}
+                  className="p-2.5 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors shadow-lg"
+                  title="Next chapter"
+                >
+                  <ChevronRight className="h-5 w-5" />
+                </button>
+              )}
+            </div>
+          </div>
+          )}
         </div>
-        )}
 
-
-        {/* Images with no spacing */}
-        <div 
-          id="preview-overlay-scroll" 
-          className="h-full overflow-y-auto"
-          style={{
-            // Mobile-friendly scrolling with proper touch support
-            WebkitOverflowScrolling: 'touch',
-            // REMOVED: overscrollBehavior and contain properties that interfere with mobile browser scroll detection
-            // REMOVED: CSS containment prevents mobile browsers from detecting scroll for UI chrome behavior
-            // Allow all touch gestures for mobile browser UI detection
-            touchAction: 'auto',
-          }}
-        >
+        {/* Images in document flow for natural scrolling */}
+        <div className="min-h-screen">
           {images.length === 0 && (initialPreviewMode || isNavigating) ? (
-            // Show loading placeholder when preserving preview mode during chapter navigation or auto navigation
+            // Show loading placeholder when preserving preview mode during chapter navigation
             <div 
-              className="w-full flex items-center justify-center" 
-              style={{ 
-                height: '100vh', 
-                backgroundColor: 'transparent',
-                display: 'flex'
-              }}
+              className="w-full flex items-center justify-center min-h-screen" 
             >
               {isNavigating && (
                 <div className="flex flex-col items-center space-y-4">
-                  <Loader2 className="h-8 w-8 animate-spin text-accent" />
-                  <p className="text-muted-foreground">Loading next chapter...</p>
+                  <Loader2 className="h-8 w-8 animate-spin text-white" />
+                  <p className="text-white/70">Loading next chapter...</p>
                 </div>
               )}
             </div>
@@ -410,7 +376,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
             ))
           )}
         </div>
-      </div>
+      </>
     )
   }
 
