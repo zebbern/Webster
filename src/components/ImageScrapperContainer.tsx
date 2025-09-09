@@ -44,17 +44,15 @@ const ImageScrapperContainer: React.FC = () => {
   useEffect(() => {
     if (navigation.isNavigating) {
       document.body.style.overflow = 'hidden'
-      document.body.style.touchAction = 'none'
-      // Navigation lock active
+      // REMOVED: touchAction = 'none' that blocks mobile browser scroll detection
+      // Navigation lock active - visual only, don't block touch interactions
     } else {
       document.body.style.overflow = ''
-      document.body.style.touchAction = ''
       // Navigation lock restored
     }
 
     return () => {
       document.body.style.overflow = ''
-      document.body.style.touchAction = ''
     }
   }, [navigation.isNavigating])
 
@@ -350,7 +348,7 @@ const ImageScrapperContainer: React.FC = () => {
     <div className="min-h-screen bg-background text-foreground">
       {/* Navigation Lock Overlay */}
       {navigation.isNavigating && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-60 flex items-center justify-center">
           <div className="bg-card border border-border rounded-lg p-6 shadow-lg">
             <div className="flex items-center space-x-3">
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>

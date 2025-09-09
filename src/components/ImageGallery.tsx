@@ -284,8 +284,8 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
       <div 
         className="fixed inset-0 z-40 bg-black"
         style={{
-          // Explicitly tell mobile browsers to allow normal touch interactions  
-          touchAction: 'manipulation',
+          // Allow all touch interactions for mobile browser scroll detection
+          touchAction: 'auto',
         }}
       >
         {/* Exit button */}
@@ -366,10 +366,9 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
           style={{
             // Mobile-friendly scrolling with proper touch support
             WebkitOverflowScrolling: 'touch',
-            overscrollBehavior: 'contain',
-            // Basic containment without breaking mobile browser behavior
-            contain: 'layout style',
-            // Explicitly allow all touch gestures for mobile browser UI detection
+            // REMOVED: overscrollBehavior and contain properties that interfere with mobile browser scroll detection
+            // REMOVED: CSS containment prevents mobile browsers from detecting scroll for UI chrome behavior
+            // Allow all touch gestures for mobile browser UI detection
             touchAction: 'auto',
           }}
         >
