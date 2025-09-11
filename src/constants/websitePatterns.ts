@@ -37,6 +37,24 @@ export const PREDEFINED_WEBSITE_PATTERNS: WebsitePattern[] = [
     example: 'https://manhuaus.com/manga/title/chapter-2/'
   },
   {
+    id: 'manhuaus-org',
+    name: 'ManhuaUS (.org)', 
+    domain: 'manhuaus.org',
+    description: 'Manga and manhua reader (.org domain)',
+    urlPattern: 'https://manhuaus.org/{*}/{*}/chapter-{ch_next}/',
+    chapterConfig: '{n+1}',
+    example: 'https://manhuaus.org/manga/title/chapter-2/'
+  },
+  {
+    id: 'manhuaplus',
+    name: 'ManhuaPlus',
+    domain: 'manhuaplus.org',
+    description: 'Manga and manhua reading platform',
+    urlPattern: 'https://manhuaplus.org/{*}/{*}/chapter-{ch_next}',
+    chapterConfig: '{n+1}',
+    example: 'https://manhuaplus.org/manga/title/chapter-203'
+  },
+  {
     id: 'manhuaus2',
     name: 'manhuaus.com 2',
     domain: 'img.manhuaus.com',

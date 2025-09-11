@@ -425,6 +425,8 @@ const ImageScrapperContainer: React.FC = () => {
           onValidateImagesChange={configurationActions.updateValidateImages}
           backgroundPreloading={configuration.backgroundPreloading}
           onBackgroundPreloadingChange={configurationActions.updateBackgroundPreloading}
+          autoScroll={configuration.autoScroll}
+          onAutoScrollChange={configurationActions.updateAutoScroll}
           fileTypes={configuration.fileTypes}
           onFileTypeToggle={handleFileTypeToggle}
           isLoading={scraping.isLoading}

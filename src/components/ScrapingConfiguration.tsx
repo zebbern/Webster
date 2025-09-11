@@ -29,6 +29,10 @@ interface ScrapingConfigurationProps {
   backgroundPreloading: boolean
   onBackgroundPreloadingChange: (value: boolean) => void
   
+  // Auto scroll
+  autoScroll: boolean
+  onAutoScrollChange: (value: boolean) => void
+  
   // File types
   fileTypes: string[]
   availableFileTypes: string[]
@@ -65,6 +69,8 @@ const ScrapingConfiguration: React.FC<ScrapingConfigurationProps> = ({
   onValidateImagesChange,
   backgroundPreloading,
   onBackgroundPreloadingChange,
+  autoScroll,
+  onAutoScrollChange,
   fileTypes,
   availableFileTypes,
   onFileTypeToggle,
@@ -317,6 +323,28 @@ const ScrapingConfiguration: React.FC<ScrapingConfigurationProps> = ({
                   </div>
                 </div>
                 <span className="text-foreground">Background preload next chapter</span>
+              </label>
+              <label className="flex items-center space-x-3 text-sm cursor-pointer">
+                <div className="relative">
+                  <input 
+                    type="checkbox" 
+                    checked={autoScroll} 
+                    onChange={(e) => onAutoScrollChange(e.target.checked)}
+                    className="sr-only"
+                  />
+                  <div className={`w-4 h-4 rounded border-2 transition-all duration-200 ${
+                    autoScroll 
+                      ? 'bg-primary border-primary' 
+                      : 'bg-background border-border hover:border-primary/50'
+                  }`}>
+                    {autoScroll && (
+                      <svg className="w-3 h-3 text-primary-foreground absolute top-0.5 left-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    )}
+                  </div>
+                </div>
+                <span className="text-foreground">Auto scroll in preview mode</span>
               </label>
             </div>
           </div>

@@ -30,6 +30,8 @@ interface ScrapingConfigurationSectionProps {
   onValidateImagesChange: (validate: boolean) => void
   backgroundPreloading: boolean
   onBackgroundPreloadingChange: (enabled: boolean) => void
+  autoScroll: boolean
+  onAutoScrollChange: (enabled: boolean) => void
   fileTypes: string[]
   onFileTypeToggle: (type: string) => void
   
@@ -77,6 +79,8 @@ export const ScrapingConfigurationSection = React.memo(({
   onValidateImagesChange,
   backgroundPreloading,
   onBackgroundPreloadingChange,
+  autoScroll,
+  onAutoScrollChange,
   fileTypes,
   onFileTypeToggle,
   isLoading,
@@ -192,6 +196,8 @@ export const ScrapingConfigurationSection = React.memo(({
         onValidateImagesChange={onValidateImagesChange}
         backgroundPreloading={backgroundPreloading}
         onBackgroundPreloadingChange={onBackgroundPreloadingChange}
+        autoScroll={autoScroll}
+        onAutoScrollChange={onAutoScrollChange}
         fileTypes={fileTypes}
         availableFileTypes={FILE_EXTENSIONS.AVAILABLE}
         onFileTypeToggle={onFileTypeToggle}
