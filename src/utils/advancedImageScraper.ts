@@ -865,7 +865,7 @@ function extractImageUrls(markdown: string, links: any[], baseUrl: string, extra
     }
     
     // Special handling for manhuaplus.org AJAX-loaded images
-    if (chapterUrl && chapterUrl.includes('manhuaplus.org')) {
+    if (baseUrl && baseUrl.includes('manhuaplus.org')) {
       // Extract chapter ID from JavaScript variables
       const chapterIdMatch = htmlString.match(/(?:CHAPTER_ID|chap_id|chapter_id)\s*[=:]\s*(\d+)/i)
       if (chapterIdMatch) {
