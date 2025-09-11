@@ -411,12 +411,20 @@ const processDiscoveredImages = async (
 const shouldForceDiscoveryMode = (chapterUrl: string, imageUrls: string[]): boolean => {
   try {
     const chapterUrlObj = new URL(chapterUrl)
+    
+    // Force discovery mode for manhuaus.com with hash-based patterns
     if (chapterUrlObj.hostname.includes('manhuaus.com')) {
       // Check if any discovered URLs use the hash-based pattern
       return imageUrls.some(url => 
         /img\.manhuaus\.com\/image[^\/]*\/[^\/]+\/[^\/]+\//.test(url)
       )
     }
+    
+    // Force discovery mode for manhuaplus.org (AJAX-loaded images)
+    if (chapterUrlObj.hostname.includes('manhuaplus.org')) {
+      return true // Always use discovery mode for AJAX-based sites
+    }
+    
   } catch (error) {
     // Ignore URL parsing errors
   }
@@ -778,11 +786,25 @@ function extractImageUrls(markdown: string, links: any[], baseUrl: string, extra
       tryAdd(bg[1])
     }
 
-    // generic image urls in scripts / JSON
+    // generic image urls in scripts / JSON (enhanced for AJAX sites)
     const urlRegex = /https?:\/\/[^\s"'<>]+\.(jpg|jpeg|png|gif|webp|svg|bmp|tiff|ico)(?:[?#][^\s"'<>]*)?/gi
     let u
     while ((u = urlRegex.exec(htmlString)) !== null) {
       tryAdd(u[0])
+    }
+    
+    // Enhanced: Look for CDN domains that might host images
+    const cdnRegex = /https?:\/\/(?:cdn|img|static|assets|media)\.[\w.-]+\/[^\s"'<>]*\.(jpg|jpeg|png|gif|webp|svg|bmp|tiff|ico)(?:[?#][^\s"'<>]*)?/gi
+    let c
+    while ((c = cdnRegex.exec(htmlString)) !== null) {
+      tryAdd(c[0])
+    }
+    
+    // Look for manhuaplus.cc CDN specifically
+    const manhuaplusRegex = /https?:\/\/cdn\.manhuaplus\.cc\/[^\s"'<>]*\.(jpg|jpeg|png|gif|webp|svg|bmp|tiff|ico)(?:[?#][^\s"'<>]*)?/gi
+    let m
+    while ((m = manhuaplusRegex.exec(htmlString)) !== null) {
+      tryAdd(m[0])
     }
 
     // Enhanced: Look for URLs ending with image extensions even without protocols

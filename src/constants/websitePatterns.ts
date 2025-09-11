@@ -55,6 +55,15 @@ export const PREDEFINED_WEBSITE_PATTERNS: WebsitePattern[] = [
     example: 'https://manhuaplus.org/manga/title/chapter-203'
   },
   {
+    id: 'manhuaplus-cdn',
+    name: 'ManhuaPlus CDN',
+    domain: 'cdn.manhuaplus.cc',
+    description: 'ManhuaPlus image CDN with timestamped paths',
+    urlPattern: 'https://cdn.manhuaplus.cc/{date}/{time}/{timestamp}.webp',
+    chapterConfig: 'discovery',
+    example: 'https://cdn.manhuaplus.cc/2025/03/19/11-42-08-6911922306357488.webp'
+  },
+  {
     id: 'manhuaus2',
     name: 'manhuaus.com 2',
     domain: 'img.manhuaus.com',
