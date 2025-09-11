@@ -62,6 +62,8 @@ export interface ScrapingConfiguration {
   fetchInterval: number
   showScrollButtons: boolean
   backgroundPreloading: boolean
+  autoScroll: boolean
+  autoScrollSpeed: number
 }
 
 export interface ConfigurationActions {
@@ -73,6 +75,8 @@ export interface ConfigurationActions {
   updateFetchInterval: (interval: number) => void
   updateShowScrollButtons: (show: boolean) => void
   updateBackgroundPreloading: (enabled: boolean) => void
+  updateAutoScroll: (enabled: boolean) => void
+  updateAutoScrollSpeed: (speed: number) => void
   toggleFileType: (type: string) => void
 }
 

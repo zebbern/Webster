@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { Download, Eye, Copy, Check, Grid, Maximize, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
+import { Download, Eye, Copy, Check, Grid, Maximize, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Loader2, Play, Pause, FastForward, RotateCcw } from 'lucide-react'
 import { ScrapedImage, preloadNextChapterImages } from '../utils/advancedImageScraper'
 import { downloadImage, downloadAllImages } from '../utils/downloadUtils'
 import { copyToClipboard } from '../utils/clipboardUtils'
@@ -27,9 +27,11 @@ interface ImageGalleryProps {
   backgroundPreloading?: boolean
   fileTypes?: string[]
   validateImages?: boolean
+  autoScroll?: boolean
+  autoScrollSpeed?: number
 }
 
-const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', onImageError, onPreviewChange, onButtonVisibilityChange, showScrollButtons = false, initialPreviewMode = false, onNextChapter, onManualNextChapter, onStartNavigation, onPreviousChapter, currentChapter, canAutoNavigate = true, isNavigating = false, backgroundPreloading = false, fileTypes = [], validateImages = false }) => {
+const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', onImageError, onPreviewChange, onButtonVisibilityChange, showScrollButtons = false, initialPreviewMode = false, onNextChapter, onManualNextChapter, onStartNavigation, onPreviousChapter, currentChapter, canAutoNavigate = true, isNavigating = false, backgroundPreloading = false, fileTypes = [], validateImages = false, autoScroll = false, autoScrollSpeed = 2 }) => {
   const [selectedImage, setSelectedImage] = useState<ScrapedImage | null>(null)
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null)
   const [downloadingAll, setDownloadingAll] = useState(false)
@@ -38,6 +40,9 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
   const [buttonsVisible, setButtonsVisible] = useState<boolean>(true)
   const [lastScrollY, setLastScrollY] = useState<number>(0)
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const [isAutoScrolling, setIsAutoScrolling] = useState<boolean>(false)
+  const [currentSpeed, setCurrentSpeed] = useState<number>(autoScrollSpeed)
+  const autoScrollRef = useRef<number | null>(null)
 
   useEffect(() => {
     onPreviewChange?.(previewMode)
@@ -189,6 +194,62 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [previewMode])
 
+  // Auto scroll functionality
+  const startAutoScroll = useCallback(() => {
+    if (!previewMode || isAutoScrolling) return
+    
+    const scroll = () => {
+      window.scrollBy({ top: currentSpeed, behavior: 'instant' })
+      autoScrollRef.current = requestAnimationFrame(scroll)
+    }
+    
+    autoScrollRef.current = requestAnimationFrame(scroll)
+  }, [previewMode, isAutoScrolling, currentSpeed])
+
+  const stopAutoScroll = useCallback(() => {
+    setIsAutoScrolling(false)
+    if (autoScrollRef.current) {
+      cancelAnimationFrame(autoScrollRef.current)
+      autoScrollRef.current = null
+    }
+  }, [])
+
+  const toggleAutoScroll = useCallback(() => {
+    if (isAutoScrolling) {
+      stopAutoScroll()
+    } else {
+      startAutoScroll()
+    }
+  }, [isAutoScrolling, startAutoScroll, stopAutoScroll])
+
+  const changeSpeed = useCallback((newSpeed: number) => {
+    setCurrentSpeed(Math.max(0.5, Math.min(10, newSpeed)))
+  }, [])
+
+  // Auto scroll effect
+  useEffect(() => {
+    if (isAutoScrolling && previewMode) {
+      startAutoScroll()
+    }
+    return () => {
+      if (autoScrollRef.current) {
+        cancelAnimationFrame(autoScrollRef.current)
+      }
+    }
+  }, [isAutoScrolling, previewMode, startAutoScroll])
+
+  // Update speed when prop changes
+  useEffect(() => {
+    setCurrentSpeed(autoScrollSpeed)
+  }, [autoScrollSpeed])
+
+  // Clean up auto scroll when leaving preview mode
+  useEffect(() => {
+    if (!previewMode) {
+      stopAutoScroll()
+    }
+  }, [previewMode, stopAutoScroll])
+
   // Throttled scroll handler using document-level scrolling
   const handleScrollThrottled = useCallback(() => {
     if (!previewMode) return
@@ -309,6 +370,49 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
         }}
       >
         {/* Fixed UI Controls */}
+        {/* Auto scroll button - top left corner */}
+        {autoScroll && (
+          <div className={`fixed top-4 left-4 z-[60] flex items-center space-x-2 transition-all duration-300 ${
+            buttonsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
+          }`}>
+            <button
+              onClick={toggleAutoScroll}
+              className="p-1.5 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors shadow-lg border border-white/20"
+              title={`${isAutoScrolling ? 'Pause' : 'Start'} auto scroll`}
+            >
+              {isAutoScrolling ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
+            </button>
+            
+            {/* Speed controls */}
+            <div className="flex items-center space-x-1">
+              <button
+                onClick={() => changeSpeed(currentSpeed - 0.5)}
+                className="p-1 bg-black/50 text-white rounded hover:bg-black/70 transition-colors text-xs"
+                title="Decrease speed"
+              >
+                -
+              </button>
+              <span className="text-white text-xs font-mono bg-black/50 px-1.5 py-0.5 rounded">
+                {currentSpeed.toFixed(1)}x
+              </span>
+              <button
+                onClick={() => changeSpeed(currentSpeed + 0.5)}
+                className="p-1 bg-black/50 text-white rounded hover:bg-black/70 transition-colors text-xs"
+                title="Increase speed"
+              >
+                +
+              </button>
+              <button
+                onClick={() => changeSpeed(autoScrollSpeed)}
+                className="p-1 bg-black/50 text-white rounded hover:bg-black/70 transition-colors text-xs"
+                title="Reset to default speed"
+              >
+                <RotateCcw className="h-2.5 w-2.5" />
+              </button>
+            </div>
+          </div>
+        )}
+        
         {/* Exit button */}
         <button
           onClick={() => setPreviewMode(false)}

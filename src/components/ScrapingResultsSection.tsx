@@ -27,6 +27,8 @@ interface ScrapingResultsSectionProps {
   backgroundPreloading: boolean
   fileTypes: string[]
   validateImages: boolean
+  autoScroll: boolean
+  autoScrollSpeed: number
 }
 
 export const ScrapingResultsSection = React.memo(({
@@ -51,7 +53,9 @@ export const ScrapingResultsSection = React.memo(({
   updateLastScrollTime,
   backgroundPreloading,
   fileTypes,
-  validateImages
+  validateImages,
+  autoScroll,
+  autoScrollSpeed
 }: ScrapingResultsSectionProps) => {
   // Memoize filtered images to prevent unnecessary recalculations
   const filteredImages = useMemo(() => 
@@ -109,6 +113,8 @@ export const ScrapingResultsSection = React.memo(({
         backgroundPreloading={backgroundPreloading}
         fileTypes={fileTypes}
         validateImages={validateImages}
+        autoScroll={autoScroll}
+        autoScrollSpeed={autoScrollSpeed}
       />
     </div>
   )

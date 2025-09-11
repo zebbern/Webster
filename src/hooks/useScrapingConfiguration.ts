@@ -11,6 +11,8 @@ export const useScrapingConfiguration = () => {
   const [fetchInterval, setFetchInterval] = useState(DEFAULTS.FETCH_INTERVAL_SECONDS)
   const [showScrollButtons, setShowScrollButtons] = useState(DEFAULTS.SHOW_SCROLL_BUTTONS)
   const [backgroundPreloading, setBackgroundPreloading] = useState(DEFAULTS.BACKGROUND_PRELOADING)
+  const [autoScroll, setAutoScroll] = useState(DEFAULTS.AUTO_SCROLL)
+  const [autoScrollSpeed, setAutoScrollSpeed] = useState(DEFAULTS.AUTO_SCROLL_SPEED)
 
   const updateScrapingMethod = useCallback((method: 'smart' | 'fast') => {
     setScrapingMethod(method)
@@ -51,6 +53,14 @@ export const useScrapingConfiguration = () => {
     setBackgroundPreloading(enabled)
   }, [])
 
+  const updateAutoScroll = useCallback((enabled: boolean) => {
+    setAutoScroll(enabled)
+  }, [])
+
+  const updateAutoScrollSpeed = useCallback((speed: number) => {
+    setAutoScrollSpeed(Math.max(0.5, Math.min(10, speed))) // Clamp between 0.5 and 10
+  }, [])
+
   const toggleFileType = useCallback((type: string) => {
     setFileTypes(prev => {
       if (prev.includes(type)) {
@@ -69,7 +79,9 @@ export const useScrapingConfiguration = () => {
     validateImages,
     fetchInterval,
     showScrollButtons,
-    backgroundPreloading
+    backgroundPreloading,
+    autoScroll,
+    autoScrollSpeed
   }
 
   const actions = {
@@ -81,6 +93,8 @@ export const useScrapingConfiguration = () => {
     updateFetchInterval,
     updateShowScrollButtons,
     updateBackgroundPreloading,
+    updateAutoScroll,
+    updateAutoScrollSpeed,
     toggleFileType
   }
 

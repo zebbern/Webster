@@ -55,6 +55,8 @@ export const DEFAULTS = {
   SHOW_SCROLL_BUTTONS: true,
   VALIDATE_IMAGES: false,
   BACKGROUND_PRELOADING: true,
+  AUTO_SCROLL: false,
+  AUTO_SCROLL_SPEED: 2, // pixels per frame (60fps)
 } as const
 
 export const THRESHOLDS = {

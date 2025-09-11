@@ -480,6 +480,8 @@ const ImageScrapperContainer: React.FC = () => {
           backgroundPreloading={configuration.backgroundPreloading}
           fileTypes={configuration.fileTypes}
           validateImages={configuration.validateImages}
+          autoScroll={configuration.autoScroll}
+          autoScrollSpeed={configuration.autoScrollSpeed}
         />
       </div>
     </div>
