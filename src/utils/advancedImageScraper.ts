@@ -431,6 +431,57 @@ const shouldForceDiscoveryMode = (chapterUrl: string, imageUrls: string[]): bool
   return false
 }
 
+// Special function to fetch AJAX images for manhuaplus.org
+const fetchManhuaplusAjaxImages = async (chapterUrl: string, htmlContent: string, signal?: AbortSignal): Promise<string[]> => {
+  const ajaxImages: string[] = []
+  
+  try {
+    // Extract chapter ID from the HTML
+    const chapterIdMatch = htmlContent.match(/(?:CHAPTER_ID|chap_id|chapter_id)\s*[=:]\s*(\d+)/i)
+    if (!chapterIdMatch) return ajaxImages
+    
+    const chapterId = chapterIdMatch[1]
+    const baseUrl = new URL(chapterUrl).origin
+    const ajaxUrl = `${baseUrl}/ajax/image/list/chap/${chapterId}`
+    
+    // Make AJAX request to get image list (using POST like the original site)
+    const response = await corsClient.data.fetch({ 
+      url: ajaxUrl, 
+      method: 'POST',
+      signal,
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'X-Requested-With': 'XMLHttpRequest'
+      }
+    })
+    if (response.status >= THRESHOLDS.HTTP_SUCCESS_THRESHOLD) {
+      return ajaxImages
+    }
+    
+    let ajaxData: any
+    const responseBody = typeof response.body === 'string' ? response.body : JSON.stringify(response.body)
+    try {
+      ajaxData = JSON.parse(responseBody)
+    } catch {
+      // If it's not JSON, treat as HTML directly
+      ajaxData = { html: responseBody }
+    }
+    
+    // Extract images from the AJAX response
+    const ajaxHtml = ajaxData.html || ajaxData.content || responseBody
+    if (ajaxHtml) {
+      // Use the same image extraction logic on the AJAX response
+      const tempResults = extractImageUrls(ajaxHtml, [], chapterUrl, ajaxHtml, false)
+      ajaxImages.push(...tempResults)
+    }
+    
+  } catch (error) {
+    // Silently fail - AJAX request might be protected or require authentication
+  }
+  
+  return ajaxImages
+}
+
 // Validate if an image URL exists
 const validateImageExists = async (url: string, validateImages: boolean, signal?: AbortSignal): Promise<boolean> => {
   if (validateImages) {
@@ -586,7 +637,13 @@ export const scrapeImages = async (
 
         } else {
           // No sequential pattern found - use discovery mode
-          const discoveredOnlyUrls = extractImageUrls(body, [], chapterUrl, body, false)
+          let discoveredOnlyUrls = extractImageUrls(body, [], chapterUrl, body, false)
+          
+          // Special handling for manhuaplus.org: fetch AJAX images
+          if (chapterUrl.includes('manhuaplus.org')) {
+            const ajaxImages = await fetchManhuaplusAjaxImages(chapterUrl, body, signal)
+            discoveredOnlyUrls = [...discoveredOnlyUrls, ...ajaxImages]
+          }
           
           await processDiscoveredImages(discoveredOnlyUrls, fileTypes, {
             signal,
@@ -805,6 +862,22 @@ function extractImageUrls(markdown: string, links: any[], baseUrl: string, extra
     let m
     while ((m = manhuaplusRegex.exec(htmlString)) !== null) {
       tryAdd(m[0])
+    }
+    
+    // Special handling for manhuaplus.org AJAX-loaded images
+    if (chapterUrl && chapterUrl.includes('manhuaplus.org')) {
+      // Extract chapter ID from JavaScript variables
+      const chapterIdMatch = htmlString.match(/(?:CHAPTER_ID|chap_id|chapter_id)\s*[=:]\s*(\d+)/i)
+      if (chapterIdMatch) {
+        const chapterId = chapterIdMatch[1]
+        // Note: We can't make AJAX requests from here, but we can try to find any embedded images
+        // Look for any pre-loaded image data that might be embedded
+        const embeddedImageRegex = new RegExp(`chap.*?${chapterId}.*?(https?://[^\\s"'<>]*\\.(jpg|jpeg|png|gif|webp|svg|bmp|tiff|ico))`, 'gi')
+        let embedded
+        while ((embedded = embeddedImageRegex.exec(htmlString)) !== null) {
+          tryAdd(embedded[1])
+        }
+      }
     }
 
     // Enhanced: Look for URLs ending with image extensions even without protocols
