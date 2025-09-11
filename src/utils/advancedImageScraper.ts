@@ -1,6 +1,7 @@
 import corsClient from '../cors/client'
 import { urlPatternManager, extractChapterNumber } from './urlPatterns'
 import { consoleManager, withTemporaryConsole } from './consoleUtils'
+import { preloadCache } from './preloadCache'
 import {
   TIMING,
   DEFAULTS,
@@ -1071,6 +1072,19 @@ export const preloadNextChapterImages = async (
 
     // Limit the number of images to preload to avoid excessive network usage
     imageUrls = imageUrls.slice(0, maxPreloadImages)
+
+    // Convert URLs to ScrapedImage objects for cache storage
+    const scrapedImages: ScrapedImage[] = imageUrls.map(url => {
+      const extension = url.split('.').pop()?.toLowerCase() || 'unknown'
+      return {
+        url,
+        type: extension,
+        source: 'dynamic' as const
+      }
+    })
+
+    // Store in cache before starting preload
+    preloadCache.store(nextChapterUrl, scrapedImages, fileTypes, validateImages)
 
     // Start preloading images in background (fire and forget)
     const preloadPromises = imageUrls.map(async (imageUrl) => {

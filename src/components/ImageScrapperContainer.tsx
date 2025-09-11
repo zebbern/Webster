@@ -6,6 +6,7 @@ import { ScrapingResultsSection } from './ScrapingResultsSection'
 import { ScrapingConfigurationSection } from './ScrapingConfigurationSection'
 import ThemeToggle from './ThemeToggle'
 import { scrapeImages, ScrapeProgress, clearRequestCache, detectStrongSequentialPattern } from '../utils/advancedImageScraper'
+import { preloadCache } from '../utils/preloadCache'
 import { parseChapterFromUrl } from '../utils/urlNavigation'
 import { useImageScrapingState } from '../hooks/useImageScrapingState'
 import { TIMING, ERROR_MESSAGES } from '../constants'
@@ -182,6 +183,21 @@ const ImageScrapperContainer: React.FC = () => {
     await scrapingActions.resetState()
     clearRequestCache()
 
+    // Check cache first if background preloading is enabled
+    if (configuration.backgroundPreloading) {
+      const cachedImages = preloadCache.get(scrapeUrl, configuration.fileTypes, configuration.validateImages)
+      if (cachedImages && cachedImages.length > 0) {
+        toast.success(`Loading ${cachedImages.length} images from cache...`)
+        
+        // Load cached images
+        cachedImages.forEach(image => scrapingActions.handleNewImage(image))
+        navigationActions.setLastPageUrl(scrapeUrl)
+        
+        scrapingActions.setIsLoading(false)
+        return
+      }
+    }
+
     abortControllerRef.current = new AbortController()
 
     try {
@@ -203,6 +219,11 @@ const ImageScrapperContainer: React.FC = () => {
 
       scrapedImages.forEach(image => scrapingActions.handleNewImage(image))
       navigationActions.setLastPageUrl(scrapeUrl)
+
+      // Store successful scraping results in cache if background preloading is enabled
+      if (configuration.backgroundPreloading && scrapedImages.length > 0) {
+        preloadCache.store(scrapeUrl, scrapedImages, configuration.fileTypes, configuration.validateImages)
+      }
 
       // Detect sequential pattern from returned images
       const seq = detectStrongSequentialPattern(scrapedImages.map(s => s.url))
