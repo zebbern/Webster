@@ -1057,6 +1057,18 @@ export const preloadNextChapterImages = async (
     let imageUrls = extractImageUrls(body, [], nextChapterUrl, body, true)
     imageUrls = Array.from(new Set(imageUrls))
 
+    // If no images found, retry with different extraction method
+    if (imageUrls.length === 0) {
+      // Try discovery mode instead
+      imageUrls = extractImageUrls(body, [], nextChapterUrl, body, false)
+      imageUrls = Array.from(new Set(imageUrls))
+    }
+
+    // If still no results, return early
+    if (imageUrls.length === 0) {
+      return // No images found to preload
+    }
+
     // Limit the number of images to preload to avoid excessive network usage
     imageUrls = imageUrls.slice(0, maxPreloadImages)
 
