@@ -43,6 +43,39 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
   const [isAutoScrolling, setIsAutoScrolling] = useState<boolean>(false)
   const [currentSpeed, setCurrentSpeed] = useState<number>(autoScrollSpeed)
   const autoScrollRef = useRef<number | null>(null)
+  const [showSpeedSelector, setShowSpeedSelector] = useState<boolean>(false)
+
+  // Generate speed options from 0x to 2x in 0.1x increments
+  const speedOptions = Array.from({ length: 21 }, (_, i) => ({
+    value: i * 0.1,
+    label: `${(i * 0.1).toFixed(1)}x`
+  }))
+
+  // Handle bottom-left corner clicks to show speed selector
+  const handleDocumentClick = useCallback((e: MouseEvent) => {
+    if (!previewMode) return
+    
+    const cornerSize = 50 // 50px corner area
+    const isBottomLeftCorner = e.clientX < cornerSize && 
+                              e.clientY > window.innerHeight - cornerSize
+    
+    if (isBottomLeftCorner) {
+      setShowSpeedSelector(prev => !prev)
+      e.preventDefault()
+      e.stopPropagation()
+    } else if (showSpeedSelector) {
+      // Hide speed selector when clicking elsewhere
+      setShowSpeedSelector(false)
+    }
+  }, [previewMode, showSpeedSelector])
+
+  // Add document click listener for bottom-left corner detection
+  useEffect(() => {
+    if (previewMode) {
+      document.addEventListener('click', handleDocumentClick, true)
+      return () => document.removeEventListener('click', handleDocumentClick, true)
+    }
+  }, [previewMode, handleDocumentClick])
 
   useEffect(() => {
     onPreviewChange?.(previewMode)
@@ -196,10 +229,12 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
 
   // Auto scroll functionality
   const startAutoScroll = useCallback(() => {
-    if (!previewMode || isAutoScrolling) return
+    if (!previewMode || isAutoScrolling || currentSpeed === 0) return
     
     const scroll = () => {
-      window.scrollBy({ top: currentSpeed, behavior: 'instant' })
+      // Smoother scrolling with smaller increments based on speed
+      const scrollAmount = currentSpeed * 0.8 // Smoother scroll increment
+      window.scrollBy({ top: scrollAmount, behavior: 'instant' })
       autoScrollRef.current = requestAnimationFrame(scroll)
     }
     
@@ -223,20 +258,34 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
   }, [isAutoScrolling, startAutoScroll, stopAutoScroll])
 
   const changeSpeed = useCallback((newSpeed: number) => {
-    setCurrentSpeed(Math.max(0.5, Math.min(10, newSpeed)))
+    setCurrentSpeed(Math.max(0, Math.min(2, newSpeed))) // Allow 0x to 2x speed
   }, [])
+
+  const handleSpeedSelect = useCallback((speed: number) => {
+    changeSpeed(speed)
+    setShowSpeedSelector(false)
+    
+    // If speed is 0, stop auto-scroll, otherwise start it if not running
+    if (speed === 0) {
+      setIsAutoScrolling(false)
+    } else if (!isAutoScrolling && previewMode) {
+      setIsAutoScrolling(true)
+    }
+  }, [changeSpeed, isAutoScrolling, previewMode])
 
   // Auto scroll effect
   useEffect(() => {
-    if (isAutoScrolling && previewMode) {
+    if (isAutoScrolling && previewMode && currentSpeed > 0) {
       startAutoScroll()
+    } else if (currentSpeed === 0) {
+      setIsAutoScrolling(false)
     }
     return () => {
       if (autoScrollRef.current) {
         cancelAnimationFrame(autoScrollRef.current)
       }
     }
-  }, [isAutoScrolling, previewMode, startAutoScroll])
+  }, [isAutoScrolling, previewMode, currentSpeed, startAutoScroll])
 
   // Update speed when prop changes
   useEffect(() => {
@@ -370,46 +419,42 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
         }}
       >
         {/* Fixed UI Controls */}
-        {/* Auto scroll button - top left corner */}
-        {autoScroll && (
-          <div className={`fixed top-4 left-4 z-[60] flex items-center space-x-2 transition-all duration-300 ${
-            buttonsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
-          }`}>
-            <button
-              onClick={toggleAutoScroll}
-              className="p-1.5 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors shadow-lg border border-white/20"
-              title={`${isAutoScrolling ? 'Pause' : 'Start'} auto scroll`}
-            >
-              {isAutoScrolling ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
-            </button>
-            
-            {/* Speed controls */}
-            <div className="flex items-center space-x-1">
-              <button
-                onClick={() => changeSpeed(currentSpeed - 0.5)}
-                className="p-1 bg-black/50 text-white rounded hover:bg-black/70 transition-colors text-xs"
-                title="Decrease speed"
-              >
-                -
-              </button>
-              <span className="text-white text-xs font-mono bg-black/50 px-1.5 py-0.5 rounded">
-                {currentSpeed.toFixed(1)}x
-              </span>
-              <button
-                onClick={() => changeSpeed(currentSpeed + 0.5)}
-                className="p-1 bg-black/50 text-white rounded hover:bg-black/70 transition-colors text-xs"
-                title="Increase speed"
-              >
-                +
-              </button>
-              <button
-                onClick={() => changeSpeed(autoScrollSpeed)}
-                className="p-1 bg-black/50 text-white rounded hover:bg-black/70 transition-colors text-xs"
-                title="Reset to default speed"
-              >
-                <RotateCcw className="h-2.5 w-2.5" />
-              </button>
+        {/* Auto Scroll Speed Selector - Bottom Left Corner */}
+        {autoScroll && showSpeedSelector && (
+          <div className="fixed bottom-4 left-4 z-[70] bg-black/80 backdrop-blur-sm rounded-lg border border-white/20 p-3 shadow-xl">
+            <h3 className="text-white text-sm font-medium mb-2">Auto Scroll Speed</h3>
+            <div className="grid grid-cols-4 gap-1 max-h-64 overflow-y-auto custom-scrollbar">
+              {speedOptions.map((option) => (
+                <button
+                  key={option.value}
+                  onClick={() => handleSpeedSelect(option.value)}
+                  className={`px-2 py-1 text-xs rounded transition-all duration-200 ${
+                    Math.abs(currentSpeed - option.value) < 0.05
+                      ? 'bg-blue-500 text-white shadow-lg scale-105'
+                      : 'bg-white/10 text-white/80 hover:bg-white/20 hover:text-white'
+                  }`}
+                  title={`Set speed to ${option.label}`}
+                >
+                  {option.label}
+                </button>
+              ))}
             </div>
+            <div className="mt-2 pt-2 border-t border-white/20">
+              <div className="text-xs text-white/60 text-center">
+                Current: <span className="text-white font-mono">{currentSpeed.toFixed(1)}x</span>
+                {isAutoScrolling && <span className="ml-2 text-green-400">● Active</span>}
+                {currentSpeed === 0 && <span className="ml-2 text-red-400">● Paused</span>}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Subtle bottom-left corner indicator (only when auto-scroll is enabled and selector not shown) */}
+        {autoScroll && !showSpeedSelector && (
+          <div className="fixed bottom-4 left-4 z-[60] pointer-events-none">
+            <div className={`w-3 h-3 bg-white/20 rounded-full transition-all duration-300 ${
+              buttonsVisible ? 'opacity-40 pulse' : 'opacity-0'
+            }`} />
           </div>
         )}
         
