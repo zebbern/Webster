@@ -365,7 +365,8 @@ const processDiscoveredImages = async (
     const type = getFileTypeFromUrl(imageUrl)
     processedCount++
     
-    if (!type || !fileTypes.includes(type)) {
+    // File type filtering is now done at extraction level, but keep this as backup
+    if (!type) {
       onProgress?.({ stage: 'scanning', processed: processedCount, total: imageUrls.length, found: images.length, currentUrl: imageUrl })
       continue
     }
@@ -432,7 +433,7 @@ const shouldForceDiscoveryMode = (chapterUrl: string, imageUrls: string[]): bool
 }
 
 // Special function to fetch AJAX images for manhuaplus.org
-const fetchManhuaplusAjaxImages = async (chapterUrl: string, htmlContent: string, signal?: AbortSignal): Promise<string[]> => {
+const fetchManhuaplusAjaxImages = async (chapterUrl: string, htmlContent: string, signal?: AbortSignal, fileTypes: string[] = []): Promise<string[]> => {
   const ajaxImages: string[] = []
   
   try {
@@ -471,7 +472,7 @@ const fetchManhuaplusAjaxImages = async (chapterUrl: string, htmlContent: string
     const ajaxHtml = ajaxData.html || ajaxData.content || responseBody
     if (ajaxHtml) {
       // Use the same image extraction logic on the AJAX response
-      const tempResults = extractImageUrls(ajaxHtml, [], chapterUrl, ajaxHtml, false)
+      const tempResults = extractImageUrls(ajaxHtml, [], chapterUrl, ajaxHtml, false, fileTypes)
       ajaxImages.push(...tempResults)
     }
     
@@ -610,7 +611,7 @@ export const scrapeImages = async (
         onProgress?.({ stage: 'scanning', processed: images.length, total: DEFAULTS.SEQUENTIAL_MAX_IMAGES * chapterCount, found: images.length, currentUrl: chapterUrl })
 
         // Extract initial candidates for this chapter
-        let imageUrls = extractImageUrls(body, [], chapterUrl, body, true)
+        let imageUrls = extractImageUrls(body, [], chapterUrl, body, true, fileTypes)
         imageUrls = Array.from(new Set(imageUrls))
 
         // Check for strong sequential patterns 
@@ -637,11 +638,11 @@ export const scrapeImages = async (
 
         } else {
           // No sequential pattern found - use discovery mode
-          let discoveredOnlyUrls = extractImageUrls(body, [], chapterUrl, body, false)
+          let discoveredOnlyUrls = extractImageUrls(body, [], chapterUrl, body, false, fileTypes)
           
           // Special handling for manhuaplus.org: fetch AJAX images
           if (chapterUrl.includes('manhuaplus.org')) {
-            const ajaxImages = await fetchManhuaplusAjaxImages(chapterUrl, body, signal)
+            const ajaxImages = await fetchManhuaplusAjaxImages(chapterUrl, body, signal, fileTypes)
             discoveredOnlyUrls = [...discoveredOnlyUrls, ...ajaxImages]
           }
           
@@ -751,7 +752,7 @@ export const scrapeImages = async (
 }
 
 // Extract image URLs from scraped content (robust checks)
-function extractImageUrls(markdown: string, links: any[], baseUrl: string, extract: any = null, generateSequential: boolean = true): string[] {
+function extractImageUrls(markdown: string, links: any[], baseUrl: string, extract: any = null, generateSequential: boolean = true, fileTypes: string[] = []): string[] {
   const imageUrls = new Set<string>()
   const sequentialPatterns = new Set<string>()
 
@@ -760,6 +761,12 @@ function extractImageUrls(markdown: string, links: any[], baseUrl: string, extra
     const trimmed = rawUrl.trim()
     const resolved = resolveUrl(trimmed, baseUrl)
     if (resolved && isImageUrl(resolved)) {
+      // Filter by file types if provided
+      if (fileTypes.length > 0) {
+        const extension = getFileTypeFromUrl(resolved)
+        if (!extension || !fileTypes.includes(extension)) return
+      }
+      
       imageUrls.add(resolved)
       // Check for sequential patterns (manga sites)
       detectSequentialPattern(resolved, sequentialPatterns)
@@ -1150,13 +1157,13 @@ export const preloadNextChapterImages = async (
     }
 
     // Extract image URLs from next chapter
-    let imageUrls = extractImageUrls(body, [], nextChapterUrl, body, true)
+    let imageUrls = extractImageUrls(body, [], nextChapterUrl, body, true, fileTypes)
     imageUrls = Array.from(new Set(imageUrls))
 
     // If no images found, retry with different extraction method
     if (imageUrls.length === 0) {
       // Try discovery mode instead
-      imageUrls = extractImageUrls(body, [], nextChapterUrl, body, false)
+      imageUrls = extractImageUrls(body, [], nextChapterUrl, body, false, fileTypes)
       imageUrls = Array.from(new Set(imageUrls))
     }
 
