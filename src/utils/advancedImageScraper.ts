@@ -416,6 +416,7 @@ const shouldForceDiscoveryMode = (chapterUrl: string, imageUrls: string[]): bool
     }
     
     // Force discovery mode for manhuaplus.org (AJAX-loaded images)
+    // ManhuaPlus loads real content images via AJAX, initial DOM only has placeholder/preview images
     if (chapterUrlObj.hostname.includes('manhuaplus.org')) {
       return true // Always use discovery mode for AJAX-based sites
     }
@@ -611,8 +612,13 @@ export const scrapeImages = async (
         // Check for strong sequential patterns 
         let seqInfo = detectStrongSequentialPattern(imageUrls)
         
-        // Special handling: Force discovery mode for manhuaus.com hash-based URLs
-        seqInfo = shouldForceDiscoveryMode(chapterUrl, imageUrls) ? null : seqInfo
+        // Special handling: Force discovery mode for AJAX-based sites (ManhuaPlus, ManhuaUs)
+        // These sites load images via AJAX which sequential patterns can't detect
+        if (chapterUrl.includes('manhuaplus.org') || chapterUrl.includes('manhuaus.com')) {
+          seqInfo = null // Force discovery mode for AJAX-based sites
+        } else {
+          seqInfo = shouldForceDiscoveryMode(chapterUrl, imageUrls) ? null : seqInfo
+        }
         
         if (seqInfo && fileTypes.includes(seqInfo.extension)) {
           // Sequential pattern detected - use batch processing
