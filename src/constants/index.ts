@@ -37,7 +37,7 @@ export const TIMING = {
 
 export const DEFAULTS = {
   // Scraping configuration defaults
-  FILE_TYPES: ['png', 'jpg', 'jpeg', 'webp'] as const,
+  FILE_TYPES: ['jpg', 'jpeg', 'webp'] as const,
   SCRAPING_METHOD: 'fast' as const,
   CONSECUTIVE_MISS_THRESHOLD: 2,
   CHAPTER_COUNT: 1,
