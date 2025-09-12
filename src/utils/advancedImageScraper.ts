@@ -16,11 +16,6 @@ import {
 // Request deduplication cache to prevent conflicting simultaneous requests
 const requestCache = new Map<string, Promise<{ body: string; status: number; headers: Headers }>>()
 
-// Function to clear the request cache (useful between chapter navigations)
-export const clearRequestCache = () => {
-  requestCache.clear()
-}
-
 // Simple fetch wrapper using CORS client API with rate limiting and deduplication
 const fetchData = async (url: string, method: 'GET' | 'HEAD' = 'GET', signal?: AbortSignal, retries = DEFAULTS.RETRY_COUNT): Promise<{ body: string; status: number; headers: Headers }> => {
   // Create cache key based on URL and method
@@ -855,29 +850,6 @@ function extractImageUrls(markdown: string, links: any[], baseUrl: string, extra
     let c
     while ((c = cdnRegex.exec(htmlString)) !== null) {
       tryAdd(c[0])
-    }
-    
-    // Look for manhuaplus.cc CDN specifically
-    const manhuaplusRegex = /https?:\/\/cdn\.manhuaplus\.cc\/[^\s"'<>]*\.(jpg|jpeg|png|gif|webp|svg|bmp|tiff|ico)(?:[?#][^\s"'<>]*)?/gi
-    let m
-    while ((m = manhuaplusRegex.exec(htmlString)) !== null) {
-      tryAdd(m[0])
-    }
-    
-    // Special handling for manhuaplus.org AJAX-loaded images
-    if (baseUrl && baseUrl.includes('manhuaplus.org')) {
-      // Extract chapter ID from JavaScript variables
-      const chapterIdMatch = htmlString.match(/(?:CHAPTER_ID|chap_id|chapter_id)\s*[=:]\s*(\d+)/i)
-      if (chapterIdMatch) {
-        const chapterId = chapterIdMatch[1]
-        // Note: We can't make AJAX requests from here, but we can try to find any embedded images
-        // Look for any pre-loaded image data that might be embedded
-        const embeddedImageRegex = new RegExp(`chap.*?${chapterId}.*?(https?://[^\\s"'<>]*\\.(jpg|jpeg|png|gif|webp|svg|bmp|tiff|ico))`, 'gi')
-        let embedded
-        while ((embedded = embeddedImageRegex.exec(htmlString)) !== null) {
-          tryAdd(embedded[1])
-        }
-      }
     }
 
     // Enhanced: Look for URLs ending with image extensions even without protocols
