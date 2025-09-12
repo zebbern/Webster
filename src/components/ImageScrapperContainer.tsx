@@ -5,7 +5,7 @@ import { ScrapingStatusSection } from './ScrapingStatusSection'
 import { ScrapingResultsSection } from './ScrapingResultsSection'
 import { ScrapingConfigurationSection } from './ScrapingConfigurationSection'
 import ThemeToggle from './ThemeToggle'
-import { scrapeImages, ScrapeProgress, clearRequestCache, detectStrongSequentialPattern } from '../utils/advancedImageScraper'
+import { scrapeImages, ScrapeProgress, detectStrongSequentialPattern } from '../utils/advancedImageScraper'
 import { preloadCache } from '../utils/preloadCache'
 import { parseChapterFromUrl } from '../utils/urlNavigation'
 import { useImageScrapingState } from '../hooks/useImageScrapingState'
@@ -181,7 +181,6 @@ const ImageScrapperContainer: React.FC = () => {
     scrapingActions.setError(null)
     
     await scrapingActions.resetState()
-    clearRequestCache()
 
     // Check cache first if background preloading is enabled
     if (configuration.backgroundPreloading) {
