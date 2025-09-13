@@ -242,10 +242,11 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
     setIsAutoScrolling(true)
     
     const scroll = () => {
-      // Better speed calculation: base of 2 pixels per frame, then scale by speed
-      // This gives: 0.1x = 0.2px, 0.5x = 1px, 1.0x = 2px, 2.0x = 4px, 3.0x = 6px
-      const baseSpeed = 2
+      // Much slower speed calculation for comfortable reading
+      // 0.1x = 0.18px, 0.2x = 0.36px, 0.3x = 0.54px, 1.0x = 1.8px, 3.0x = 5.4px
+      const baseSpeed = 1.8
       const scrollAmount = baseSpeed * currentSpeed
+      
       window.scrollBy({ top: scrollAmount, behavior: 'auto' })
       lastScrollTopRef.current = window.scrollY
       
@@ -331,9 +332,9 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
       const scrollDiff = Math.abs(currentScrollY - lastAutoScrollY)
       
       // If scroll difference is significantly larger than expected auto-scroll amount
-      // Using new speed calculation: baseSpeed * currentSpeed = 2 * currentSpeed
-      const expectedScrollAmount = 2 * currentSpeed
-      if (scrollDiff > expectedScrollAmount * 4) {
+      // Using new speed calculation: 1.8 * currentSpeed
+      const expectedScrollAmount = 1.8 * currentSpeed
+      if (scrollDiff > expectedScrollAmount * 6) {
         userInteracted = true
         stopAutoScroll()
         return
