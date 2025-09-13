@@ -492,7 +492,8 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
         }}
       >
         {/* Fixed UI Controls */}
-        {/* Simple Auto Scroll Button - Always visible in bottom left */}
+        {/* Simple Auto Scroll Button - Only visible when autoScroll is enabled */}
+        {autoScroll && (
         <div className={`fixed bottom-4 left-4 z-[80] transition-all duration-300 ${
           isAutoScrolling ? 'opacity-0 pointer-events-none' : 'opacity-100'
         }`}>
@@ -527,6 +528,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
             </button>
           </div>
         </div>
+        )}
         
         {/* Exit button - hidden during auto-scroll */}
         <button
