@@ -231,27 +231,28 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
 
   // Auto scroll functionality
   const startAutoScroll = useCallback(() => {
-    if (!previewMode) return
+    if (!previewMode || currentSpeed <= 0) return
     
     // Stop any existing animation
     if (autoScrollRef.current) {
       cancelAnimationFrame(autoScrollRef.current)
-    }
-    
-    const scroll = () => {
-      if (!isAutoScrolling) return
-      
-      // Smooth scrolling with speed-based increments
-      const scrollAmount = currentSpeed * 0.6
-      window.scrollBy({ top: scrollAmount, behavior: 'auto' })
-      lastScrollTopRef.current = window.scrollY
-      
-      autoScrollRef.current = requestAnimationFrame(scroll)
+      autoScrollRef.current = null
     }
     
     setIsAutoScrolling(true)
+    
+    const scroll = () => {
+      // Smooth scrolling with speed-based increments
+      const scrollAmount = currentSpeed * 0.8
+      window.scrollBy({ top: scrollAmount, behavior: 'auto' })
+      lastScrollTopRef.current = window.scrollY
+      
+      // Continue scrolling
+      autoScrollRef.current = requestAnimationFrame(scroll)
+    }
+    
     autoScrollRef.current = requestAnimationFrame(scroll)
-  }, [previewMode, currentSpeed, isAutoScrolling])
+  }, [previewMode, currentSpeed])
 
   const stopAutoScroll = useCallback(() => {
     setIsAutoScrolling(false)
@@ -289,19 +290,15 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
     }
   }, [changeSpeed, isAutoScrolling, previewMode])
 
-  // Auto scroll effect
+  // Auto scroll cleanup effect
   useEffect(() => {
-    if (isAutoScrolling && previewMode && currentSpeed > 0) {
-      startAutoScroll()
-    } else if (currentSpeed === 0) {
-      setIsAutoScrolling(false)
-    }
     return () => {
       if (autoScrollRef.current) {
         cancelAnimationFrame(autoScrollRef.current)
+        autoScrollRef.current = null
       }
     }
-  }, [isAutoScrolling, previewMode, currentSpeed, startAutoScroll])
+  }, [])
 
   // Update speed when prop changes
   useEffect(() => {
@@ -478,11 +475,11 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
         }}
       >
         {/* Fixed UI Controls */}
-        {/* Simple Auto Scroll Button - Always visible in bottom right */}
-        <div className={`fixed bottom-4 right-4 z-[80] transition-all duration-300 ${
+        {/* Simple Auto Scroll Button - Always visible in bottom left */}
+        <div className={`fixed bottom-4 left-4 z-[80] transition-all duration-300 ${
           isAutoScrolling ? 'opacity-0 pointer-events-none' : 'opacity-100'
         }`}>
-          <div className="flex flex-col items-end space-y-2">
+          <div className="flex flex-col items-start space-y-2">
             {/* Speed selector dropdown */}
             <div className="relative">
               <select
@@ -513,18 +510,6 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
             </button>
           </div>
         </div>
-
-        {/* Auto-scroll active indicator - only visible when scrolling */}
-        {isAutoScrolling && (
-          <div className="fixed top-6 left-1/2 transform -translate-x-1/2 z-[90] pointer-events-none">
-            <div className="bg-black/80 backdrop-blur-sm rounded-full px-4 py-2 border border-white/20 shadow-xl">
-              <div className="flex items-center space-x-2 text-white">
-                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                <span className="text-sm font-medium">Auto Scrolling {currentSpeed.toFixed(1)}x</span>
-              </div>
-            </div>
-          </div>
-        )}
         
         {/* Exit button - hidden during auto-scroll */}
         <button
@@ -539,7 +524,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
         
         {/* Scroll to top/bottom buttons - hidden during auto-scroll */}
         {showScrollButtons && (
-        <div className={`fixed right-20 bottom-6 z-[60] flex flex-col items-end space-y-2 transition-all duration-300 ${
+        <div className={`fixed right-4 bottom-6 z-[60] flex flex-col items-end space-y-2 transition-all duration-300 ${
           buttonsVisible && !isAutoScrolling ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}>
           <div className="flex flex-col space-y-2">
