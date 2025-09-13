@@ -193,15 +193,19 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
       return
     }
 
-    // Add a small delay to let the current chapter load completely
+    // Add longer delay for mobile devices to ensure current chapter loads completely
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+    const preloadDelay = isMobile ? 5000 : 3000 // 5s for mobile, 3s for desktop
+    const maxImages = isMobile ? 8 : 15 // Fewer images on mobile to conserve memory/data
+    
     const preloadTimer = setTimeout(() => {
       preloadNextChapterImages(websiteUrl, fileTypes, {
         validateImages,
-        maxPreloadImages: 15 // Limit to avoid excessive network usage
+        maxPreloadImages: maxImages
       }).catch(() => {
         // Silently ignore preload failures
       })
-    }, 3000) // 3 second delay after preview mode starts
+    }, preloadDelay)
 
     return () => clearTimeout(preloadTimer)
   }, [previewMode, backgroundPreloading, websiteUrl, images.length, fileTypes, validateImages])

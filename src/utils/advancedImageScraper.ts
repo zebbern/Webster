@@ -1137,13 +1137,21 @@ export const preloadNextChapterImages = async (
     // Store in cache for later use
     preloadCache.store(nextChapterUrl, scrapedImages, fileTypes, validateImages)
 
-    // Start preloading images in background (fire and forget)
-    const preloadPromises = scrapedImages.map(async (scrapedImage) => {
+    // Start preloading images in background with mobile-optimized strategy
+    const isMobile = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+    
+    const preloadPromises = scrapedImages.map(async (scrapedImage, index) => {
       if (signal?.aborted) return
       
       try {
+        // On mobile, add small delays between preloads to avoid overwhelming the network
+        if (isMobile && index > 0) {
+          await new Promise(resolve => setTimeout(resolve, 200 * index))
+        }
+        
         // Create image element to trigger browser preload
         const img = new Image()
+        img.crossOrigin = 'anonymous' // Better mobile compatibility
         img.src = scrapedImage.url
         
         // Optional: validate the image exists if configured
