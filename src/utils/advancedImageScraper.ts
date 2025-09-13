@@ -1116,61 +1116,39 @@ export const preloadNextChapterImages = async (
       return // No chapter pattern detected, can't preload
     }
 
-    // Fetch next chapter page (background, no progress updates)
-    const fetched = await fetchData(nextChapterUrl, 'GET', signal)
-    if (signal?.aborted || fetched.status >= THRESHOLDS.HTTP_SUCCESS_THRESHOLD) {
-      return // Failed to fetch or aborted, skip preloading
-    }
+    // Use the EXACT same scraping logic as main scraper to ensure consistency
+    const scrapedImages = await scrapeImages(nextChapterUrl, fileTypes, {
+      chapterCount: 1, // Only preload single chapter
+      fetchInterval: DEFAULTS.FETCH_INTERVAL_SECONDS,
+      consecutiveMissThreshold,
+      validateImages,
+      signal,
+      maxImages: maxPreloadImages,
+      onProgress: undefined, // No progress updates for background preloading
+      onNewImage: undefined, // No callbacks for background preloading
+      imageFilter: undefined // Use same filtering as main scraper
+    })
 
-    const body = typeof fetched.body === 'string' ? fetched.body : JSON.stringify(fetched.body)
-    if (!body || body.trim().length === 0) {
-      return // Empty response, skip preloading
-    }
-
-    // Extract image URLs from next chapter
-    let imageUrls = extractImageUrls(body, [], nextChapterUrl, body, true)
-    imageUrls = Array.from(new Set(imageUrls))
-
-    // If no images found, retry with different extraction method
-    if (imageUrls.length === 0) {
-      // Try discovery mode instead
-      imageUrls = extractImageUrls(body, [], nextChapterUrl, body, false)
-      imageUrls = Array.from(new Set(imageUrls))
-    }
-
-    // If still no results, return early
-    if (imageUrls.length === 0) {
+    // If no images found, return early
+    if (scrapedImages.length === 0) {
       return // No images found to preload
     }
 
-    // Limit the number of images to preload to avoid excessive network usage
-    imageUrls = imageUrls.slice(0, maxPreloadImages)
-
-    // Convert URLs to ScrapedImage objects for cache storage
-    const scrapedImages: ScrapedImage[] = imageUrls.map(url => {
-      const extension = url.split('.').pop()?.toLowerCase() || 'unknown'
-      return {
-        url,
-        type: extension,
-        source: 'dynamic' as const
-      }
-    })
-
-    // Store in cache before starting preload
+    // Store in cache for later use
     preloadCache.store(nextChapterUrl, scrapedImages, fileTypes, validateImages)
 
     // Start preloading images in background (fire and forget)
-    const preloadPromises = imageUrls.map(async (imageUrl) => {
+    const preloadPromises = scrapedImages.map(async (scrapedImage) => {
       if (signal?.aborted) return
       
       try {
         // Create image element to trigger browser preload
         const img = new Image()
-        img.src = imageUrl
+        img.src = scrapedImage.url
         
         // Optional: validate the image exists if configured
         if (validateImages) {
-          await validateImageExists(imageUrl, validateImages, signal)
+          await validateImageExists(scrapedImage.url, validateImages, signal)
         }
       } catch (error) {
         // Silently ignore preload failures
