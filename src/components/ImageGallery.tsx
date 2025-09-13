@@ -242,13 +242,21 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
     setIsAutoScrolling(true)
     
     const scroll = () => {
-      // Much slower speed calculation for comfortable reading
-      // 0.1x = 0.18px, 0.2x = 0.36px, 0.3x = 0.54px, 1.0x = 1.8px, 3.0x = 5.4px
-      const baseSpeed = 1.8
+      // Ultra-slow speed calculation - ensure all speeds are usable
+      // 0.1x = 0.1px, 0.2x = 0.2px, 0.3x = 0.3px, 1.0x = 1.0px, 3.0x = 3.0px
+      const baseSpeed = 1.0
       const scrollAmount = baseSpeed * currentSpeed
       
-      window.scrollBy({ top: scrollAmount, behavior: 'auto' })
-      lastScrollTopRef.current = window.scrollY
+      // For very slow speeds, accumulate fractional pixels
+      if (!window.accumulatedScroll) window.accumulatedScroll = 0
+      window.accumulatedScroll += scrollAmount
+      
+      if (window.accumulatedScroll >= 1) {
+        const pixelsToScroll = Math.floor(window.accumulatedScroll)
+        window.scrollBy({ top: pixelsToScroll, behavior: 'auto' })
+        window.accumulatedScroll -= pixelsToScroll
+        lastScrollTopRef.current = window.scrollY
+      }
       
       // Continue scrolling
       autoScrollRef.current = requestAnimationFrame(scroll)
@@ -266,6 +274,10 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
     if (scrollInterferenceRef.current) {
       clearTimeout(scrollInterferenceRef.current)
       scrollInterferenceRef.current = null
+    }
+    // Reset accumulated scroll
+    if (window.accumulatedScroll) {
+      window.accumulatedScroll = 0
     }
   }, [])
 
@@ -332,9 +344,9 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
       const scrollDiff = Math.abs(currentScrollY - lastAutoScrollY)
       
       // If scroll difference is significantly larger than expected auto-scroll amount
-      // Using new speed calculation: 1.8 * currentSpeed
-      const expectedScrollAmount = 1.8 * currentSpeed
-      if (scrollDiff > expectedScrollAmount * 6) {
+      // Using new speed calculation: 1.0 * currentSpeed (with accumulation)
+      const expectedScrollAmount = 1.0 * currentSpeed
+      if (scrollDiff > Math.max(3, expectedScrollAmount * 8)) {
         userInteracted = true
         stopAutoScroll()
         return
