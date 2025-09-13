@@ -421,58 +421,153 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
         {/* Fixed UI Controls */}
         {/* Auto Scroll Speed Selector - Bottom Left Corner */}
         {autoScroll && showSpeedSelector && (
-          <div className="fixed bottom-4 left-4 z-[70] bg-black/80 backdrop-blur-sm rounded-lg border border-white/20 p-3 shadow-xl">
-            <h3 className="text-white text-sm font-medium mb-2">Auto Scroll Speed</h3>
-            <div className="grid grid-cols-4 gap-1 max-h-64 overflow-y-auto custom-scrollbar">
-              {speedOptions.map((option) => (
+          <div className="fixed bottom-4 left-4 z-[80] bg-black/80 backdrop-blur-sm rounded-lg border border-white/20 p-4 shadow-xl">
+            <h3 className="text-white text-sm font-medium mb-3">Auto Scroll Speed</h3>
+            
+            {/* Speed display and controls */}
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-white/60 text-xs">Speed:</span>
+              <div className="flex items-center space-x-2">
                 <button
-                  key={option.value}
-                  onClick={() => handleSpeedSelect(option.value)}
-                  className={`px-2 py-1 text-xs rounded transition-all duration-200 ${
-                    Math.abs(currentSpeed - option.value) < 0.05
-                      ? 'bg-blue-500 text-white shadow-lg scale-105'
-                      : 'bg-white/10 text-white/80 hover:bg-white/20 hover:text-white'
-                  }`}
-                  title={`Set speed to ${option.label}`}
+                  onClick={() => {
+                    const newSpeed = Math.max(0, currentSpeed - 0.1)
+                    setCurrentSpeed(newSpeed)
+                    if (newSpeed === 0) {
+                      setIsAutoScrolling(false)
+                      if (autoScrollRef.current) {
+                        cancelAnimationFrame(autoScrollRef.current)
+                        autoScrollRef.current = null
+                      }
+                    } else if (newSpeed > 0 && !isAutoScrolling) {
+                      setIsAutoScrolling(true)
+                    }
+                  }}
+                  className="px-2 py-1 text-xs bg-white/10 text-white rounded hover:bg-white/20 transition-all"
+                  disabled={currentSpeed <= 0}
                 >
-                  {option.label}
+                  -
                 </button>
-              ))}
+                <span className="text-white font-mono text-sm min-w-[3rem] text-center">
+                  {currentSpeed.toFixed(1)}x
+                </span>
+                <button
+                  onClick={() => {
+                    const newSpeed = Math.min(2.0, currentSpeed + 0.1)
+                    setCurrentSpeed(newSpeed)
+                    if (newSpeed > 0 && !isAutoScrolling) {
+                      setIsAutoScrolling(true)
+                    }
+                  }}
+                  className="px-2 py-1 text-xs bg-white/10 text-white rounded hover:bg-white/20 transition-all"
+                  disabled={currentSpeed >= 2.0}
+                >
+                  +
+                </button>
+              </div>
             </div>
-            <div className="mt-2 pt-2 border-t border-white/20">
+            
+            {/* Start/Stop button */}
+            <div className="flex justify-center">
+              <button
+                onClick={() => {
+                  if (isAutoScrolling) {
+                    setIsAutoScrolling(false)
+                    if (autoScrollRef.current) {
+                      cancelAnimationFrame(autoScrollRef.current)
+                      autoScrollRef.current = null
+                    }
+                  } else if (currentSpeed > 0) {
+                    setIsAutoScrolling(true)
+                  }
+                }}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center space-x-2 ${
+                  isAutoScrolling
+                    ? 'bg-red-500 hover:bg-red-600 text-white'
+                    : 'bg-green-500 hover:bg-green-600 text-white'
+                }`}
+                disabled={currentSpeed === 0 && !isAutoScrolling}
+              >
+                {isAutoScrolling ? (
+                  <>
+                    <Pause className="h-4 w-4" />
+                    <span>Stop</span>
+                  </>
+                ) : (
+                  <>
+                    <Play className="h-4 w-4" />
+                    <span>Start</span>
+                  </>
+                )}
+              </button>
+            </div>
+            
+            <div className="mt-3 pt-2 border-t border-white/20">
               <div className="text-xs text-white/60 text-center">
-                Current: <span className="text-white font-mono">{currentSpeed.toFixed(1)}x</span>
-                {isAutoScrolling && <span className="ml-2 text-green-400">● Active</span>}
-                {currentSpeed === 0 && <span className="ml-2 text-red-400">● Paused</span>}
+                {isAutoScrolling && <span className="text-green-400">● Active</span>}
+                {currentSpeed === 0 && <span className="text-red-400">● Paused</span>}
+                {currentSpeed > 0 && !isAutoScrolling && <span className="text-yellow-400">● Ready</span>}
               </div>
             </div>
           </div>
         )}
 
-        {/* Subtle bottom-left corner indicator (only when auto-scroll is enabled and selector not shown) */}
+        {/* Persistent start/stop button (always visible during auto-scroll) */}
         {autoScroll && !showSpeedSelector && (
-          <div className="fixed bottom-4 left-4 z-[60] pointer-events-none">
-            <div className={`w-3 h-3 bg-white/20 rounded-full transition-all duration-300 ${
-              buttonsVisible ? 'opacity-40 pulse' : 'opacity-0'
+          <div className="fixed bottom-4 left-4 z-[80]">
+            <button
+              onClick={() => {
+                if (isAutoScrolling) {
+                  setIsAutoScrolling(false)
+                  if (autoScrollRef.current) {
+                    cancelAnimationFrame(autoScrollRef.current)
+                    autoScrollRef.current = null
+                  }
+                } else if (currentSpeed > 0) {
+                  setIsAutoScrolling(true)
+                }
+              }}
+              className={`p-3 rounded-lg text-sm font-medium transition-all duration-200 flex items-center space-x-2 ${
+                isAutoScrolling
+                  ? 'bg-red-500/90 hover:bg-red-600 text-white shadow-lg'
+                  : 'bg-green-500/90 hover:bg-green-600 text-white shadow-lg'
+              }`}
+              disabled={currentSpeed === 0 && !isAutoScrolling}
+              title={isAutoScrolling ? `Stop auto-scroll (${currentSpeed.toFixed(1)}x)` : `Start auto-scroll (${currentSpeed.toFixed(1)}x)`}
+            >
+              {isAutoScrolling ? (
+                <Pause className="h-4 w-4" />
+              ) : (
+                <Play className="h-4 w-4" />
+              )}
+              <span className="text-xs">{currentSpeed.toFixed(1)}x</span>
+            </button>
+          </div>
+        )}
+        
+        {/* Subtle corner indicator when speed selector is not shown and not auto-scrolling */}
+        {autoScroll && !showSpeedSelector && !isAutoScrolling && (
+          <div className="fixed bottom-16 left-4 z-[70] pointer-events-none">
+            <div className={`w-2 h-2 bg-white/30 rounded-full transition-all duration-300 ${
+              buttonsVisible ? 'opacity-60 pulse' : 'opacity-0'
             }`} />
           </div>
         )}
         
-        {/* Exit button */}
+        {/* Exit button - hide during auto-scroll */}
         <button
           onClick={() => setPreviewMode(false)}
           className={`fixed top-4 right-4 z-[60] p-2 bg-black/50 text-white rounded-full hover:bg-black/70 transition-all duration-300 ${
-            buttonsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
+            buttonsVisible && !isAutoScrolling ? 'opacity-100' : 'opacity-0 pointer-events-none'
           }`}
           title="Exit preview mode"
         >
           <Grid className="h-5 w-5" />
         </button>
         
-        {/* Scroll to top/bottom buttons */}
+        {/* Scroll to top/bottom buttons - hide during auto-scroll */}
         {showScrollButtons && (
         <div className={`fixed right-4 bottom-6 z-[60] flex flex-col items-end space-y-2 transition-all duration-300 ${
-          buttonsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
+          buttonsVisible && !isAutoScrolling ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}>
           <div className="flex flex-col space-y-2">
             <button
@@ -493,9 +588,9 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
         </div>
         )}
 
-        {/* Chapter and image count display - top left */}
+        {/* Chapter and image count display - top left - hide during auto-scroll */}
         <div className={`fixed top-4 left-4 z-[60] flex items-center space-x-3 transition-all duration-300 ${
-          buttonsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
+          buttonsVisible && !isAutoScrolling ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}>
           {currentChapter && (
             <div className="px-4 py-2 bg-black/50 text-white rounded-lg shadow-lg">
@@ -507,10 +602,10 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
           </div>
         </div>
 
-        {/* Large centered chapter navigation buttons */}
+        {/* Large centered chapter navigation buttons - hide during auto-scroll */}
         {(onPreviousChapter || onNextChapter) && (
         <div className={`fixed left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[60] flex items-center space-x-16 transition-all duration-300 ${
-          buttonsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
+          buttonsVisible && !isAutoScrolling ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}>
           {onPreviousChapter && (
             <button
