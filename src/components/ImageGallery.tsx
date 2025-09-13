@@ -229,17 +229,27 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
 
   // Auto scroll functionality
   const startAutoScroll = useCallback(() => {
-    if (!previewMode || isAutoScrolling || currentSpeed === 0) return
+    if (!previewMode || currentSpeed === 0) return
     
-    const scroll = () => {
-      // Smoother scrolling with smaller increments based on speed
-      const scrollAmount = currentSpeed * 0.8 // Smoother scroll increment
-      window.scrollBy({ top: scrollAmount, behavior: 'instant' })
-      autoScrollRef.current = requestAnimationFrame(scroll)
+    // Stop any existing animation
+    if (autoScrollRef.current) {
+      cancelAnimationFrame(autoScrollRef.current)
+      autoScrollRef.current = null
     }
     
+    const scroll = () => {
+      // Smoother scrolling with speed-based increments
+      const scrollAmount = currentSpeed * 0.5 // Adjust multiplier for smoothness
+      window.scrollBy({ top: scrollAmount, behavior: 'auto' })
+      
+      if (isAutoScrolling) {
+        autoScrollRef.current = requestAnimationFrame(scroll)
+      }
+    }
+    
+    setIsAutoScrolling(true)
     autoScrollRef.current = requestAnimationFrame(scroll)
-  }, [previewMode, isAutoScrolling, currentSpeed])
+  }, [previewMode, currentSpeed, isAutoScrolling])
 
   const stopAutoScroll = useCallback(() => {
     setIsAutoScrolling(false)
@@ -252,40 +262,20 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
   const toggleAutoScroll = useCallback(() => {
     if (isAutoScrolling) {
       stopAutoScroll()
-    } else {
+    } else if (currentSpeed > 0) {
       startAutoScroll()
     }
-  }, [isAutoScrolling, startAutoScroll, stopAutoScroll])
+  }, [isAutoScrolling, currentSpeed, startAutoScroll, stopAutoScroll])
 
-  const changeSpeed = useCallback((newSpeed: number) => {
-    setCurrentSpeed(Math.max(0, Math.min(2, newSpeed))) // Allow 0x to 2x speed
-  }, [])
-
-  const handleSpeedSelect = useCallback((speed: number) => {
-    changeSpeed(speed)
-    setShowSpeedSelector(false)
-    
-    // If speed is 0, stop auto-scroll, otherwise start it if not running
-    if (speed === 0) {
-      setIsAutoScrolling(false)
-    } else if (!isAutoScrolling && previewMode) {
-      setIsAutoScrolling(true)
-    }
-  }, [changeSpeed, isAutoScrolling, previewMode])
-
-  // Auto scroll effect
+  // Auto scroll cleanup effect
   useEffect(() => {
-    if (isAutoScrolling && previewMode && currentSpeed > 0) {
-      startAutoScroll()
-    } else if (currentSpeed === 0) {
-      setIsAutoScrolling(false)
-    }
     return () => {
       if (autoScrollRef.current) {
         cancelAnimationFrame(autoScrollRef.current)
+        autoScrollRef.current = null
       }
     }
-  }, [isAutoScrolling, previewMode, currentSpeed, startAutoScroll])
+  }, [])
 
   // Update speed when prop changes
   useEffect(() => {
@@ -430,16 +420,10 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
               <div className="flex items-center space-x-2">
                 <button
                   onClick={() => {
-                    const newSpeed = Math.max(0, currentSpeed - 0.1)
+                    const newSpeed = Math.max(0, Math.round((currentSpeed - 0.1) * 10) / 10)
                     setCurrentSpeed(newSpeed)
                     if (newSpeed === 0) {
-                      setIsAutoScrolling(false)
-                      if (autoScrollRef.current) {
-                        cancelAnimationFrame(autoScrollRef.current)
-                        autoScrollRef.current = null
-                      }
-                    } else if (newSpeed > 0 && !isAutoScrolling) {
-                      setIsAutoScrolling(true)
+                      stopAutoScroll()
                     }
                   }}
                   className="px-2 py-1 text-xs bg-white/10 text-white rounded hover:bg-white/20 transition-all"
@@ -452,11 +436,8 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
                 </span>
                 <button
                   onClick={() => {
-                    const newSpeed = Math.min(2.0, currentSpeed + 0.1)
+                    const newSpeed = Math.min(2.0, Math.round((currentSpeed + 0.1) * 10) / 10)
                     setCurrentSpeed(newSpeed)
-                    if (newSpeed > 0 && !isAutoScrolling) {
-                      setIsAutoScrolling(true)
-                    }
                   }}
                   className="px-2 py-1 text-xs bg-white/10 text-white rounded hover:bg-white/20 transition-all"
                   disabled={currentSpeed >= 2.0}
@@ -469,17 +450,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
             {/* Start/Stop button */}
             <div className="flex justify-center">
               <button
-                onClick={() => {
-                  if (isAutoScrolling) {
-                    setIsAutoScrolling(false)
-                    if (autoScrollRef.current) {
-                      cancelAnimationFrame(autoScrollRef.current)
-                      autoScrollRef.current = null
-                    }
-                  } else if (currentSpeed > 0) {
-                    setIsAutoScrolling(true)
-                  }
-                }}
+                onClick={toggleAutoScroll}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center space-x-2 ${
                   isAutoScrolling
                     ? 'bg-red-500 hover:bg-red-600 text-white'
@@ -511,44 +482,33 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
           </div>
         )}
 
-        {/* Persistent start/stop button (always visible during auto-scroll) */}
+        {/* Persistent start/stop button (subtle, always visible during auto-scroll) */}
         {autoScroll && !showSpeedSelector && (
           <div className="fixed bottom-4 left-4 z-[80]">
             <button
-              onClick={() => {
-                if (isAutoScrolling) {
-                  setIsAutoScrolling(false)
-                  if (autoScrollRef.current) {
-                    cancelAnimationFrame(autoScrollRef.current)
-                    autoScrollRef.current = null
-                  }
-                } else if (currentSpeed > 0) {
-                  setIsAutoScrolling(true)
-                }
-              }}
-              className={`p-3 rounded-lg text-sm font-medium transition-all duration-200 flex items-center space-x-2 ${
+              onClick={toggleAutoScroll}
+              className={`p-2 rounded-full text-sm font-medium transition-all duration-200 flex items-center space-x-1 backdrop-blur-sm ${
                 isAutoScrolling
-                  ? 'bg-red-500/90 hover:bg-red-600 text-white shadow-lg'
-                  : 'bg-green-500/90 hover:bg-green-600 text-white shadow-lg'
+                  ? 'bg-red-500/60 hover:bg-red-500/80 text-white shadow-lg'
+                  : 'bg-green-500/60 hover:bg-green-500/80 text-white shadow-lg'
               }`}
               disabled={currentSpeed === 0 && !isAutoScrolling}
               title={isAutoScrolling ? `Stop auto-scroll (${currentSpeed.toFixed(1)}x)` : `Start auto-scroll (${currentSpeed.toFixed(1)}x)`}
             >
               {isAutoScrolling ? (
-                <Pause className="h-4 w-4" />
+                <Pause className="h-3 w-3" />
               ) : (
-                <Play className="h-4 w-4" />
+                <Play className="h-3 w-3" />
               )}
-              <span className="text-xs">{currentSpeed.toFixed(1)}x</span>
             </button>
           </div>
         )}
         
-        {/* Subtle corner indicator when speed selector is not shown and not auto-scrolling */}
-        {autoScroll && !showSpeedSelector && !isAutoScrolling && (
-          <div className="fixed bottom-16 left-4 z-[70] pointer-events-none">
-            <div className={`w-2 h-2 bg-white/30 rounded-full transition-all duration-300 ${
-              buttonsVisible ? 'opacity-60 pulse' : 'opacity-0'
+        {/* Subtle corner indicator when speed selector is not shown */}
+        {autoScroll && !showSpeedSelector && (
+          <div className="fixed bottom-14 left-4 z-[70] pointer-events-none">
+            <div className={`w-1.5 h-1.5 bg-white/20 rounded-full transition-all duration-300 ${
+              buttonsVisible && !isAutoScrolling ? 'opacity-40 pulse' : 'opacity-0'
             }`} />
           </div>
         )}
