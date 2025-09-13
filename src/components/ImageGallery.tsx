@@ -315,40 +315,46 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
     }
   }, [previewMode, stopAutoScroll])
 
-  // Scroll interference detection
+  // Scroll and touch interference detection
   useEffect(() => {
     if (!previewMode || !isAutoScrolling) return
 
+    let userInteracted = false
+    let lastAutoScrollY = window.scrollY
+
+    const handleUserInteraction = () => {
+      userInteracted = true
+      stopAutoScroll()
+    }
+
     const handleScroll = () => {
-      const currentScrollTop = window.scrollY
-      const timeSinceLastUpdate = Date.now() - (lastScrollTopRef.current || 0)
+      const currentScrollY = window.scrollY
+      const scrollDiff = Math.abs(currentScrollY - lastAutoScrollY)
       
-      // If user manually scrolled (interference detected)
-      if (Math.abs(currentScrollTop - lastScrollTopRef.current) > currentSpeed * 2 && timeSinceLastUpdate < 100) {
+      // If scroll difference is significantly larger than expected auto-scroll amount
+      if (scrollDiff > currentSpeed * 3) {
+        userInteracted = true
         stopAutoScroll()
         return
       }
       
-      // Clear any pending interference timeout
-      if (scrollInterferenceRef.current) {
-        clearTimeout(scrollInterferenceRef.current)
-      }
-      
-      // Set a timeout to detect manual scrolling
-      scrollInterferenceRef.current = setTimeout(() => {
-        const newScrollTop = window.scrollY
-        if (Math.abs(newScrollTop - lastScrollTopRef.current) > currentSpeed * 3) {
-          stopAutoScroll()
-        }
-      }, 150)
+      // Update last auto-scroll position
+      lastAutoScrollY = currentScrollY
     }
 
+    // Add multiple event listeners for user interaction
+    window.addEventListener('touchstart', handleUserInteraction, { passive: true })
+    window.addEventListener('touchmove', handleUserInteraction, { passive: true })
+    window.addEventListener('wheel', handleUserInteraction, { passive: true })
+    window.addEventListener('mousedown', handleUserInteraction, { passive: true })
     window.addEventListener('scroll', handleScroll, { passive: true })
+    
     return () => {
+      window.removeEventListener('touchstart', handleUserInteraction)
+      window.removeEventListener('touchmove', handleUserInteraction)
+      window.removeEventListener('wheel', handleUserInteraction)
+      window.removeEventListener('mousedown', handleUserInteraction)
       window.removeEventListener('scroll', handleScroll)
-      if (scrollInterferenceRef.current) {
-        clearTimeout(scrollInterferenceRef.current)
-      }
     }
   }, [previewMode, isAutoScrolling, currentSpeed, stopAutoScroll])
 
@@ -477,25 +483,23 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
           isAutoScrolling ? 'opacity-0 pointer-events-none' : 'opacity-100'
         }`}>
           <div className="flex flex-col items-end space-y-2">
-            {/* Speed adjustment when not auto-scrolling */}
-            <div className="flex items-center space-x-2 bg-black/70 backdrop-blur-sm rounded-full px-3 py-2 border border-white/20">
-              <button
-                onClick={() => setCurrentSpeed(Math.max(0.5, currentSpeed - 0.5))}
-                className="text-white hover:text-blue-400 transition-colors"
-                disabled={currentSpeed <= 0.5}
+            {/* Speed selector dropdown */}
+            <div className="relative">
+              <select
+                value={currentSpeed}
+                onChange={(e) => setCurrentSpeed(parseFloat(e.target.value))}
+                className="bg-black/70 backdrop-blur-sm text-white text-sm font-mono rounded-full px-3 py-2 border border-white/20 appearance-none cursor-pointer hover:bg-black/80 transition-colors min-w-[4rem] text-center"
               >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              <span className="text-white text-sm font-mono min-w-[2.5rem] text-center">
-                {currentSpeed.toFixed(1)}x
-              </span>
-              <button
-                onClick={() => setCurrentSpeed(Math.min(3.0, currentSpeed + 0.5))}
-                className="text-white hover:text-blue-400 transition-colors"
-                disabled={currentSpeed >= 3.0}
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
+                {Array.from({ length: 30 }, (_, i) => {
+                  const speed = (i + 1) * 0.1
+                  return (
+                    <option key={speed} value={speed} className="bg-black text-white">
+                      {speed.toFixed(1)}x
+                    </option>
+                  )
+                })}
+              </select>
+              <ChevronDown className="absolute right-1 top-1/2 transform -translate-y-1/2 h-3 w-3 text-white/60 pointer-events-none" />
             </div>
             
             {/* Main auto-scroll toggle button */}
@@ -512,12 +516,11 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images, websiteUrl = '', on
 
         {/* Auto-scroll active indicator - only visible when scrolling */}
         {isAutoScrolling && (
-          <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[90] pointer-events-none">
-            <div className="bg-black/80 backdrop-blur-sm rounded-full px-6 py-3 border border-white/20 shadow-xl">
-              <div className="flex items-center space-x-3 text-white">
+          <div className="fixed top-6 left-1/2 transform -translate-x-1/2 z-[90] pointer-events-none">
+            <div className="bg-black/80 backdrop-blur-sm rounded-full px-4 py-2 border border-white/20 shadow-xl">
+              <div className="flex items-center space-x-2 text-white">
                 <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                <span className="text-lg font-medium">Auto Scrolling {currentSpeed.toFixed(1)}x</span>
-                <div className="text-sm text-white/60">Touch to stop</div>
+                <span className="text-sm font-medium">Auto Scrolling {currentSpeed.toFixed(1)}x</span>
               </div>
             </div>
           </div>
