@@ -602,6 +602,11 @@ export const scrapeImages = async (
         if (!body || body.trim().length === 0) {
           throw new Error('Empty response from server')
         }
+        
+        // Check if we got proxy/app HTML instead of target site content
+        if (body.includes('vercel.app') || body.includes('_next/') || body.includes('__NEXT_DATA__')) {
+          throw new Error('Received proxy application content instead of target website')
+        }
 
         onProgress?.({ stage: 'scanning', processed: images.length, total: DEFAULTS.SEQUENTIAL_MAX_IMAGES * chapterCount, found: images.length, currentUrl: chapterUrl })
 
@@ -1080,8 +1085,38 @@ function getFileTypeFromUrl(url: string): string | null {
 
 function resolveUrl(url: string, baseUrl: string): string | null {
   try {
-    if (url.startsWith('http://') || url.startsWith('https://')) return url
-    return new URL(url, baseUrl).href
+    // If already absolute URL, check if it's a valid target URL
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      // Filter out proxy/app URLs that shouldn't be treated as images
+      if (url.includes('vercel.app') || url.includes('localhost') || url.includes('_next/') || url.includes('.js') || url.includes('.css')) {
+        return null
+      }
+      return url
+    }
+    
+    // Ensure we're using the target website's URL, not proxy URL
+    let targetBaseUrl = baseUrl
+    try {
+      const baseUrlObj = new URL(baseUrl)
+      // If this is a proxy URL (Vercel app), don't use it for resolution
+      if (baseUrlObj.hostname.includes('vercel.app') || baseUrlObj.hostname.includes('localhost')) {
+        // This shouldn't happen - baseUrl should always be the target site
+        // But if it does, we can't resolve relative URLs safely
+        return null
+      }
+    } catch {
+      // If baseUrl parsing fails, can't resolve
+      return null
+    }
+    
+    const resolved = new URL(url, targetBaseUrl).href
+    
+    // Filter out resolved URLs that point to proxy/app assets
+    if (resolved.includes('vercel.app') || resolved.includes('localhost') || resolved.includes('_next/')) {
+      return null
+    }
+    
+    return resolved
   } catch {
     return null
   }
