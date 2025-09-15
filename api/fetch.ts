@@ -28,10 +28,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: 'Invalid URL format' })
     }
 
-    // Extract domain for Referer header to bypass anti-hotlinking protection
-    const urlObj = new URL(url)
-    const refererUrl = `${urlObj.protocol}//${urlObj.hostname}`
-    
     const fetchOptions: RequestInit = {
       method: method as string,
       headers: {
@@ -40,7 +36,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         'Accept-Language': 'en-US,en;q=0.5',
         'Accept-Encoding': 'gzip, deflate, br',
         'Cache-Control': 'no-cache',
-        'Referer': refererUrl,
       },
       redirect: 'follow',
       signal: AbortSignal.timeout(5000), // 5 second timeout
