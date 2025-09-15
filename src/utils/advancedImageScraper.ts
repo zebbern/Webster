@@ -646,6 +646,13 @@ export const scrapeImages = async (
             discoveredOnlyUrls = [...discoveredOnlyUrls, ...ajaxImages]
           }
           
+          // Enhanced fallback: If few images found for unknown sites, try aggressive extraction
+          if (!chapterUrl.includes('manhuaplus.org') && !chapterUrl.includes('manhuaus.com') && discoveredOnlyUrls.length < 3) {
+            const aggressiveUrls = extractImageUrls(body, [], chapterUrl, body, true) // Try with sequential generation
+            const additionalUrls = aggressiveUrls.filter(url => !discoveredOnlyUrls.includes(url))
+            discoveredOnlyUrls = [...discoveredOnlyUrls, ...additionalUrls]
+          }
+          
           await processDiscoveredImages(discoveredOnlyUrls, fileTypes, {
             signal,
             validateImages,
