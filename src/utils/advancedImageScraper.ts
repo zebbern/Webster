@@ -591,7 +591,7 @@ export const scrapeImages = async (
         if (fetched.status >= THRESHOLDS.HTTP_SUCCESS_THRESHOLD) {
           const errorMsg = fetched.status === HTTP_STATUS.TIMEOUT ? 'Request timeout (5 seconds)' : 
                           fetched.status === HTTP_STATUS.NOT_FOUND ? ERROR_MESSAGES.CHAPTER_NOT_FOUND :
-                          fetched.status === HTTP_STATUS.FORBIDDEN ? 'Website is blocking requests (HTTP 403) - try a different site or check if the URL is correct' :
+                          fetched.status === HTTP_STATUS.FORBIDDEN ? ERROR_MESSAGES.ACCESS_FORBIDDEN :
                           `HTTP ${fetched.status}`
           throw new Error(errorMsg)
         }
@@ -604,10 +604,8 @@ export const scrapeImages = async (
         }
         
         // Check if we got proxy/app HTML instead of target site content
-        if (body.includes('vercel.app') || body.includes('_next/') || body.includes('__NEXT_DATA__') || 
-            body.includes('index-B-OHJvzt') || body.includes('/assets/index-') || 
-            body.includes('<!DOCTYPE html>') && body.includes('<script>')) {
-          throw new Error('CORS proxy returned application content instead of target website - the site may be blocking requests')
+        if (body.includes('vercel.app') || body.includes('_next/') || body.includes('__NEXT_DATA__')) {
+          throw new Error('Received proxy application content instead of target website')
         }
 
         onProgress?.({ stage: 'scanning', processed: images.length, total: DEFAULTS.SEQUENTIAL_MAX_IMAGES * chapterCount, found: images.length, currentUrl: chapterUrl })
@@ -1090,9 +1088,7 @@ function resolveUrl(url: string, baseUrl: string): string | null {
     // If already absolute URL, check if it's a valid target URL
     if (url.startsWith('http://') || url.startsWith('https://')) {
       // Filter out proxy/app URLs that shouldn't be treated as images
-      if (url.includes('vercel.app') || url.includes('localhost') || url.includes('_next/') || 
-          url.includes('.js') || url.includes('.css') || url.includes('/assets/index-') ||
-          url.includes('index-B-OHJvzt') || url.includes('index-BkDhkCAI')) {
+      if (url.includes('vercel.app') || url.includes('localhost') || url.includes('_next/') || url.includes('.js') || url.includes('.css')) {
         return null
       }
       return url
