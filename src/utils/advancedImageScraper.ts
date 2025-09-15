@@ -646,6 +646,21 @@ export const scrapeImages = async (
             discoveredOnlyUrls = [...discoveredOnlyUrls, ...ajaxImages]
           }
           
+          // Universal fallback: if no images found with discovery mode, try alternative methods
+          if (discoveredOnlyUrls.length === 0) {
+            // Try both sequential and discovery extraction with more permissive settings
+            const fallbackSequential = extractImageUrls(body, [], chapterUrl, body, true)
+            const fallbackDiscovery = extractImageUrls(body, [], chapterUrl, body, false)
+            
+            // Combine all possible image URLs
+            discoveredOnlyUrls = Array.from(new Set([...fallbackSequential, ...fallbackDiscovery]))
+            
+            // If still no results, try extracting from raw HTML patterns
+            if (discoveredOnlyUrls.length === 0) {
+              discoveredOnlyUrls = extractFromRawHtml(body, chapterUrl)
+            }
+          }
+          
           await processDiscoveredImages(discoveredOnlyUrls, fileTypes, {
             signal,
             validateImages,
@@ -975,6 +990,50 @@ function extractImageUrls(markdown: string, links: any[], baseUrl: string, extra
   }
 
   return Array.from(imageUrls)
+}
+
+// Universal fallback: extract images from raw HTML using aggressive patterns
+function extractFromRawHtml(htmlContent: string, baseUrl: string): string[] {
+  const imageUrls = new Set<string>()
+  
+  try {
+    // Pattern 1: Any src attribute with image extensions
+    const srcRegex = /src\s*=\s*['"](https?:\/\/[^'"]*\.(?:jpg|jpeg|png|gif|webp|svg|bmp|tiff)[^'"]*)['"]/gi
+    let match
+    while ((match = srcRegex.exec(htmlContent)) !== null) {
+      imageUrls.add(match[1])
+    }
+    
+    // Pattern 2: Any href attribute with image extensions
+    const hrefRegex = /href\s*=\s*['"](https?:\/\/[^'"]*\.(?:jpg|jpeg|png|gif|webp|svg|bmp|tiff)[^'"]*)['"]/gi
+    while ((match = hrefRegex.exec(htmlContent)) !== null) {
+      imageUrls.add(match[1])
+    }
+    
+    // Pattern 3: Any quoted URL with image extensions (data attributes, etc.)
+    const quotedRegex = /['"]+(https?:\/\/[^'"]*\.(?:jpg|jpeg|png|gif|webp|svg|bmp|tiff)[^'"]*)['"]+/gi
+    while ((match = quotedRegex.exec(htmlContent)) !== null) {
+      imageUrls.add(match[1])
+    }
+    
+    // Pattern 4: Background-image CSS properties
+    const bgImageRegex = /background-image\s*:\s*url\s*\(\s*['"]*([^'"()]*\.(?:jpg|jpeg|png|gif|webp|svg|bmp|tiff)[^'"()]*)['"]*\s*\)/gi
+    while ((match = bgImageRegex.exec(htmlContent)) !== null) {
+      const resolved = resolveUrl(match[1], baseUrl)
+      if (resolved) imageUrls.add(resolved)
+    }
+    
+    // Pattern 5: Plain URLs (no quotes) - more aggressive
+    const plainUrlRegex = /https?:\/\/[^\s<>"']*\.(?:jpg|jpeg|png|gif|webp|svg|bmp|tiff)(?:[^\s<>"']*)?/gi
+    while ((match = plainUrlRegex.exec(htmlContent)) !== null) {
+      imageUrls.add(match[0])
+    }
+    
+  } catch (error) {
+    // Ignore regex errors
+  }
+  
+  return Array.from(imageUrls).filter(url => url && isImageUrl(url))
 }
 
 function isImageUrl(url: string): boolean {
